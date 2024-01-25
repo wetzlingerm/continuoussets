@@ -1,0 +1,23 @@
+[flake8]
+# current version flake 7.0.0 ignores E121,E123,E126,E226,E24,E704,W503,W504 by default:
+# E121: continuation line under-indented for hanging indent
+# E123: closing bracket does not match indentation of of opening bracket's line
+# E126: continuation line over-indented for hanging indent
+# E226: missing whitespace around arithmetic operator
+# E24:  multiple spaces after ',', tab after ','
+# E704: multiple statements on one line
+# W503: line break before binary operator (mutually exclusive with W504)
+# W504: line break after binary operator (mutually exclusive with W503)
+
+# additionally, ignore:
+extend-ignore =
+    E251
+    W293
+    W504
+exclude=
+    #docs/*
+    .venv/*
+    tests/*
+max-line-length=130
+per-file-ignores =
+    */__init__.py: F401
