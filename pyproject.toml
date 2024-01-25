@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "continuoussets"
-version = "0.0.0"
+version = "0.0.10"
 authors = ["Mark Wetzlinger <m.wetzlinger@tum.de>"]
 description = "A package for set-based computing."
 readme = "README.md"
