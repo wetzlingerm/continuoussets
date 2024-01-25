@@ -1,0 +1,36 @@
+[tool.poetry]
+name = "continuoussets"
+version = "0.0.0"
+authors = ["Mark Wetzlinger <m.wetzlinger@tum.de>"]
+description = "A package for set-based computing."
+readme = "README.md"
+license = "GNU"
+keywords = [
+  "Set-based computing",
+  "Interval arithmetic",
+  "Zonotopes"
+]
+
+[tool.poetry.dependencies]
+python = ">=3.9, <=3.12"
+matplotlib = ">=3.6.0"
+numpy = ">=1.26.0"
+scipy = ">=1.11.1"
+
+[tool.poetry.group.tests]
+optional = true
+
+[tool.poetry.group.tests.dependencies]
+pytest = ">=7.2.0"
+coverage = ">=7.0.0"
+
+[tool.coverage.report]
+show_missing = true
+exclude_also = [
+    "if __name__",
+    "@abstractmethod",
+    ]
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

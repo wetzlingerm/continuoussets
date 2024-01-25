@@ -1,0 +1,55 @@
+name: Run tests
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - dev
+
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.9", "3.10", "3.11", "3.12"]
+      fail-fast: false
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+            python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: |
+            python -m pip install --upgrade pip
+            python -m pip install poetry
+            poetry config virtualenvs.in-project true
+            poetry install --with tests
+            source .venv/bin/activate
+
+      - name: Test with pytest, read out code coverage percentage
+        run: |
+            poetry run coverage run --source=./continuoussets -m pytest
+            poetry run coverage report --fail-under=95
+            poetry run coverage json
+            export TOTAL=$(python -c "import json; print(json.load(open('coverage.json'))['totals']['percent_covered_display'])")
+            echo "total=$TOTAL" >> $GITHUB_ENV
+
+      - name: Make badge
+        uses: schneegans/dynamic-badges-action@v1.7.0
+        with:
+          auth: ${{ secrets.GIST_SECRET }}
+          gistID: 0a3fab03f3da8db62e046b3f913af3fa
+          filename: coverage.json
+          label: Coverage
+          message: ${{ env.total }}%
+          minColorRange: 80
+          maxColorRange: 100
+          valColorRange: ${{ env.total }}
