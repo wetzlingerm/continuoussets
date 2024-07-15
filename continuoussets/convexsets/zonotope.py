@@ -116,7 +116,7 @@ class Zonotope(ConvexSet):
             other (np.ndarray): Vector.
 
         Raises:
-            OtherFunctionError: If other is a Zonotope, call minkowski_sum instead.
+            OtherFunctionError: If other is a ConvexSet, call minkowski_sum instead.
 
         Returns:
             Zonotope: Result of the translation.
@@ -184,7 +184,7 @@ class Zonotope(ConvexSet):
             other (np.ndarray): Vector.
 
         Raises:
-            OtherFunctionError: If Zonotope - Zonotope, call minkowski_difference instead.
+            OtherFunctionError: If Zonotope - ConvexSet, call minkowski_difference instead.
 
         Returns:
             Zonotope: Result of the translation.
