@@ -22,10 +22,11 @@ def compare_matrices(M1: np.ndarray, M2: np.ndarray, *, rtol: float = 1e-5, atol
     """
     # note: same default values for relative/absolute tolerance as in np.isclose
 
-    # remove zeros from matrices
-    if remove_zeros:
-        M1 = M1[:, np.any(M1, axis=0)] if M1 is not None else None
-        M2 = M2[:, np.any(M2, axis=0)] if M2 is not None else None
+    # matrices may flatten to 1D, expand again
+    if isinstance(M1, np.ndarray) and M1.ndim == 1:
+        M1 = np.reshape(M1, (M1.size, 1))
+    if isinstance(M2, np.ndarray) and M2.ndim == 1:
+        M2 = np.reshape(M2, (M2.size, 1))
 
     # either both or none should have no entries
     M1_empty = (M1 is None or M1.shape[1] == 0)
@@ -34,6 +35,13 @@ def compare_matrices(M1: np.ndarray, M2: np.ndarray, *, rtol: float = 1e-5, atol
         return True
     elif M1_empty != M2_empty:
         return False
+    
+    # matrices cannot be None anymore
+
+    # remove zeros from matrices
+    if remove_zeros:
+        M1 = M1[:, np.any(M1, axis=0)]
+        M2 = M2[:, np.any(M2, axis=0)]
 
     # check number of columns
     number_of_columns = M1.shape[1]

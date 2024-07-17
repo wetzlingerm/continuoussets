@@ -3,10 +3,11 @@ from __future__ import annotations
 from typing import Union
 
 import numpy as np
-from scipy.optimize import linprog
+# from scipy.optimize import linprog
 from scipy.spatial import ConvexHull
 
 from continuoussets.convexsets.convexset import ConvexSet
+from continuoussets.utils import comparison
 from continuoussets.utils.exceptions import OtherFunctionError
 
 if __name__ == '__main__':
@@ -18,17 +19,38 @@ class VPolytope(ConvexSet):
     # [1] Wetzlinger et al. "Implementation of Polyhedral Operations in CORA 2024", ARCH'24.
 
     def __init__(self, *, V: Union[np.ndarray, list, float, int] = None, validate: bool = True):
-        # enforce that some vertices are given
-        if V is None:
-            raise ValueError('VPolytope:__init__',
-                             'No input arguments provided to constructor')
+        if self.validate and validate:
+            # enforce that some vertices are given
+            if V is None:
+                raise ValueError('VPolytope:__init__',
+                                 'No input arguments provided to constructor')
+            # check correct type
+            elif (not isinstance(V, int) and not isinstance(V, float)
+                  and not isinstance(V, list) and not isinstance(V, np.ndarray)):
+                raise TypeError('VPolytope:__init__',
+                                'Vertices must be int, float, list or np.ndarray')
 
-        # convert to numpy if possible
+        # convert to np.ndarray
         if not isinstance(V, np.ndarray):
-            V = np.array(V)
+            if isinstance(V, int) or isinstance(V, float):
+                V = np.array([[float(V)]])
+            elif isinstance(V, list):
+                if not all(isinstance(element, float) for element in V):
+                    V = [float(element) for element in V]
+                V = np.array(V)
+
+        # expand to 2D array
+        if V.ndim == 1:
+            V = np.reshape(V, (V.size, 1))
+
+        # post-check: no higher than 2D
+        if self.validate and validate:
+            if V.ndim > 2:
+                raise ValueError('VPolytope:__init__',
+                                 'V must be 1D or 2D.')
 
         self.dimension = V.shape[0]
-        self.V = V
+        self.V = V.copy()
 
     # display
     def __repr__(self):
@@ -57,16 +79,21 @@ class VPolytope(ConvexSet):
         
         if isinstance(other, np.ndarray):
             # ...a vector (exact computation possible)
-            return VPolytope(V = self.V + other, validate = False)
+            return VPolytope(V = self.V + other.reshape(self.dimension, 1), validate = False)
 
         elif isinstance(other, ConvexSet):
             raise OtherFunctionError((self, other), 'minkowski_sum')
         
-    
     # set equality
     def __eq__(self, other: Union[ConvexSet, np.ndarray]) -> bool:
         self._checkOtherOperand(other)
 
+        if isinstance(other, VPolytope):
+            # compute minimal representation of both sets and compare list of vertices
+            other_minimal = other.compact()
+            self.compact()
+            return comparison.compare_matrices(self.V, other_minimal.V)
+        
         raise NotImplementedError
     
     # unary minus
@@ -138,7 +165,25 @@ class VPolytope(ConvexSet):
         Returns:
             VPolytope: VPolytope in minimal representation.
         """
-        return VPolytope(V = self.V[ConvexHull(self.V).vertices, :], validate = False)
+        # for ConvexHull function, we need at least n+1 vertices
+        if self.V.shape[1] == 1:
+            # single vertex
+            return VPolytope(V = self.V, validate = False)
+        
+        elif self.V.shape[1] <= self.dimension:
+            # check manually for duplicates
+            index_nonduplicate = np.ones(self.V.shape[1], dtype = bool)
+            for j in range(self.V.shape[1]):
+                other_vertices = np.hstack((self.V[:,0:j], self.V[:,j+1:-1]))
+                this_vertex = np.reshape(self.V[:,j], (self.dimension, 1))
+                if np.any(np.isclose(np.linalg.norm(other_vertices - this_vertex), 0, rtol=rtol)):
+                    index_nonduplicate[j] = False
+            # remove duplicates
+            return VPolytope(V = self.V[:, index_nonduplicate], validate = False)
+
+        else:
+            # note: ConvexHull expects vertices as rows
+            return VPolytope(V = self.V[:, ConvexHull(self.V.T).vertices], validate = False)
 
     # containment check
     def contains(self, other: Union[ConvexSet, np.ndarray]) -> bool:

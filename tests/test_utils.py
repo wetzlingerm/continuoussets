@@ -10,7 +10,8 @@ class TestUtils(unittest.TestCase):
         # M1 empty x M2
         # M1 x M2 empty
         # M1 x M2 == M1
-        # M1 x M2 
+        # M1 x M2
+        # M1 x M2 (1D)
 
         # init matrices
         M1_none = None
@@ -19,6 +20,7 @@ class TestUtils(unittest.TestCase):
         M2 = M1
         M2_zeros = np.array([[2., 1., -1., 0.], [0., 1., -1., 0.]])
         M2_neg = np.array([[-2., 1., 1.], [0., 1., 1.]])
+        M2_1D = np.array([1., 2.])
         
         # check results
         assert comparison.compare_matrices(M1_none, M2_none)
@@ -28,6 +30,8 @@ class TestUtils(unittest.TestCase):
         assert comparison.compare_matrices(M1, M2_zeros, remove_zeros = True)
         assert not comparison.compare_matrices(M1, M2_neg, check_negation = False)
         assert comparison.compare_matrices(M1, M2_neg, check_negation = True)
+        assert not comparison.compare_matrices(M1, M2_1D)
+        assert not comparison.compare_matrices(M2_1D, M2)
 
     def test_find_aligned_generators(self):
         ''' Test for checking alignment of generators '''

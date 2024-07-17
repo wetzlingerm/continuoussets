@@ -34,45 +34,58 @@ class Zonotope(ConvexSet):
             ValueError: Dimensions of center and generator matrix must match.
         """
 
-        # convert to np.ndarray or None if possible
+        # check center
+        if self.validate and validate:
+            # at least center has to be provided
+            if c is None:
+                raise ValueError('Zonotope:__init__',
+                                 'Center has to be defined.')
+            elif (not isinstance(c, int) and not isinstance(c, float)
+                and not isinstance(c, list) and not isinstance(c, np.ndarray)):
+                raise TypeError('Zonotope:__init__',
+                                'Center must be int, float, list or np.ndarray')
+            elif isinstance(c, np.ndarray) and c.ndim > 1:
+                raise ValueError('Zonotope:__init__',
+                                 'Center needs to be a 1D array.')
+
+        # convert center to np.ndarray
         if not isinstance(c, np.ndarray):
             if isinstance(c, int) or isinstance(c, float):
                 c = np.array([float(c)])
             elif isinstance(c, list):
-                if not all(isinstance(element, float) for element in c):
-                    c = [float(element) for element in c]
-                c = np.array(c)
-        if G is not None and not isinstance(G, np.ndarray):
+                c = np.array(c, dtype = float)
+
+        # init 0-width matrix (for concatenation in methods)
+        if G is None:
+            G = np.zeros((c.size, 0))
+
+        # pre-check generator matrix
+        if self.validate and validate:
+            if (not isinstance(G, int) and not isinstance(G, float)
+                and not isinstance(G, list) and not isinstance(G, np.ndarray)):
+                raise TypeError('Zonotope:__init__',
+                                'Generator matrix must be None, int, float, list or np.ndarray')
+
+        # convert generator(s) to np.ndarray
+        if not isinstance(G, np.ndarray):
             if isinstance(G, int) or isinstance(G, float):
                 G = np.reshape(np.array([float(G)]), (1, 1))
             elif isinstance(G, list):
-                if not all(isinstance(element, float) for element in G):
-                    G = [[float(entry) for entry in row] for row in G]
-                G = np.array(G)
-        if isinstance(G, np.ndarray) and G.shape[1] == 0:
-            # maybe better to init np.zeros((self.dimension,0)) as G?
-            G = None
+                G = np.array(G, dtype = float)
 
+        # expand generator matrix to 2D if only single generator
+        if G.ndim == 1:
+            G = np.reshape(G, (G.size, 1))
+
+        # post-check generator matrix (ensured to be np.ndarray now)
         if self.validate and validate:
-            # at least center has to be provided
-            if c is None and G is None:
-                raise ValueError('Zonotope:__init__',
-                                 'No input arguments provided to constructor.')
-            if c is None:
-                raise ValueError('Zonotope:__init__',
-                                 'Center has to be defined.')
-
-            # validate input arguments
-            elif c.ndim > 1:
-                raise ValueError('Zonotope:__init__',
-                                 'Center needs to be a 1D array.')
-            elif G is not None and c.size != G.shape[0]:
+            if c.size != G.shape[0]:
                 raise ValueError('Zonotope:__init__',
                                  'Center and generator matrix need to have the same dimension.')
 
         self.dimension = c.size
         self.c = c.copy()
-        self.G = G.copy() if G is not None else None
+        self.G = G.copy()
 
     # display
     def __repr__(self) -> str:
@@ -231,7 +244,7 @@ class Zonotope(ConvexSet):
         self._checkMode(mode)
 
         if isinstance(other, np.ndarray):
-            if self.G is None:
+            if self.G.size == 0:
                 return Zonotope(c = np.hstack((self.c, other)), G = None, validate = False)
             else:
                 return Zonotope(c = np.hstack((self.c, other)),
@@ -241,15 +254,8 @@ class Zonotope(ConvexSet):
             # concatenate centers
             center = np.hstack((self.c, other.c))
             # block-concatenate generator matrices
-            if self.G is None and other.G is None:
-                return Zonotope(c = center, G = None, validate = False)
-            elif self.G is None:
-                generators = np.vstack((np.zeros([self.dimension, other.G.shape[1]]), other.G))
-            elif other.G is None:
-                generators = np.vstack((self.G, (np.zeros([other.dimension, self.G.shape[1]]))))
-            else:
-                generators = np.vstack((np.hstack((self.G, np.zeros([other.dimension, other.G.shape[1]]))),
-                                        np.hstack((np.zeros([self.dimension, self.G.shape[1]]), other.G))))
+            generators = np.vstack((np.hstack((self.G, np.zeros([other.dimension, other.G.shape[1]]))),
+                                    np.hstack((np.zeros([self.dimension, self.G.shape[1]]), other.G))))
 
             return Zonotope(c = center, G = generators, validate = False)
 
@@ -277,13 +283,8 @@ class Zonotope(ConvexSet):
         Returns:
             Zonotope: Zonotope in minimal representation.
         """
-        # no generators
-        if self.G is None:
-            return Zonotope(c = self.c, G = None, validate = False)
-
+        # remove all-zero generators
         generators = self.G[:, np.any(self.G, axis=0)]
-        if generators.shape[1] == 0:
-            generators = None
 
         # check for aligned generators
         index_aligned = comparison.find_aligned_generators(generators, rtol=rtol)
@@ -318,18 +319,18 @@ class Zonotope(ConvexSet):
         self._checkOtherOperand(other)
 
         if isinstance(other, np.ndarray):
-            if self.G is None:
+            if self.G.size == 0:
                 return np.all(np.isclose(self.c, other))
             else:
                 # shift zonotope and other by center of zonotope and check zonotope norm
                 norm = (self - self.c).zonotope_norm(other - self.c)
                 return norm <= 1 or np.isclose(norm, 1.)
-        elif isinstance(other, Zonotope) and other.G is None:
+        elif isinstance(other, Zonotope) and other.G.size == 0:
             # shift zonotope and other by center of zonotope and check zonotope norm
             norm = (self - self.c).zonotope_norm(other.c - self.c)
             return norm <= 1 or np.isclose(norm, 1.)
         else:
-            # TODO: convert self to polytope and use its contains function
+            # TODO: convert self to Hpolyhedron and use its contains function
             raise NotImplementedError
 
     # convex hull
@@ -361,15 +362,6 @@ class Zonotope(ConvexSet):
 
         # generator from centers
         generator_center = np.reshape(0.5 * (self.c - other.c), (self.dimension, 1))
-
-        # special cases
-        if self.G is None and other.G is None:
-            # only one resulting generator
-            return Zonotope(c = center, G = generator_center, validate = False)
-        elif self.G is None:
-            return Zonotope(c = center, G = np.hstack((generator_center, other.G)), validate = False)
-        elif other.G is None:
-            return Zonotope(c = center, G = np.hstack((generator_center, self.G)), validate = False)
 
         # retrieve number of generators
         number_generators_self = self.G.shape[1]
@@ -406,12 +398,12 @@ class Zonotope(ConvexSet):
             return self.contains(other)
 
         elif not isinstance(other, Zonotope):
-            other = Zonotope(**other.zonotope(mode='exact'))
+            other = Zonotope(**other.zonotope(mode = 'exact'))
 
-        # cases without generators
-        if self.G is None:
+        # cases without generators: less intermediate computations
+        if self.G.size == 0:
             return other.contains(self.c)
-        elif other.G is None:
+        elif other.G.size == 0:
             return self.contains(other.c)
 
         # use identity: Z1 intersects Z2 iff 0 in Z1 + (-Z2)
@@ -469,8 +461,8 @@ class Zonotope(ConvexSet):
 
         # linear transformation of center
         center = np.dot(matrix, self.c)
-        if self.G is None:
-            return Zonotope(c = center, G = None, validate = False)
+        if self.G.size == 0:
+            return Zonotope(c = center, G = self.G, validate = False)
 
         # linear transformation of generator matrix
         generators = np.matmul(matrix, self.G)
@@ -499,14 +491,7 @@ class Zonotope(ConvexSet):
 
         elif isinstance(other, Zonotope):
             # ...a zonotope (exact computation possible)
-            center = self.c + other.c
-            if self.G is None:
-                generators = other.G
-            elif other.G is None:
-                generators = self.G
-            else:
-                generators = np.hstack((self.G, other.G))
-            return Zonotope(c = center, G = generators, validate = False)
+            return Zonotope(c = self.c + other.c, G = np.hstack((self.G, other.G)), validate = False)
 
         else:
             # ...other ConvexSet object (convert to zonotope and then compute Minkowski sum)
@@ -573,9 +558,9 @@ class Zonotope(ConvexSet):
                              'Order must be a number greater or equal to 1')
 
         # special cases
-        elif self.G is None:
+        elif self.G.size == 0:
             # no generators -> no reduction
-            return Zonotope(c = self.c, G = None, validate = False)
+            return Zonotope(c = self.c, G = self.G, validate = False)
         elif order == 1:
             # corresponds to conversion to interval (unless fewer generators than self.dimension)
             if self.G.shape[1] <= self.dimension:
@@ -615,7 +600,7 @@ class Zonotope(ConvexSet):
         self._checkSetClass(set_class)
 
         if set_class == 'Interval':
-            if self.G is None:
+            if self.G.size == 0:
                 # only center
                 return True
 
@@ -639,7 +624,7 @@ class Zonotope(ConvexSet):
         """
         self._checkOtherOperand(direction)
 
-        if self.G is None:
+        if self.G.size == 0:
             # no generators
             return (np.dot(direction, self.c), self.c)
 
@@ -668,7 +653,7 @@ class Zonotope(ConvexSet):
 
         # init vertices by center
         V = np.reshape(self.c, (1, self.dimension))
-        if Z.G is None:
+        if Z.G.size == 0:
             return V.T
         # add first generator
         V = np.vstack((self.c + Z.G[:, 0], self.c - Z.G[:, 0]))
@@ -693,7 +678,7 @@ class Zonotope(ConvexSet):
             float: Volume.
         """
         # check degeneracy
-        if np.linalg.matrix_rank(self.G) < self.dimension:
+        if self.G.size == 0 or np.linalg.matrix_rank(self.G) < self.dimension:
             return 0.
 
         # lazy enumeration of all combinations of nxn submatrices
@@ -735,7 +720,7 @@ class Zonotope(ConvexSet):
         self._checkOtherOperand(other)
 
         # special case: no generators
-        if self.G is None:
+        if self.G.size == 0:
             if np.all(np.isclose(other, 0)):
                 return 0.
             else:
