@@ -16,8 +16,10 @@ class TestZonotope(unittest.TestCase):
         # - center: np.ndarray
 
         # init zonotopes
+        Z = Zonotope(c = 1, G = None)
         Z_int = Zonotope(c = 1)
         Z_float = Zonotope(c = -1., G = 1.)
+        Z_list_int_1D = Zonotope(c = 1, G = [1])
         Z_list_int = Zonotope(c = [0, 1], G = [[1, 0],[-1, 2]])
         Z_list_float = Zonotope(c = [0., 1.], G = [[1., 0.],[-1., 2.]])
         Z_np = Zonotope(c = np.array([0., 1.]), G = [[1., 0.],[-1., 2.]])
@@ -26,6 +28,8 @@ class TestZonotope(unittest.TestCase):
         assert np.array_equal(Z_int.c, np.array([1.]))
         assert np.array_equal(Z_float.c, np.array([-1.]))
         assert np.array_equal(Z_float.G, np.array([[1.]]))
+        assert np.array_equal(Z_list_int_1D.c, np.array([1.]))
+        assert np.array_equal(Z_list_int_1D.G, np.array([[1.]]))
         assert np.array_equal(Z_list_int.c, np.array([0., 1.]))
         assert np.array_equal(Z_list_int.G, np.array([[1., 0.],[-1., 2.]]))
         assert np.array_equal(Z_list_float.c, np.array([0., 1.]))
@@ -37,12 +41,18 @@ class TestZonotope(unittest.TestCase):
         with self.assertRaises(ValueError):
             # no input arguments provided
             Zonotope()
+        with self.assertRaises(TypeError):
+            # wrong type for center
+            Zonotope(c = 'center')
         with self.assertRaises(ValueError):
             # no center provided
             Zonotope(G = np.array([[1., 0.], [-1., 1.]]))
         with self.assertRaises(ValueError):
             # center is >1D
             Zonotope(c = np.array([[1.],[2.]]))
+        with self.assertRaises(TypeError):
+            # wrong type for generator matrix
+            Zonotope(c = 1, G = 'generators')
         with self.assertRaises(ValueError):
             # generator matrix does not match center dimension
             Zonotope(c = np.array([2., 1.]), G = np.array([[1.],[0.],[-1.]]))
@@ -354,8 +364,8 @@ class TestZonotope(unittest.TestCase):
         assert np.array_equal(Z4.c, result4.c)
         assert np.array_equal(Z5.c, result5.c)
         # all-zero generators are removed
-        assert result1.G is None
-        assert result2.G is None
+        assert result1.G.size == 0
+        assert result2.G.size == 0
         assert comparison.compare_matrices(result3.G, np.array([[1., 0.], [0., -1.]]), check_negation=True)
         assert comparison.compare_matrices(result4.G, Z4.G, check_negation=True)
         assert comparison.compare_matrices(result5.G, np.array([[2., 3., 0., 5.],[-2., 0., 1., 2.5]]), check_negation=True)

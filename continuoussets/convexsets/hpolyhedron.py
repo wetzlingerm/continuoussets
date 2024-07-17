@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Union
 
 import numpy as np
-from scipy.optimize import linprog
+# from scipy.optimize import linprog
 from continuoussets.convexsets.convexset import ConvexSet
 from continuoussets.utils.exceptions import OtherFunctionError
 
@@ -32,13 +32,13 @@ class HPolyhedron(ConvexSet):
         if self.validate and validate:
             if b.ndim != 1:
                 raise ValueError('HPolyhedron:__init__',
-                                'Offset must be a 1D array.')
+                                 'Offset must be a 1D array.')
             if A.ndim > 2:
                 raise ValueError('HPolyhedron:__init__',
-                                'Constraint matrix must be a 1D or 2D array.')
+                                 'Constraint matrix must be a 1D or 2D array.')
             elif A.shape[0] != b.size:
                 raise ValueError('HPolyhedron:__init__',
-                                'Dimension of constrained matrix and offset must match.')
+                                 'Dimension of constrained matrix and offset must match.')
 
         self.dimension = b.size
         self.A = A
@@ -76,7 +76,6 @@ class HPolyhedron(ConvexSet):
         elif isinstance(other, ConvexSet):
             raise OtherFunctionError((self, other), 'minkowski_sum')
         
-    
     # set equality
     def __eq__(self, other: Union[ConvexSet, np.ndarray]) -> bool:
         self._checkOtherOperand(other)
@@ -169,7 +168,7 @@ class HPolyhedron(ConvexSet):
         self._checkOtherOperand(other)
         self._checkMode(mode)
         
-        if mode == ['inner','exact']:
+        if mode == ['inner', 'exact']:
             raise NotImplementedError
         
         # 'outer': interval outer approximation of ConvexSet,
@@ -266,7 +265,7 @@ class HPolyhedron(ConvexSet):
             np.ndarray: 2D array containing vertices as columns.
         """
         # obtain minimal representation
-        H = self.compact()
+        # H = self.compact()
 
         # could be difficult... some built-in function?
         raise NotImplementedError
