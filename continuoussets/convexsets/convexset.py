@@ -97,6 +97,18 @@ class ConvexSet(ABC):
         raise NotImplementedError
 
     @abstractmethod
+    def vpolytope(self, *, mode: str):
+        """Abstract method: Conversion to VPolytope.
+
+        Args:
+            mode (str): Type of conversion: 'inner', 'exact', 'outer'.
+
+        Raises:
+            NotImplementedError: Has to be implemented in subclasses.
+        """
+        raise NotImplementedError
+
+    @abstractmethod
     def zonotope(self, *, mode: str):
         """Abstract method: Conversion to Interval.
 

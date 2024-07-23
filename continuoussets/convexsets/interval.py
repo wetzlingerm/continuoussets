@@ -1001,6 +1001,20 @@ class Interval(ConvexSet):
             float: Volume.
         """
         return np.prod(self.diameter())
+    
+    # conversion to vpolytope
+    def vpolytope(self, *, mode: str = 'exact') -> dict:
+        """Conversion to VPolytope.
+
+        Args:
+            mode (str, optional): Approximation of the conversion: 'inner', 'exact', 'outer'. Defaults to 'exact'.
+
+        Returns:
+            dict: Keyword arguments for instantiation of a VPolytope object.
+        """
+        self._checkMode(mode)
+
+        return {'V': self.vertices()}
 
     # conversion to zonotope
     def zonotope(self, *, mode: str = 'exact') -> dict:
