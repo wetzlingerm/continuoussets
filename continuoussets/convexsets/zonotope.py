@@ -41,7 +41,7 @@ class Zonotope(ConvexSet):
                 raise ValueError('Zonotope:__init__',
                                  'Center has to be defined.')
             elif (not isinstance(c, int) and not isinstance(c, float)
-                and not isinstance(c, list) and not isinstance(c, np.ndarray)):
+                    and not isinstance(c, list) and not isinstance(c, np.ndarray)):
                 raise TypeError('Zonotope:__init__',
                                 'Center must be int, float, list or np.ndarray')
             elif isinstance(c, np.ndarray) and c.ndim > 1:
@@ -62,7 +62,7 @@ class Zonotope(ConvexSet):
         # pre-check generator matrix
         if self.validate and validate:
             if (not isinstance(G, int) and not isinstance(G, float)
-                and not isinstance(G, list) and not isinstance(G, np.ndarray)):
+                    and not isinstance(G, list) and not isinstance(G, np.ndarray)):
                 raise TypeError('Zonotope:__init__',
                                 'Generator matrix must be None, int, float, list or np.ndarray')
 
@@ -689,6 +689,20 @@ class Zonotope(ConvexSet):
             vol = vol + np.abs(np.linalg.det(self.G[:, combination]))
 
         return 2**self.dimension * vol
+
+    # conversion to vpolytope
+    def vpolytope(self, *, mode: str = 'exact') -> dict:
+        """Conversion to VPolytope.
+
+        Args:
+            mode (str, optional): Approximation of the conversion: 'inner', 'exact', 'outer'. Defaults to 'exact'.
+
+        Returns:
+            dict: Keyword arguments for instantiation of a VPolytope object.
+        """
+        self._checkMode(mode)
+
+        return {'V': self.vertices()}
 
     # conversion to zonotope
     def zonotope(self, *, mode: str = 'exact') -> dict:

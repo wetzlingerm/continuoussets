@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 from continuoussets.utils import comparison, exceptions
 from continuoussets.convexsets.zonotope import Zonotope
 from continuoussets.convexsets.interval import Interval
+from continuoussets.convexsets.vpolytope import VPolytope
 
 class TestZonotope(unittest.TestCase):
 
@@ -803,6 +804,9 @@ class TestZonotope(unittest.TestCase):
         ''' Test for volume computation '''
         # cases:
         # - only center
+        # - degenerate generator matrix
+        # - box generator matrix
+        # - rotated non-degenerate generator matrix
 
         # init zonotopes
         center = np.array([1., 0.])
@@ -831,6 +835,21 @@ class TestZonotope(unittest.TestCase):
         assert result2 == true_result2
         assert result3 == true_result3
         assert np.isclose(result4, true_result4)
+
+    def test_vpolytope(self):
+        ''' Test for conversion to vpolytope '''
+        # cases:
+        # - only center
+
+        # init zonotope
+        center = np.array([1., 0.])
+        Z = Zonotope(c = center)
+
+        # convert to vpolytope
+        result1 = VPolytope(**(Z.vpolytope()))
+
+        # check result
+        assert np.array_equal(np.reshape(center,(2,1)), result1.V)
 
     def test_zonotope(self):
         ''' Test for conversion to zonotope '''
