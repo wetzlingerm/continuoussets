@@ -29,9 +29,9 @@ class TestVPolytope(unittest.TestCase):
         assert np.array_equal(VP_float.V, np.array([[-1.5]]))
         assert VP_float.dimension == 1
         assert np.array_equal(VP_list_int.V, np.array( [[0., 1.]] ))
-        assert VP_list_int.dimension == 1
+        assert VP_list_int.dimension == 2
         assert np.array_equal(VP_list_float.V, np.array( [[0.5, 1.5]] ))
-        assert VP_list_float.dimension == 1
+        assert VP_list_float.dimension == 2
         assert np.array_equal(VP_np.V, np.array( [[0., 1.], [0.5, -1.0]] ))
         assert VP_np.dimension == 2
 
@@ -69,8 +69,8 @@ class TestVPolytope(unittest.TestCase):
         # - vpolytope + vector
 
         # init vpolytope and vector
-        V_singlevertex = np.array([[4.0], [-2.0]])
-        V_2D = np.array([[1., 2., 2.], [-1., 0., -1.]])
+        V_singlevertex = np.array([[4.0, -2.0]])
+        V_2D = np.array([[1., -1.], [2., 0.], [2., -1.]])
         VP_1 = VPolytope(V = V_singlevertex)
         VP_2 = VPolytope(V = V_2D)
         v = np.array([-2., 0.])
@@ -80,8 +80,8 @@ class TestVPolytope(unittest.TestCase):
         result2 = VP_2 + v
 
         # manual computation
-        true_result1 = VPolytope(V = np.array([[2.0], [-2.0]]))
-        true_result2 = VPolytope(V = np.array([[-1., 0., 0.], [-1., 0., -1.]]))
+        true_result1 = VPolytope(V = np.array([[2.0, -2.0]]))
+        true_result2 = VPolytope(V = np.array([[-1., -1.], [0., 0.], [0., -1.]]))
 
         # check results
         assert result1 == true_result1
@@ -98,13 +98,13 @@ class TestVPolytope(unittest.TestCase):
         # - VPolytope x VPolytope
         # - VPolytope x Interval
 
-        V1 = np.array([[2.0, -1.0, 0.0], [1.0, -0.5, 0.5]])
-        V2 = np.array([[-3.0, 1.0], [0.5, 1.0]])
+        V1 = np.array([[2., 1.], [-1., -0.5], [0., 0.5]])
+        V2 = np.array([[-3., 0.5], [1., 1.]])
         VP_1 = VPolytope(V = V1)
         VP_2 = VPolytope(V = V2)
 
         I = Interval(lb = np.array([-2., -1.]), ub = np.array([4., 0.]))
-        V_I = np.array([[-2., -2., 4., 4.], [-1., 0., -1., 0.]])
+        V_I = np.array([[-2., -1.], [-2., 0.], [4., -1.], [4., 0.]])
         VP_I = VPolytope(V = V_I)
 
         assert VP_1 == VP_1
@@ -116,8 +116,8 @@ class TestVPolytope(unittest.TestCase):
         # cases:
         # - single vertex
         # - multiple vertices
-        V1 = np.array([[1.], [3.]])
-        V2 = np.array([[2.0, -1.0, 0.0], [1.0, -0.5, 0.5]])
+        V1 = np.array([[1., 3.]])
+        V2 = np.array([[2., 1.], [-1., -0.5], [0., 0.5]])
         VP_1 = VPolytope(V = V1)
         VP_2 = VPolytope(V = V2)
 
@@ -129,8 +129,8 @@ class TestVPolytope(unittest.TestCase):
         # cases:
         # - single vertex
         # - multiple vertices
-        V1 = np.array([[1.], [3.]])
-        V2 = np.array([[2.0, -1.0, 0.0], [1.0, -0.5, 0.5]])
+        V1 = np.array([[1., 3.]])
+        V2 = np.array([[2., 1.], [-1., -0.5], [0., 0.5]])
         VP_1 = VPolytope(V = V1)
         VP_2 = VPolytope(V = V2)
 
@@ -143,8 +143,8 @@ class TestVPolytope(unittest.TestCase):
         # - vpolytope - vector
 
         # init vpolytope and vector
-        V_singlevertex = np.array([[4.0], [-2.0]])
-        V_2D = np.array([[1., 2., 2.], [-1., 0., -1.]])
+        V_singlevertex = np.array([[4., -2.]])
+        V_2D = np.array([[1., -1.], [2., 0.], [2., -1.]])
         VP_1 = VPolytope(V = V_singlevertex)
         VP_2 = VPolytope(V = V_2D)
         v = np.array([-2., 0.])
@@ -154,8 +154,8 @@ class TestVPolytope(unittest.TestCase):
         result2 = VP_2 - v
 
         # manual computation
-        true_result1 = VPolytope(V = np.array([[6.0], [-2.0]]))
-        true_result2 = VPolytope(V = np.array([[3., 4., 4.], [-1., 0., -1.]]))
+        true_result1 = VPolytope(V = np.array([[6., -2.]]))
+        true_result2 = VPolytope(V = np.array([[3., -1.], [4., 0.], [4., -1.]]))
 
         # check results
         assert result1 == true_result1
@@ -171,7 +171,7 @@ class TestVPolytope(unittest.TestCase):
         # cases:
         # - vpolytope: single vertex
 
-        V_singlevertex = np.array([[4.0], [-2.0]])
+        V_singlevertex = np.array([[4., -2.]])
         VP_singlevertex = VPolytope(V = V_singlevertex)
         direction = np.array([-1., 0.])
 
@@ -183,13 +183,13 @@ class TestVPolytope(unittest.TestCase):
         # cases:
         # - vpolytope x vpolytope
         # - vpolytope x interval
-        V_1 = np.array([1., 2., 4.])
-        V_2 = np.array([-3., 5.])
+        V_1 = np.array([[1.], [2.], [4.]])
+        V_2 = np.array([[-3.], [5.]])
         VP_1 = VPolytope(V = V_1)
         VP_2 = VPolytope(V = V_2)
         I_2 = Interval(lb = -3, ub = 5)
 
-        V1_V2 = np.array([[1., 1., 4., 4.], [-3., 5., -3., 5.]])
+        V1_V2 = np.array([[1., -3.], [1., 5.], [4., -3.], [4., 5.]])
 
         VP1_VP2 = VP_1.cartesian_product(VP_2)
         VP1_VP2 = VP1_VP2.compact()
@@ -204,8 +204,8 @@ class TestVPolytope(unittest.TestCase):
         # cases:
         # - single vertex
         # - multiple vertices
-        V_singlevertex = np.array([[4.], [-2.]])
-        V_2D = np.array([[1., 2., 2.], [-1., 0., -1.]])
+        V_singlevertex = np.array([[4., -2.]])
+        V_2D = np.array([[1., -1.], [2., 0.], [2., -1.]])
 
         VP_singlevertex = VPolytope(V = V_singlevertex)
         VP_2D = VPolytope(V = V_2D)
@@ -223,13 +223,13 @@ class TestVPolytope(unittest.TestCase):
         # - degenerate vertices #todo
         # - multiple vertices (no redundancies)
         # - multiple vertices (with redundancies)
-        V_singlevertex = np.array([[4.], [-2.]])
+        V_singlevertex = np.array([[4., -2.]])
         VP_singlevertex = VPolytope(V = V_singlevertex)
 
-        V_multiple_no_red = np.array([[1., 0., -1., 0., 1.], [0., 1., 0., -1., -1.]])
+        V_multiple_no_red = np.array([[1., 0.], [0., 1.], [-1., 0.], [0., -1.], [1., -1.]])
         VP_multiple_no_red = VPolytope(V = V_multiple_no_red)
 
-        V_multiple_red = np.array([[1., 0., -1., 0., 0., 1., 0.2, -0.3], [0., 1., 0., -0.5, -1., -1., 0.3, -0.1]])
+        V_multiple_red = np.array([[1., 0.], [0., 1.], [-1., 0.], [0., -0.5], [0., -1.], [1., -1.], [0.2, -0.3], [-0.3, -0.1]])
         VP_multiple_red = VPolytope(V = V_multiple_red)
 
         result_singlevertex = VP_singlevertex.compact()
@@ -244,7 +244,7 @@ class TestVPolytope(unittest.TestCase):
         ''' Test for containment check '''
         # cases:
         # - vpolytope x vector
-        V_2D = np.array([[1., -2., 0.], [-1., 0., 1.]])
+        V_2D = np.array([[1., -1.], [-2., 0.], [0., 1.]])
         VP_2D = VPolytope(V = V_2D)
         v = np.array([0., 0.])
 
@@ -288,16 +288,13 @@ class TestVPolytope(unittest.TestCase):
         # cases:
         # - single vertex
         # - multiple vertices
-        V1 = np.array([[2.], [3.], [5.], [-1.]])
-        V2 = np.array([[-1., 0., 0., 1., 1., 2.],
-                       [0., -1., 1., -1., 1., 2.],
-                       [-1., 0., 2., 1., 1., 0.]])
+        V1 = np.array([[2., 3., 5., -1.]])
+        V2 = np.array([[-1., 0., -1.], [0., -1., 0.], [0., 1., 2.], [1., -1., 1.], [1., 1., 1.], [2., 2., 0.]])
         VP_1 = VPolytope(V = V1)
         VP_2 = VPolytope(V = V2)
 
-        VP_1_proj = VPolytope(V = np.array([[2.], [-1.]]))
-        VP_2_proj = VPolytope(V = np.array([[0., -1., 1., -1., 1., 2.],
-                                            [-1., 0., 2., 1., 1., 0.]]))
+        VP_1_proj = VPolytope(V = np.array([[2., -1.]]))
+        VP_2_proj = VPolytope(V = np.array([[0., -1.], [-1., 0.], [1., 2.], [-1., 1.], [1., 1.], [2., 0.]]))
 
         assert VP_1_proj == VP_1.project(axis = (0,3))
         assert VP_2_proj == VP_2.project(axis = (1,2))
@@ -312,25 +309,25 @@ class TestVPolytope(unittest.TestCase):
         # cases:
         # - single vertex
         # - multiple vertices incl. redundancies
-        V1 = np.array([[2.], [3.]])
-        V2 = np.array([[-1., 0., 0., 0., 1., 1., 2., 2.], [0., -1., 0., 1., -1., 1., 0., 2.]])
+        V1 = np.array([[2., 3.]])
+        V2 = np.array([[-1., 0.], [0., -1.], [0., 0.], [0., 1.], [1., -1.], [1., 1.], [2., 0.], [2., 2.]])
         VP_1 = VPolytope(V = V1)
         VP_2 = VPolytope(V = V2)
 
         value1, vector1 = VP_1.support_function(np.array([1., 0.]))
         value2, vector2 = VP_2.support_function(np.array([1., 1.]))
 
-        assert value1 == 2 and np.array_equal(vector1, np.array([[2.], [3.]]))
-        assert value2 == 4 and np.array_equal(vector2, np.array([[2.], [2.]]))
+        assert value1 == 2 and np.array_equal(vector1, np.array([2., 3.]))
+        assert value2 == 4 and np.array_equal(vector2, np.array([2., 2.]))
 
     def test_vertices(self):
         ''' Test for vertex enumeration '''
         # cases:
         # - single vertex
         # - non-degenerate set
-        V1 = np.array([[2.], [3.], [-1.]])
+        V1 = np.array([[2., 3., -1.]])
         VP_1 = VPolytope(V = V1)
-        V2 = np.array([[2., -1., 0.], [1., 2., -4.]])
+        V2 = np.array([[2., 1.], [-1., 2.], [0., -4.]])
         VP_2 = VPolytope(V = V2)
 
         assert comparison.compare_matrices(VP_1.vertices(), V1)
@@ -341,9 +338,9 @@ class TestVPolytope(unittest.TestCase):
         # cases:
         # - single vertex
         # - non-degenerate set
-        V1 = np.array([[2.], [3.], [-1.]])
+        V1 = np.array([[2., 3., -1.]])
         VP_1 = VPolytope(V = V1)
-        V2 = np.array([[2., -1., 0.], [1., 2., -4.]])
+        V2 = np.array([[2., 1.], [-1., 2.], [0., -4.]])
         VP_2 = VPolytope(V = V2)
 
         assert VP_1.volume() == 0
@@ -355,9 +352,9 @@ class TestVPolytope(unittest.TestCase):
         # cases:
         # - single vertex
         # - non-degenerate set
-        V1 = np.array([[2.], [3.], [-1.]])
+        V1 = np.array([[2., 3., -1.]])
         VP_1 = VPolytope(V = V1)
-        V2 = np.array([[2., -1., 0.], [1., 2., -4.]])
+        V2 = np.array([[2., 1.], [-1., 2.], [0., -4.]])
         VP_2 = VPolytope(V = V2)
 
         result1 = VP_1.vpolytope()

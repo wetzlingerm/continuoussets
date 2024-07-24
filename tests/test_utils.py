@@ -16,10 +16,10 @@ class TestUtils(unittest.TestCase):
         # init matrices
         M1_none = None
         M2_none = None
-        M1 = np.array([[2., 1., -1.], [0., 1., -1.]])
+        M1 = np.array([[2., 0.], [1., 1.], [-1., -1.]])
         M2 = M1
-        M2_zeros = np.array([[2., 1., -1., 0.], [0., 1., -1., 0.]])
-        M2_neg = np.array([[-2., 1., 1.], [0., 1., 1.]])
+        M2_zeros = np.array([[2., 0.], [1., 1.], [-1., -1.], [0., 0.]])
+        M2_neg = np.array([[-2., 0.], [1., 1.], [1., 1.]])
         M2_1D = np.array([1., 2.])
         
         # check results
@@ -43,9 +43,9 @@ class TestUtils(unittest.TestCase):
 
         # init matrices
         M_none = None
-        M_noaligned = np.array([[0., 1., 2.],[3., 4., 5.]])
-        M_allaligned = np.array([[0., 0., 0.],[1., 2., 3.]])
-        M_somealigned = np.array([[1., 2., -1., 0., 2., 3., 1.],[-1., 0., 1., 1., 1., 1.5, 0.]])
+        M_noaligned = np.array([[0., 3.], [1., 4.], [2., 5.]])
+        M_allaligned = np.array([[0., 1.], [0., 2.] ,[0., 3.]])
+        M_somealigned = np.array([[1., -1.], [2., 0.], [-1., 1.], [0., 1.], [2., 1.], [3., 1.5], [1., 0.]])
 
         # check alignment
         result1 = comparison.find_aligned_generators(M_none)

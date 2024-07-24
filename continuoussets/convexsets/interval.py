@@ -796,11 +796,11 @@ class Interval(ConvexSet):
 
         if isinstance(other, np.ndarray):
             return self.contains(other)
-        elif isinstance(other, Interval):
-            return np.any(np.logical_not(np.any(np.vstack((other.ub <= self.lb, other.lb >= self.ub)), axis=0)))
-        elif isinstance(other, ConvexSet):
-            return other.intersects(self)
+        elif not isinstance(other, Interval):
+            other = Interval(**other.interval(mode = 'outer'))
 
+        return np.any(np.logical_not(np.any(np.vstack((other.ub <= self.lb, other.lb >= self.ub)), axis=0)))
+    
     # conversion to interval
     def interval(self, *, mode: str = 'exact') -> dict:
         """Overloaded conversion to Interval.
@@ -988,8 +988,8 @@ class Interval(ConvexSet):
         # enumerate all combinations
         all_combinations = product(*t)
 
-        # stack combinations, transpose so that vertices are columns
-        V = np.transpose(np.vstack([np.array(x) for x in all_combinations]))
+        # stack combinations
+        V = np.vstack([np.array(x) for x in all_combinations])
         return V
 
     # volume computation
@@ -1031,7 +1031,8 @@ class Interval(ConvexSet):
         # for consistency, support modes 'exact', 'outer', 'inner'
         # since every interval is a zonotope, these yield the same results
         generators = np.diag(self.diameter())
-        return {'c': self.center(), 'G': 0.5*generators[:, ~np.all(generators == 0, axis=0)]}
+        generators = 0.5*generators[~np.all(generators == 0, axis=0), :]
+        return {'c': self.center(), 'G': generators}
 
     # check function
     def _checkIntervalArithmetic(self, other):
