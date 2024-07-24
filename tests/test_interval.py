@@ -831,7 +831,7 @@ class TestInterval(unittest.TestCase):
         with self.assertRaises(NotImplementedError):
             # 'exact' not supported for Interval x Zonotope
             I = Interval(lb = np.array([-1., 0.]), ub = np.array([1., 0.]))
-            Z = Zonotope(c = np.array([1., 0.]), G = np.array([[1., 0., -1., 2.],[-2., 1., 1., 0.]]))
+            Z = Zonotope(c = np.array([1., 0.]), G = np.array([[1., -2.], [0., 1.], [-1., 1.], [2., 0.]]))
             I.cartesian_product(Z, mode = 'exact')
 
     def test_center(self):
@@ -1217,7 +1217,7 @@ class TestInterval(unittest.TestCase):
         upper2 = np.array([1., 5., 1.])
         I2 = Interval(lb = lower2, ub = upper2)
         center = np.array([1., 0., 2.])
-        generators = np.array([[1., -2., 0.],[0., 1., 1.],[0., 0., 1.]])
+        generators = np.array([[1., 0., 0.], [-2., 1., 0.], [0., 1., 1.]])
         Z = Zonotope(c = center, G = generators)
 
         # Minkowski sum
@@ -1254,7 +1254,7 @@ class TestInterval(unittest.TestCase):
         upper2 = np.array([1., 5., 1.])
         I2 = Interval(lb = lower2, ub = upper2)
         center = np.array([1., 0., 2.])
-        generators = np.array([[1., -2., 0.],[0., 1., 1.],[0., 0., 1.]])
+        generators = np.array([[1., 0., 0.], [-2., 1., 0.], [0., 1., 1.]])
         Z = Zonotope(c = center, G = generators)
 
         # Minkowski difference
@@ -1588,9 +1588,9 @@ class TestInterval(unittest.TestCase):
         result3 = I3.vertices()
 
         # manual computation
-        true_result1 = np.array([[-2., -2., 3., 3.],[-1., 4., -1., 4.]])
-        true_result2 = np.array([[-2., -2.],[-1., 4.]])
-        true_result3 = lower.reshape(2, 1)
+        true_result1 = np.array([[-2., -1.], [-2., 4.], [3., -1.], [3., 4.]])
+        true_result2 = np.array([[-2., -1.],[-2., 4.]])
+        true_result3 = lower
 
         # check result
         assert comparison.compare_matrices(result1, true_result1)
@@ -1649,7 +1649,7 @@ class TestInterval(unittest.TestCase):
 
         # manual computation
         true_result1 = Zonotope(c = np.array([0.5, 1.5]), G = np.array([[2.5, 0.],[0., 2.5]]))
-        true_result2 = Zonotope(c = np.array([-2., 1.5]), G = np.array([[0.],[2.5]]))
+        true_result2 = Zonotope(c = np.array([-2., 1.5]), G = np.array([0., 2.5]))
         true_result3 = Zonotope(c = lower)
 
         # check results

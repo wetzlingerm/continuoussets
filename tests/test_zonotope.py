@@ -6,6 +6,7 @@ from continuoussets.convexsets.zonotope import Zonotope
 from continuoussets.convexsets.interval import Interval
 from continuoussets.convexsets.vpolytope import VPolytope
 
+# TODO: generator matrix should have generators in rows, not columns
 class TestZonotope(unittest.TestCase):
 
     def test_init(self):
@@ -21,9 +22,9 @@ class TestZonotope(unittest.TestCase):
         Z_int = Zonotope(c = 1)
         Z_float = Zonotope(c = -1., G = 1.)
         Z_list_int_1D = Zonotope(c = 1, G = [1])
-        Z_list_int = Zonotope(c = [0, 1], G = [[1, 0],[-1, 2]])
-        Z_list_float = Zonotope(c = [0., 1.], G = [[1., 0.],[-1., 2.]])
-        Z_np = Zonotope(c = np.array([0., 1.]), G = [[1., 0.],[-1., 2.]])
+        Z_list_int = Zonotope(c = [0, 1], G = [[1, 0], [-1, 2]])
+        Z_list_float = Zonotope(c = [0., 1.], G = [[1., 0.], [-1., 2.]])
+        Z_np = Zonotope(c = np.array([0., 1.]), G = [[1., 0.], [-1., 2.]])
 
         # check results
         assert np.array_equal(Z_int.c, np.array([1.]))
@@ -51,12 +52,12 @@ class TestZonotope(unittest.TestCase):
         with self.assertRaises(ValueError):
             # center is >1D
             Zonotope(c = np.array([[1.],[2.]]))
+        with self.assertRaises(ValueError):
+            # generator matrix does not match center dimension
+            Zonotope(c = np.array([2., 1.]), G = np.array([[1., 0., -1.]]))
         with self.assertRaises(TypeError):
             # wrong type for generator matrix
             Zonotope(c = 1, G = 'generators')
-        with self.assertRaises(ValueError):
-            # generator matrix does not match center dimension
-            Zonotope(c = np.array([2., 1.]), G = np.array([[1.],[0.],[-1.]]))
 
     def test_repr(self):
         ''' Test for display on command window '''
@@ -66,7 +67,7 @@ class TestZonotope(unittest.TestCase):
 
         # init zonotopes
         center = np.array([1., 0.])
-        generators = np.array([[1., 2., 2.], [-1., 0., -1.]])
+        generators = np.array([[1., -1.], [2., 0.], [2., -1.]])
         Z1 = Zonotope(c = center)
         Z2 = Zonotope(c = center, G = generators)
 
@@ -82,7 +83,7 @@ class TestZonotope(unittest.TestCase):
 
         # init zonotope and vector
         center = np.array([1., 0.])
-        generators = np.array([[1., 2., 2.], [-1., 0., -1.]])
+        generators = np.array([[1., -1.], [2., 0.], [2., -1.]])
         Z1 = Zonotope(c = center, G = generators)
         v = np.array([-2., 0.])
 
@@ -107,7 +108,7 @@ class TestZonotope(unittest.TestCase):
 
         # init zonotope and vector
         center = np.array([1., 0.])
-        generators = np.array([[1., 2., 2.], [-1., 0., -1.]])
+        generators = np.array([[1., -1.], [2., 0.], [2., -1.]])
         Z1 = Zonotope(c = center, G = generators)
         v = np.array([-2., 0.])
 
@@ -133,12 +134,12 @@ class TestZonotope(unittest.TestCase):
         # init zonotopes
         center = np.array([1., 0.])
         center_3D = np.array([1., 0., 1.])
-        generators_allzero = np.array([[0., 0., 0.], [0., 0., 0.]])
-        generators = np.array([[1., 2., -1.],[2., 0., 1.]])
-        generators_reordered = np.array([[2., 1., -1.],[0., 2., 1.]])
-        generators_neg = np.array([[2., 1., 1.],[0., 2., -1.]])
-        genreators_aligned1 = np.array([[1., 2., -1., 0., 2., 3., 1.],[-1., 0., 1., 1., 1., 1.5, 0.]])
-        genreators_aligned2 = np.array([[-3., 0., 0., 2., 4., -1.],[0., 0.5, -0.5, -2., 2., -0.5]])
+        generators_allzero = np.array([[0., 0.], [0., 0.], [0., 0.]])
+        generators = np.array([[1., 2.], [2., 0.], [-1., 1.]])
+        generators_reordered = np.array([[2., 0.], [1., 2.], [-1., 1.]])
+        generators_neg = np.array([[2., 0.], [1., 2.], [1., -1.]])
+        genreators_aligned1 = np.array([[1., -1.], [2., 0.], [-1., 1.], [0., 1.], [2., 1.], [3., 1.5], [1., 0.]])
+        genreators_aligned2 = np.array([[-3., 0.], [0., 0.5], [0., -0.5], [2., -2.], [4., 2.], [-1., -0.5]])
         Z1 = Zonotope(c = center)
         Z2 = Zonotope(c = center, G = generators_allzero)
         Z3 = Zonotope(c = center, G = generators)
@@ -168,7 +169,7 @@ class TestZonotope(unittest.TestCase):
 
         # init zonotope
         center = np.array([1., 0.])
-        generators = np.array([[1., 0., -1., 2.],[0., 2., 1., -1.]])
+        generators = np.array([[1., 0.], [0., 2.], [-1., 1.], [2., -1.]])
         Z = Zonotope(c = center, G = generators)
 
         # unary minus
@@ -187,7 +188,7 @@ class TestZonotope(unittest.TestCase):
 
         # init zonotope
         center = np.array([1., 0.])
-        generators = np.array([[1., 0., -1., 2.],[0., 2., 1., -1.]])
+        generators = np.array([[1., 0.], [0., 2.], [-1., 1.], [2., -1.]])
         Z = Zonotope(c = center, G = generators)
 
         # unary plus
@@ -203,7 +204,7 @@ class TestZonotope(unittest.TestCase):
 
         # init zonotope and vector
         center = np.array([1., 0.])
-        generators = np.array([[1., 2., 2.], [-1., 0., -1.]])
+        generators = np.array([[1., -1.], [2., 0.], [2., -1.]])
         Z1 = Zonotope(c = center, G = generators)
         v = np.array([2., 0.])
 
@@ -228,7 +229,7 @@ class TestZonotope(unittest.TestCase):
 
         # init zonotope and vector
         center = np.array([1., 0.])
-        generators = np.array([[1., 2., 2.], [-1., 0., -1.]])
+        generators = np.array([[1., -1.], [2., 0.], [2., -1.]])
         Z1 = Zonotope(c = center, G = generators)
         v = np.array([2., 0.])
 
@@ -248,7 +249,7 @@ class TestZonotope(unittest.TestCase):
 
         # init zonotope
         center = np.array([1., 0.])
-        generators = np.array([[1., -2., 2., 0.],[-1., 1., 0., 1.]])
+        generators = np.array([[1., -1.], [-2., 1.], [2., 0.], [0., 1.]])
         Z = Zonotope(c = center, G = generators)
 
         # compute boundary point
@@ -275,8 +276,8 @@ class TestZonotope(unittest.TestCase):
         # init zonotopes
         center1 = np.array([-1., 0.])
         center2 = np.array([3., 1.])
-        generators1 = np.array([[2.],[1.]])
-        generators2 = np.array([[2., 1., -1., 0.],[0., 1., -1., 4.]])
+        generators1 = np.array([[2., 1.]])
+        generators2 = np.array([[2., 0.], [1., 1.], [-1., -1.], [0., 4.]])
         Z1_onlycenter = Zonotope(c = center1)
         Z2_onlycenter = Zonotope(c = center2)
         Z3 = Zonotope(c = center1, G = generators1)
@@ -294,9 +295,9 @@ class TestZonotope(unittest.TestCase):
         
         # manual computation
         centers_stacked = np.array([-1., 0., 3., 1.])
-        zero_generators2 = np.array([[0., 0., 0., 0.],[0., 0., 0., 0.],[2., 1., -1., 0.],[0., 1., -1., 4.]])
-        generators1_zero = np.array([[2.],[1.],[0.],[0.]])
-        generators1_generators2 = np.array([[2., 0., 0., 0., 0.],[1., 0., 0., 0., 0.],[0., 2., 1., -1., 0.],[0., 0., 1., -1., 4.]])
+        zero_generators2 = np.array([[0., 0., 2., 0.], [0., 0., 1., 1.], [0., 0., -1., -1.], [0., 0., 0., 4.]])
+        generators1_zero = np.array([[2., 1., 0., 0.]])
+        generators1_generators2 = np.array([[2., 1., 0., 0.], [0., 0., 2., 0.], [0., 0., 1., 1.], [0., 0., -1., -1.], [0., 0., 0., 4.]])
         true_result1 = Zonotope(c = centers_stacked)
         true_result2 = true_result1
         true_result3 = Zonotope(c = centers_stacked, G = zero_generators2)
@@ -322,7 +323,7 @@ class TestZonotope(unittest.TestCase):
 
         # init zonotopes
         center = np.array([1., 0.])
-        generators = np.array([[1., 2., 2.], [-1., 0., -1.]])
+        generators = np.array([[1., -1.], [2., 0.], [2., -1.]])
         Z1 = Zonotope(c = center)
         Z2 = Zonotope(c = center, G = generators)
 
@@ -341,10 +342,10 @@ class TestZonotope(unittest.TestCase):
 
         # init zonotopes
         center = np.array([1., 0.])
-        generators_allzero = np.array([[0., 0., 0.], [0., 0., 0.]])
-        generators_somezero = np.array([[0., 1., 0.], [0., 0., -1.]])
-        generators_nozero = np.array([[1., -2., 0.], [1., 0., -1.]])
-        generators_aligned = np.array([[1., 2., -1., 0., 2., 3., 1.],[-1., 0., 1., 1., 1., 1.5, 0.]])
+        generators_allzero = np.array([[0., 0.], [0., 0.], [0., 0.]])
+        generators_somezero = np.array([[0., 0.], [1., 0.], [0., -1.]])
+        generators_nozero = np.array([[1., 1.], [-2., 0.], [0., -1.]])
+        generators_aligned = np.array([[1., -1.], [2., 0.], [-1., 1.], [0., 1.], [2., 1.], [3., 1.5], [1., 0.]])
         Z1 = Zonotope(c = center)
         Z2 = Zonotope(c = center, G = generators_allzero)
         Z3 = Zonotope(c = center, G = generators_somezero)
@@ -369,7 +370,7 @@ class TestZonotope(unittest.TestCase):
         assert result2.G.size == 0
         assert comparison.compare_matrices(result3.G, np.array([[1., 0.], [0., -1.]]), check_negation=True)
         assert comparison.compare_matrices(result4.G, Z4.G, check_negation=True)
-        assert comparison.compare_matrices(result5.G, np.array([[2., 3., 0., 5.],[-2., 0., 1., 2.5]]), check_negation=True)
+        assert comparison.compare_matrices(result5.G, np.array([[2., -2.], [3., 0.], [0., 1.], [5., 2.5]]), check_negation=True)
 
     def test_contains(self):
         ''' Test for containment check '''
@@ -383,7 +384,7 @@ class TestZonotope(unittest.TestCase):
 
         # init zonotopes
         center = np.array([1., 0.])
-        generators = np.array([[1., -2., 2., 0.],[-1., 1., 0., 1.]])
+        generators = np.array([[1., -1.], [-2., 1.], [2., 0.], [0., 1.]])
         Z1 = Zonotope(c = center)
         Z2 = Zonotope(c = center, G = generators)
 
@@ -411,8 +412,8 @@ class TestZonotope(unittest.TestCase):
         # init zonotopes
         center1 = np.array([1., 0.])
         center2 = np.array([-1., 2.])
-        generators1 = np.array([[2., 3., 1.],[-1., 2., 0.]])
-        generators2 = np.array([[-1., 2., 0., 1., 3.],[4., 0., 1., -1., 2.]])
+        generators1 = np.array([[2., -1.], [3., 2.], [1., 0.]])
+        generators2 = np.array([[-1., 4.], [2., 0.], [0., 1.], [1., -1.], [3., 2.]])
         Z1 = Zonotope(c = center1)
         Z2 = Zonotope(c = center2)
         Z3 = Zonotope(c = center1, G = generators1)
@@ -429,13 +430,12 @@ class TestZonotope(unittest.TestCase):
         result7 = Z1.convex_hull(I)
 
         # manual computation
-        true_result1 = Zonotope(c = np.array([0., 1.]), G = np.array([[1.],[-1.]]))
+        true_result1 = Zonotope(c = np.array([0., 1.]), G = np.array([[1., -1.]]))
         true_result2 = true_result1
-        true_result3 = Zonotope(c = np.array([0., 1.]), G = np.array([[1., 2., 3., 1.],[-1., -1., 2., 0.]]))
-        true_result4 = Zonotope(c = np.array([0., 1.]), G = np.array([[-1., 2., 3., 1.],[1., -1., 2., 0.]]))
+        true_result3 = Zonotope(c = np.array([0., 1.]), G = np.array([[1., -1.], [2., -1.], [3., 2.], [1., 0.]]))
+        true_result4 = Zonotope(c = np.array([0., 1.]), G = np.array([[-1., 1.], [2., -1.], [3., 2.], [1., 0.]]))
         true_result5 = Zonotope(c = np.array([0., 1.]),
-                                G = np.array([[0.5, 2.5, 0.5, -1., -1.5, -0.5, -0.5, 1., 3.],\
-                                              [1.5, 1., 0.5, 1., 2.5, -1., 0.5, -1., 2.]]))
+                                G = np.array([[0.5, 1.5], [2.5, 1.], [0.5, 0.5], [-1., 1.], [-1.5, 2.5], [-0.5, -1.], [-0.5, 0.5], [1., -1.], [3., 2.]]))
         true_result6 = true_result5
         true_result7 = true_result1
 
@@ -467,7 +467,7 @@ class TestZonotope(unittest.TestCase):
 
         # init zonotopes and intervals
         center1 = np.array([1., 0.])
-        generators1 = np.array([[1., -1., 2., 0.],[-1., 2., 1., 1.]])
+        generators1 = np.array([[1., -1.], [-1., 2.], [2., 1.], [0., 1.]])
         Z1 = Zonotope(c = center1, G = generators1)
         lower1 = np.array([2., 2.])
         upper1 = np.array([5., 3.])
@@ -475,8 +475,6 @@ class TestZonotope(unittest.TestCase):
         lower2 = np.array([-3., -5.])
         upper2 = np.array([-2., -2.])
         I2 = Interval(lb = lower2, ub = upper2)
-        center1 = np.array([1., 0.])
-        generators1 = np.array([[1., -1., 2., 0.],[-1., 2., 1., 1.]])
         Z2 = Z1 + np.array([3., -2.])
         Z3 = Z1 + np.array([5., 5.])
         Z4 = Zonotope(c = center1)
@@ -501,8 +499,8 @@ class TestZonotope(unittest.TestCase):
 
         # init zonotopes
         c = np.array([1., 0.])
-        G_axisaligned = np.array([[1., 0., 2., 0.], [0., -1., 0., 0.]])
-        G_notaxisaligned = np.array([[1., 0.], [-1., 1.]])
+        G_axisaligned = np.array([[1., 0.], [0., -1.], [2., 0.], [0., 0.]])
+        G_notaxisaligned = np.array([[1., -1.], [0., 1.]])
         Z1 = Zonotope(c = c)
         Z2 = Zonotope(c = c, G = G_axisaligned)
         Z3 = Zonotope(c = c, G = G_notaxisaligned)
@@ -544,7 +542,7 @@ class TestZonotope(unittest.TestCase):
 
         # init zonotopes
         center = np.array([1., 0.])
-        generators = np.array([[1., -2., 0.],[-1., 1., 3.]])
+        generators = np.array([[1., -1.], [-2., 1.], [0., 3.]])
         Z1 = Zonotope(c = center)
         Z2 = Zonotope(c = center, G = generators)
 
@@ -559,8 +557,8 @@ class TestZonotope(unittest.TestCase):
         # manual computation
         true_result1 = Zonotope(c = np.array([1., 2.]))
         true_result2 = Zonotope(c = np.array([1.]))
-        true_result3 = Zonotope(c = np.array([1., 2.]), G = np.array([[2., -3., -3.],[2., -4., 0.]]))
-        true_result4 = Zonotope(c = np.array([1.]), G = np.array([[-1., 0., 6.]]))
+        true_result3 = Zonotope(c = np.array([1., 2.]), G = np.array([[2., 2.], [-3., -4.], [-3., 0.]]))
+        true_result4 = Zonotope(c = np.array([1.]), G = np.array([[-1.], [0.], [6.]]))
 
         # check results
         assert result1 == true_result1
@@ -577,9 +575,9 @@ class TestZonotope(unittest.TestCase):
 
         # init zonotopes
         center1 = np.array([1., 0.])
-        generators1 = np.array([[1., 2., 2.], [-1., 0., -1.]])
+        generators1 = np.array([[1., -1.], [2., 0.], [2., -1.]])
         center2 = np.array([-1., 1.])
-        generators2 = np.array([[0., -1., 3.], [1., -1., 0.]])
+        generators2 = np.array([[0., 1.], [-1., -1.], [3., 0.]])
         Z1 = Zonotope(c = center1, G = generators1)
         Z2 = Zonotope(c = center2, G = generators2)
         v = np.array([-2., 0.])
@@ -594,7 +592,7 @@ class TestZonotope(unittest.TestCase):
 
         # manual computation
         true_result1 = Zonotope(c = np.array([0., 1.]),\
-                                G = np.array([[1., 2., 2., 0., -1., 3.], [-1., 0., -1., 1., -1., 0.]]))
+                                G = np.array([[1., -1.], [2., 0.], [2., -1.], [0., 1.], [-1., -1.], [3., 0.]]))
         true_result2 = Zonotope(c = np.array([-1., 0.]), G = generators1)
         true_result3 = true_result2
         true_result4 = true_result2
@@ -612,14 +610,14 @@ class TestZonotope(unittest.TestCase):
         
         # init zonotope
         center = np.array([1., 0.])
-        generators = np.array([[0., 1., 2., -1.],[1., 2., 1., 0.]])
+        generators = np.array([[0., 1.], [1., 2.], [2., 1.], [-1., 0.]])
         Z = Zonotope(c = center, G = generators)
 
         # compute Minkowski difference
         result1 = Z.minkowski_difference(center)
 
         # manual computation
-        true_result1 = Zonotope(c = np.array([0., 0.,]), G = generators)
+        true_result1 = Zonotope(c = np.array([0., 0.]), G = generators)
 
         # check results
         assert result1 == true_result1
@@ -638,8 +636,8 @@ class TestZonotope(unittest.TestCase):
 
         # init zonotopes
         center = np.array([1., 0.])
-        single_generator = np.array([[1.], [-1.]])
-        generators = np.array([[1., -1., 2.],[0., 1., 1.]])
+        single_generator = np.array([[1., -1.]])
+        generators = np.array([[1., 0.], [-1., 1.], [2., 1.]])
         Z1 = Zonotope(c = center)
         Z2 = Zonotope(c = center, G = single_generator)
         Z3 = Zonotope(c = center, G = generators)
@@ -661,7 +659,7 @@ class TestZonotope(unittest.TestCase):
 
         # init zonotopes
         center = np.array([1., 0., -1.])
-        generators = np.array([[1., 2., 2.], [-1., 0., -1.], [0., -1., 2.]])
+        generators = np.array([[1., -1., 0.], [2., 0., -1.], [2., -1., 2.]])
         Z1 = Zonotope(c = center)
         Z2 = Zonotope(c = center, G = generators)
 
@@ -673,7 +671,7 @@ class TestZonotope(unittest.TestCase):
 
         # manual computation
         true_result1 = Zonotope(c = np.array([1., -1.]))
-        true_result2 = Zonotope(c = np.array([0., -1.]), G = np.array([[-1., 0., -1.],[0., -1., 2.]]))
+        true_result2 = Zonotope(c = np.array([0., -1.]), G = np.array([[-1., 0.], [0., -1.], [-1., 2.]]))
         
         assert result1 == true_result1
         assert result2 == true_result2
@@ -689,9 +687,9 @@ class TestZonotope(unittest.TestCase):
         # init zonotopes
         center = np.array([1., 0.])
         Z1 = Zonotope(c = center)
-        generators = np.array([[2., 0., 2., 3., -4., 1.],[3., -1., -1., 2., 0., 2.]])
+        generators = np.array([[2., 3.], [0., -1.], [2., -1.], [3., 2.], [-4., 0.], [1., 2.]])
         Z2 = Zonotope(c = center, G = generators)
-        single_generator = np.array([[0.],[1.]])
+        single_generator = np.array([[0., 1.]])
         Z3 = Zonotope(c = center, G = single_generator)
 
         # reduce
@@ -704,8 +702,8 @@ class TestZonotope(unittest.TestCase):
         # manual computation
         true_result1 = Z1
         true_result2 = Z2
-        true_result3 = Zonotope(c = center, G = np.array([[12., 0.],[0., 9.]]))
-        true_result4 = Zonotope(c = center, G = np.array([[2., 3., 7., 0.],[3., 2., 0., 4.]]))
+        true_result3 = Zonotope(c = center, G = np.array([[12., 0.], [0., 9.]]))
+        true_result4 = Zonotope(c = center, G = np.array([[2., 3.], [3., 2.], [7., 0.], [0., 4.]]))
         true_result5 = Z3
 
         # check results
@@ -729,7 +727,7 @@ class TestZonotope(unittest.TestCase):
 
         # init zonotopes
         c = np.array([1., 0.])
-        G_axisaligned = np.array([[1., 0., 2., 0.], [0., -1., 0., 0.]])
+        G_axisaligned = np.array([[1., 0.], [0., -1.], [2., 0.], [0., 0.]])
         G_notaxisaligned = np.array([[1., 0.], [-1., 1.]])
         Z1 = Zonotope(c = c)
         Z2 = Zonotope(c = c, G = G_axisaligned)
@@ -750,8 +748,8 @@ class TestZonotope(unittest.TestCase):
 
         # init zonotopes
         center = np.array([1., 0.])
-        generators_zero = np.array([[0.],[0.]])
-        generators = np.array([[1., -1., 0., 2.],[1., 1., 3., -1.]])
+        generators_zero = np.array([[0., 0.]])
+        generators = np.array([[1., 1.], [-1., 1.], [0., 3.], [2., -1.]])
         Z1 = Zonotope(c = center)
         Z2 = Zonotope(c = center, G = generators_zero)
         Z3 = Zonotope(c = center, G = generators)
@@ -779,8 +777,8 @@ class TestZonotope(unittest.TestCase):
 
         # init zonotopes
         center = np.array([1., 0.])
-        generator = np.array([[-1.], [2.]])
-        generators = np.array([[1., 0., -1., 2.],[2., -1., 1., 0.]])
+        generator = np.array([[-1., 2.]])
+        generators = np.array([[1., 2.], [0., -1.], [-1., 1.], [2., 0.]])
         Z_onlycenter = Zonotope(c = center)
         Z_singlegenerator = Zonotope(c = center, G = generator)
         Z_fulldim = Zonotope(c = center, G = generators)
@@ -791,9 +789,9 @@ class TestZonotope(unittest.TestCase):
         result3 = Z_fulldim.vertices()
 
         # manual computation
-        true_result1 = np.reshape(center, (2,1))
+        true_result1 = center
         true_result2 = np.array([[0., 2.],[2., -2.]])
-        true_result3 = np.array([[-1., 3., 5., 5., 3., -1., -3., -3.],[-4., -4., 0., 2., 4., 4., 0., -2.]])
+        true_result3 = np.array([[-1., -4.], [3., -4.], [5., 0.], [5., 2.], [3., 4.], [-1., 4.], [-3., 0.], [-3., -2.]])
 
         # check results
         assert comparison.compare_matrices(result1, true_result1)
@@ -810,9 +808,9 @@ class TestZonotope(unittest.TestCase):
 
         # init zonotopes
         center = np.array([1., 0.])
-        generators_degenerate = np.array([[0., 1.],[0., 0.]])
-        generators_box = np.array([[2., 0.],[0., 1.]])
-        generators = np.array([[-3., -2., -1.],[2., 3., 4.]])
+        generators_degenerate = np.array([[0., 1.], [0., 0.]])
+        generators_box = np.array([[2., 0.], [0., 1.]])
+        generators = np.array([[-3., 2.], [-2., 3.], [-1., 4.]])
         Z1 = Zonotope(c = center)
         Z2 = Zonotope(c = center, G = generators_degenerate)
         Z3 = Zonotope(c = center, G = generators_box)
@@ -849,7 +847,7 @@ class TestZonotope(unittest.TestCase):
         result1 = VPolytope(**(Z.vpolytope()))
 
         # check result
-        assert np.array_equal(np.reshape(center,(2,1)), result1.V)
+        assert np.array_equal(np.reshape(center, (1, 2)), result1.V)
 
     def test_zonotope(self):
         ''' Test for conversion to zonotope '''
@@ -858,7 +856,7 @@ class TestZonotope(unittest.TestCase):
 
         # init zonotope
         center = np.array([1., 2.])
-        generators = np.array([[0., -1.],[3., 4.]])
+        generators = np.array([[0., -1.], [3., 4.]])
         Z = Zonotope(c = center, G = generators)
 
         # convert to zonotope
@@ -880,7 +878,7 @@ class TestZonotope(unittest.TestCase):
         # init zonotopes
         center_origin = np.zeros(2)
         center_notorigin = np.array([1., 0.])
-        generators = np.array([[1., -2., 2., 0.],[-1., 1., 0., 1.]])
+        generators = np.array([[1., -1.], [-2., 1.], [2., 0.], [0., 1.]])
         Z1 = Zonotope(c = center_notorigin)
         Z2 = Zonotope(c = center_origin, G = generators)
         Z3 = Zonotope(c = center_notorigin, G = generators)
@@ -915,7 +913,7 @@ class TestZonotope(unittest.TestCase):
 
         # init zonotope
         center = np.array([1., 0.])
-        generators = np.array([[1., 0., -1.],[2., -1., 1.]])
+        generators = np.array([[1., 2.], [0., -1.], [-1., 1.]])
         Z = Zonotope(c = center, G = generators)
 
         # check exceptions

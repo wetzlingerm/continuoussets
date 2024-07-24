@@ -46,3 +46,15 @@ class OtherFunctionError(Exception):
                     Called function {inspect.stack()[1].function} for types {', '.join([str(type(elem)) for elem in types])}.\
                     Call function {other_function} instead."
         super().__init__(message)
+
+
+class ExactEvaluationImpossible(Exception):
+
+    def __init__(self):
+        """Exception raised if an exact evaluation of a given operation is requested, but mathematically impossible.
+        """
+        newline = "\n"
+        message = f"{inspect.stack()[1].function}:{newline}\
+                    Called function {inspect.stack()[1].function} with mode 'exact'.\
+                    There is no exact evaluation for this operation in the given case."
+        super().__init__(message)

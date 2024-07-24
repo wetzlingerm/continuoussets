@@ -69,18 +69,18 @@ class ConvexSet(ABC):
 
         # compute vertices
         V = projected_set.vertices()
-        if V.shape[1] > 2:
+        if V.shape[0] > 2:
             # correct ordering
-            V = V[:, ConvexHull(V.T).vertices]
+            V = V[ConvexHull(V).vertices, :]
             # append first vertex at the end
-            V = np.hstack((V, np.reshape(V[:, 0], (2, 1))))
+            V = np.vstack((V, V[0, :]))
 
         # plot
-        if V.shape[1] == 1:
+        if V.shape[0] == 1:
             # single point: add marker
-            plt.plot(V[0, :], V[1, :], 'o', **kwargs)
+            plt.plot(V[:, 0], V[:, 1], 'o', **kwargs)
         else:
-            plt.plot(V[0, :], V[1, :], **kwargs)
+            plt.plot(V[:, 0], V[:, 1], **kwargs)
         plt.show()
 
     # conversions

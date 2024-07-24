@@ -8,7 +8,7 @@ from scipy.spatial import ConvexHull
 
 from continuoussets.convexsets.convexset import ConvexSet
 from continuoussets.utils import comparison
-from continuoussets.utils.exceptions import OtherFunctionError
+from continuoussets.utils.exceptions import OtherFunctionError, ExactEvaluationImpossible
 
 if __name__ == '__main__':
     print('This is the VPolytope class.')
@@ -49,7 +49,7 @@ class VPolytope(ConvexSet):
                 raise ValueError('VPolytope:__init__',
                                  'V must be 1D or 2D.')
 
-        self.dimension = V.shape[0]
+        self.dimension = V.shape[1]
         self.V = V.copy()
 
     # display
@@ -60,7 +60,7 @@ class VPolytope(ConvexSet):
             str: Description of the VPolytope object.
         """
         newline = '\n'
-        return f'dimension: {self.dimension}{newline}'
+        return f'dimension: {self.dimension}{newline}V: {self.V}'
 
     # translation by vector
     def __add__(self, other: np.ndarray) -> VPolytope:
@@ -79,7 +79,7 @@ class VPolytope(ConvexSet):
         
         if isinstance(other, np.ndarray):
             # ...a vector (exact computation possible)
-            return VPolytope(V = self.V + other.reshape(self.dimension, 1), validate = False)
+            return VPolytope(V = self.V + other, validate = False)
 
         elif isinstance(other, ConvexSet):
             raise OtherFunctionError((self, other), 'minkowski_sum')
@@ -131,7 +131,7 @@ class VPolytope(ConvexSet):
 
         if isinstance(other, np.ndarray):
             # ...a vector (exact computation possible)
-            return VPolytope(V = self.V - other.reshape(self.dimension, 1), validate = False)
+            return VPolytope(V = self.V - other, validate = False)
 
         elif isinstance(other, ConvexSet):
             raise OtherFunctionError((self, other), 'minkowski_difference')
@@ -153,13 +153,13 @@ class VPolytope(ConvexSet):
             other = VPolytope(**other.vpolytope(mode = mode))
 
         # all potential combinations of vertices
-        V_product = np.vstack((np.tile(self.V, (1, other.V.shape[1])), np.repeat(other.V, self.V.shape[1], axis = 1)))
+        V_product = np.hstack((np.tile(self.V, (other.number_vertices(), 1)), np.repeat(other.V, self.number_vertices(), axis = 0)))
         return VPolytope(V = V_product, validate = False)
 
     # center
     def center(self) -> np.ndarray:
         # trivial solution for single vertex
-        if (self.V.shape[1] == 1):
+        if (self.number_vertices() == 1):
             return self.V
 
         # todo: weight each vertex by same factor and compute that 'center' (guaranteed to be contained in vpolytope)
@@ -177,24 +177,24 @@ class VPolytope(ConvexSet):
             VPolytope: VPolytope in minimal representation.
         """
         # for ConvexHull function, we need at least n+1 vertices
-        if self.V.shape[1] == 1:
+        if self.number_vertices() == 1:
             # single vertex
             return VPolytope(V = self.V, validate = False)
         
-        elif self.V.shape[1] <= self.dimension:
+        elif self.number_vertices() <= self.dimension:
             # check manually for duplicates
-            index_nonduplicate = np.ones(self.V.shape[1], dtype = bool)
-            for j in range(self.V.shape[1]):
-                other_vertices = np.hstack((self.V[:, 0:j], self.V[:, j+1:-1]))
-                this_vertex = np.reshape(self.V[:, j], (self.dimension, 1))
+            index_nonduplicate = np.ones(self.number_vertices(), dtype = bool)
+            for j in range(self.number_vertices()):
+                other_vertices = np.vstack((self.V[0:j, :], self.V[j+1:-1, :]))
+                this_vertex = self.V[j, :]
                 if np.any(np.isclose(np.linalg.norm(other_vertices - this_vertex), 0, rtol=rtol)):
                     index_nonduplicate[j] = False
             # remove duplicates
-            return VPolytope(V = self.V[:, index_nonduplicate], validate = False)
+            return VPolytope(V = self.V[index_nonduplicate, :], validate = False)
 
         else:
             # note: ConvexHull expects vertices as rows
-            return VPolytope(V = self.V[:, ConvexHull(self.V.T).vertices], validate = False)
+            return VPolytope(V = self.V[ConvexHull(self.V).vertices, :], validate = False)
 
     # containment check
     def contains(self, other: Union[ConvexSet, np.ndarray]) -> bool:
@@ -210,19 +210,15 @@ class VPolytope(ConvexSet):
 
     def _contains_point(self, other: np.ndarray) -> bool:
         # no checks in underscore-functions
-        other = np.reshape(other, (self.dimension, 1))
-
-        # number of vertices in the outer body
-        number_vertices = self.V.shape[1]
 
         # objective function
-        c = np.zeros(number_vertices)
+        c = np.zeros(self.number_vertices())
 
         # constraints
-        A_eq = np.vstack((self.V, np.ones((1, number_vertices))))
-        b_eq = np.vstack((other, 1))
-        A_ub = -np.eye(number_vertices)
-        b_ub = np.zeros((number_vertices, 1))
+        A_eq = np.vstack((self.V.T, np.ones((1, self.number_vertices()))))
+        b_eq = np.hstack((other, 1))
+        A_ub = -np.eye(self.number_vertices())
+        b_ub = np.zeros((self.number_vertices(), 1))
 
         # solve linear program
         res = linprog(c, A_ub, b_ub, A_eq, b_eq, bounds = (None, None))
@@ -231,14 +227,14 @@ class VPolytope(ConvexSet):
         return res.success
 
     # convex hull
-    def convex_hull(self, other: Union[ConvexSet, np.ndarray], *, mode: str = 'outer') -> VPolytope:
+    def convex_hull(self, other: Union[ConvexSet, np.ndarray], *, mode: str = 'exact') -> VPolytope:
         self._checkOtherOperand(other)
         self._checkMode(mode)
 
         if not isinstance(other, VPolytope):
             other = VPolytope(**other.vpolytope(mode = mode))
 
-        V_all = np.hstack((self.V, other.V))
+        V_all = np.vstack((self.V, other.V))
         return VPolytope(V = V_all, validate = False)
     
     # intersection check
@@ -248,16 +244,38 @@ class VPolytope(ConvexSet):
         if isinstance(other, np.ndarray):
             return self.contains(other)
 
-        # todo: linprogs...
+        if type(other).__name__ in ['Interval', 'HPolyhedron']:
+            return other.intersects(self)
+
+        # TODO: intersection of vpolytopes via LP
         raise NotImplementedError
 
     # conversion to interval
-    def interval(self, *, mode: str = 'outer') -> dict:
+    def interval(self, *, mode: str = 'exact') -> dict:
+        """_summary_
+
+        Args:
+            mode (str, optional): Approximation of the conversion: 'inner', 'exact', 'outer'. Defaults to 'exact'.
+
+        Raises:
+            NotImplementedError: Conversion to inner approximation not supported.
+            ExactEvaluationImpossible: Exact conversion only possible in special cases.
+
+        Returns:
+            dict: Keyword arguments for instantiation of an Interval object.
+        """
         self._checkMode(mode)
 
+        if mode == 'inner':
+            raise NotImplementedError
+        elif mode == 'exact':
+            # only continue if polytope is actually an interval
+            if not self.represents('interval'):
+                raise ExactEvaluationImpossible
+
         # take minimum and maximum in every dimension
-        lower_bound = np.min(self.V, axis = 0)
-        upper_bound = np.max(self.V, axis = 0)
+        lower_bound = np.min(self.V, axis = 1)
+        upper_bound = np.max(self.V, axis = 1)
 
         return {'lb': lower_bound, 'ub': upper_bound}
     
@@ -275,7 +293,7 @@ class VPolytope(ConvexSet):
         self._checkMatrix(matrix)
 
         # simple linear transformation of all points
-        return VPolytope(V = np.matmul(matrix, self.V), validate = False)
+        return VPolytope(V = np.matmul(self.V, matrix), validate = False)
 
     # Minkowski sum
     def minkowski_sum(self, other: Union[ConvexSet, np.ndarray], *, mode: str = 'outer') -> VPolytope:
@@ -300,6 +318,15 @@ class VPolytope(ConvexSet):
 
         raise NotImplementedError
     
+    # number of vertices
+    def number_vertices(self) -> int:
+        """Returns the number of vertices of a VPolytope VP.
+
+        Returns:
+            int: Number of vertices.
+        """
+        return self.V.shape[0]
+    
     # projection onto subspace
     def project(self, *, axis: tuple) -> VPolytope:
         """Projection of a VPolytope VP onto a subspace.
@@ -313,13 +340,13 @@ class VPolytope(ConvexSet):
         self._checkSubspace(axis)
 
         # convert tuples to lists for indexing
-        return VPolytope(V = self.V[list(axis), :], validate = False)
+        return VPolytope(V = self.V[:, list(axis)], validate = False)
 
     # representation by other set representation
     def represents(self, *, set_class: str) -> bool:
         self._checkSetClass(set_class)
 
-        if set_class == ['VPolytope', 'HPolyhedron']:
+        if set_class in ['VPolytope', 'HPolyhedron']:
             return True
         
         # todo: Zonotope, Interval?
@@ -339,10 +366,10 @@ class VPolytope(ConvexSet):
         """
         self._checkOtherOperand(direction)
 
-        dot_product = direction @ self.V
+        dot_product = np.matmul(self.V, direction)
         value = np.max(dot_product)
         max_index = np.flatnonzero(dot_product == value)[0]
-        vector = np.reshape(self.V[:, max_index], (self.dimension, 1))
+        vector = self.V[max_index, :]
         return (value, vector)
     
     # vertex enumeration
@@ -364,7 +391,7 @@ class VPolytope(ConvexSet):
             float: Volume.
         """
         # degenerate polytopes have volume 0
-        if self.V.shape[1] == 1:
+        if self.number_vertices() <= 1:
             return 0
         # todo: check other degenerate cases
 
@@ -401,8 +428,8 @@ class VPolytope(ConvexSet):
         lower_bound = interval_dict['lb']
         upper_bound = interval_dict['ub']
         # convert interval to zonotope (note: we cannot call Interval methods here)
-        center = (upper_bound + lower_bound)/2
-        generators = np.diag((upper_bound - lower_bound)/2)
-        generators = 0.5*generators[:, ~np.all(generators == 0, axis=0)]
+        center = (upper_bound + lower_bound) / 2
+        generators = np.diag((upper_bound - lower_bound) / 2)
+        generators = 0.5*generators[~np.all(generators == 0, axis=1), :]
         
         return {'c': center, 'G': generators}

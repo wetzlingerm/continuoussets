@@ -97,24 +97,24 @@ class TestConvexSet(unittest.TestCase):
         # - zonotope/project
 
         # init zonotope
-        Z = Zonotope(c = np.array([1., 0.]), G = np.array([[1., 0., -1.], [2., 1., 1.]]))
+        Z = Zonotope(c = np.array([1., 0.]), G = np.array([[1., 2.], [0., 1.], [-1., 1.]]))
 
         # check exceptions
         with self.assertRaises(TypeError):
             # subspace is not a list or tuple
-            Z.project(axis="something")
+            Z.project(axis = "something")
         with self.assertRaises(ValueError):
             # dimension too large
-            Z.project(axis=(1, 2))
+            Z.project(axis = (1, 2))
         with self.assertRaises(ValueError):
             # dimension too small
-            Z.project(axis=(-1, 0))
+            Z.project(axis = (-1, 0))
         with self.assertRaises(ValueError):
             # dimension non-integer
-            Z.project(axis=(0, 1.5))
+            Z.project(axis = (0, 1.5))
         with self.assertRaises(ValueError):
             # repeated dimensions
-            Z.project(axis=(0, 0))
+            Z.project(axis = (0, 0))
 
     def test_check_matrix(self):
         ''' Test for left-multiplication of matrix '''
@@ -122,7 +122,7 @@ class TestConvexSet(unittest.TestCase):
         # - zonotope/matmul
 
         # init zonotope
-        Z = Zonotope(c = np.array([1., 0.]), G = np.array([[1., 0., -1.], [2., 1., 1.]]))
+        Z = Zonotope(c = np.array([1., 0.]), G = np.array([[1., 2.], [0., 1.], [-1., 1.]]))
 
         # check exceptions
         with self.assertRaises(TypeError):
