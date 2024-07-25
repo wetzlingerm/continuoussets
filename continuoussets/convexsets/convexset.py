@@ -85,6 +85,18 @@ class ConvexSet(ABC):
 
     # conversions
     @abstractmethod
+    def hpolyhedron(self, *, mode: str):
+        """Conversion to HPolyhedron.
+
+        Args:
+            mode (str): Type of conversion: 'inner', 'exact', 'outer'.
+
+        Raises:
+            NotImplementedError: Has to be implemented in subclasses.
+        """
+        raise NotImplementedError
+
+    @abstractmethod
     def interval(self, *, mode: str):
         """Abstract method: Conversion to Interval.
 

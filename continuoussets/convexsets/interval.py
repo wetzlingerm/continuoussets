@@ -781,6 +781,22 @@ class Interval(ConvexSet):
             return Interval(lb = np.minimum(self.lb, other),
                             ub = np.maximum(self.ub, other), validate=False)
 
+    # conversion to hpolyhedron
+    def hpolyhedron(self, *, mode: str = 'exact') -> dict:
+        """Conversion of an Interval I to an HPolyhedron HP.
+
+        Args:
+            mode (str, optional): Approximation of conversion: 'inner', 'exact', 'outer'. Defaults to 'exact'.
+
+        Returns:
+            dict: keyword arguments for instantiation of a HPolyhedron object
+        """
+        self._checkMode(mode)
+
+        # for consistency, support modes 'exact', 'outer', 'inner'
+        return {'A': np.vstack((np.eye(self.dimension), -np.eye(self.dimension))),
+                'b': np.hstack((np.ones(self.dimension, 1), -np.ones(self.dimension, 1)))}
+
     # intersection check
     def intersects(self, other: Union[ConvexSet, np.ndarray]) -> bool:
         """Checks if an Interval I intersects another set of vector S.
