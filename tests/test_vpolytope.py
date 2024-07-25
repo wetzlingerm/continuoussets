@@ -4,6 +4,7 @@ import numpy as np
 from continuoussets.utils import comparison, exceptions
 from continuoussets.convexsets.vpolytope import VPolytope
 from continuoussets.convexsets.interval import Interval
+from continuoussets.convexsets.zonotope import Zonotope
 
 class TestVPolytope(unittest.TestCase):
 
@@ -220,6 +221,7 @@ class TestVPolytope(unittest.TestCase):
         ''' Test for minimal representation '''
         # cases:
         # - single vertex
+        # - one-dimensional
         # - degenerate vertices #todo
         # - multiple vertices (no redundancies)
         # - multiple vertices (with redundancies)
@@ -232,56 +234,184 @@ class TestVPolytope(unittest.TestCase):
         V_multiple_red = np.array([[1., 0.], [0., 1.], [-1., 0.], [0., -0.5], [0., -1.], [1., -1.], [0.2, -0.3], [-0.3, -0.1]])
         VP_multiple_red = VPolytope(V = V_multiple_red)
 
+        V_1D = np.array([[1.], [-1.], [0.], [2.]])
+        VP_1D = VPolytope(V = V_1D)
+
         result_singlevertex = VP_singlevertex.compact()
         result_multiple_no_red = VP_multiple_no_red.compact()
         result_multiple_red = VP_multiple_red.compact()
+        result_1D = VP_1D.compact()
 
         assert np.array_equal(V_singlevertex, result_singlevertex.V)
         assert comparison.compare_matrices(V_multiple_no_red, result_multiple_no_red.V)
         assert comparison.compare_matrices(V_multiple_no_red, result_multiple_red.V)
+        assert comparison.compare_matrices(np.array([[-1.], [2.]]), result_1D.V)
 
     def test_contains(self):
         ''' Test for containment check '''
         # cases:
         # - vpolytope x vector
+        # - vpolytope x vpolytope (self)
+        # - vpolytope x interval
         V_2D = np.array([[1., -1.], [-2., 0.], [0., 1.]])
         VP_2D = VPolytope(V = V_2D)
         v = np.array([0., 0.])
+        I_2D = Interval(lb = np.array([-0.1, -0.1]), ub = np.array([0.1, 0.1]))
 
         assert VP_2D.contains(v)
+        assert VP_2D.contains(VP_2D)
+        assert VP_2D.contains(I_2D)
 
     def test_convex_hull(self):
         ''' Test for convex hull '''
-        # todo
-        assert True
+        # cases:
+        # - single vertex x single vertex
+        # - vpolytope x vpolytope
+        # - vpolytope x zonotope
+        VP_1 = VPolytope(V = np.array([1., 1.]))
+        VP_2 = VPolytope(V = np.array([0., 1.]))
+        VP_3 = VPolytope(V = np.array([[-1., 0.], [0., 0.], [0., -1.]]))
+        VP_4 = VPolytope(V = np.array([[1., 0.], [0., 0.], [0., 1.]]))
+        Z = Zonotope(c = [1., 1.])
+
+        result_1 = VP_1.convex_hull(VP_2)
+        result_2 = VP_3.convex_hull(VP_4)
+        result_3 = VP_3.convex_hull(Z)
+
+        true_result_1 = VPolytope(V = np.array([[1., 1.], [0., 1.]]))
+        true_result_2 = VPolytope(V = np.array([[1., 0.], [0., 1.], [-1., 0.], [0., -1.]]))
+        true_result_3 = VPolytope(V = np.array([[1., 1.], [-1., 0.], [0., -1.]]))
+
+        assert result_1 == true_result_1
+        assert result_2 == true_result_2
+        assert result_3 == true_result_3
+
+    def test_hpolyedron(self):
+        ''' Test for conversion to HPolyhedron '''
+        # cases:
+        # - single vertex
+        VP_1 = VPolytope(V = np.array([1., 0.]))
+
+        with self.assertRaises(NotImplementedError):
+            VP_1.hpolyhedron()
     
     def test_intersects(self):
         ''' Test for intersection check '''
-        # todo
-        assert True
+        # cases:
+        # - vpolytope x vector
+        # - vpolytope x vpolytope (self)
+        # - vpolytope x vpolytope
+        # - vpolytope x single vertex
+        # - vpolytope x interval
+        # - vpolytope x hpolyhedron #todo
+
+        VP_1 = VPolytope(V = np.array([[-1., 0.], [1., 1.], [0., -1.]]))
+        VP_2 = VPolytope(V = np.array([[1., 0.], [0., 0.], [0., 1.]]))
+        VP_3 = VPolytope(V = np.array([0.25, 0.25]))
+        I = Interval(lb = [-1., 0.], ub = [0., 1.])
+
+        assert VP_1.intersects(np.array([0., 0.]))
+        assert VP_1.intersects(np.array([1., 1.]))
+        assert VP_1.intersects(VP_1)
+        assert VP_1.intersects(VP_2)
+        assert VP_2.intersects(VP_1)
+        assert VP_1.intersects(VP_3)
+        assert VP_3.intersects(VP_1)
+        assert VP_1.intersects(I)
     
     def test_interval(self):
         ''' Test for interval conversion '''
-        # todo
-        assert True
+        # cases:
+        # - single vertex
+        # - vpolytope that is an interval
+        # - vpolytope that is not an interval
+        # todo: mode = 'exact' where not possible
+        VP_1 = VPolytope(V = np.array([1., 1.]))
+        VP_2 = VPolytope(V = np.array([[-1., 0.], [0., 0.], [0., 2.], [-1., 2.]]))
+        VP_3 = VPolytope(V = np.array([[-1., 0.], [0., -1.], [2., 1.]]))
+
+        result_1 = Interval(**VP_1.interval())
+        result_2 = Interval(**VP_2.interval(mode = 'outer')) # should work with mode='exact'
+        result_3 = Interval(**VP_3.interval(mode = 'outer'))
+
+        I_1 = Interval(lb = [1., 1.], ub = [1., 1.])
+        I_2 = Interval(lb = [-1., 0.], ub = [0., 2.])
+        I_3 = Interval(lb = [-1., -1.], ub = [2., 1.])
+
+        assert result_1 == I_1
+        assert result_2 == I_2
+        assert result_3 == I_3
+
+        # unsupported conversions
+        with self.assertRaises(NotImplementedError):
+            VP_3.interval(mode = 'inner')
     
     def test_matmul(self):
         ''' Test for linear map '''
-        # todo
-        assert True
+        # cases:
+        # - single vertex
+        # - multiple vertices, subspace
+        VP_1 = VPolytope(V = np.array([1., 2.]))
+        VP_2 = VPolytope(V = np.array([[1., 2.], [-1., 0.], [0., -1.]]))
+
+        M1 = np.array([[2., 1.], [-1., 0.]])
+        M2 = np.array([[1., -1.]])
+
+        result_1 = VP_1.matmul(M1)
+        result_2 = VP_2.matmul(M2)
+
+        true_result_1 = VPolytope(V = np.array([4., -1.]))
+        true_result_2 = VPolytope(V = np.array([[-1.], [-1.], [1.]]))
+
+        assert result_1 == true_result_1
+        assert result_2 == true_result_2
     
     def test_minkowski_sum(self):
         ''' Test for Minkowski sum '''
-        # todo
-        assert True
+        # cases:
+        # - single vertex + single vertex
+        # - single vertex + multiple vertices
+        # - multiple vertices + vector
+        # - vpolytope + zonotope
+        VP_1 = VPolytope(V = np.array([2., 1.]))
+        VP_2 = VPolytope(V = np.array([-1., 4.]))
+        VP_3 = VPolytope(V = np.array([[1., 0.], [-1., -1.], [-1., 1.]]))
+        Z = Zonotope(c = np.array([2., 1.]))
+
+        result_1 = VP_1.minkowski_sum(VP_2)
+        result_2 = VP_2.minkowski_sum(VP_1)
+        result_3 = VP_1.minkowski_sum(VP_3)
+        result_4 = VP_3.minkowski_sum(np.array([2., 1.]))
+        result_5 = VP_3.minkowski_sum(Z)
+
+        VP_12 = VPolytope(V = np.array([1., 5.]))
+        VP_13 = VPolytope(V = np.array([[3., 1.], [1., 0.], [1., 2.]]))
+
+        assert result_1 == VP_12
+        assert result_2 == VP_12
+        assert result_3 == VP_13
+        assert result_4 == VP_13
+        assert result_5 == VP_13
 
     def test_minkowski_difference(self):
         ''' Test for Minkowski difference '''
         # cases:
         # - vpolytope - vector
-        # - vpoltyope - vpolytope
-        # todo
-        assert True
+        # - vpolytope - vpolytope (vector)
+        # - vpolytope - vpolytope
+        VP_1 = VPolytope(V = np.array([[2., 0.], [-1., -1.], [-2., 1.]]))
+        VP_2 = VPolytope(V = np.array([1., -1.]))
+        VP_3 = VPolytope(V = np.array([[2., 0.], [-1., 1.]]))
+
+        result_1 = VP_1.minkowski_difference(np.array([1., -1.]))
+        result_2 = VP_1.minkowski_difference(VP_2)
+
+        true_result_1 = VPolytope(V = np.array([[1., 1.], [-2., 0.], [-3., 2.]]))
+
+        assert result_1 == true_result_1
+        assert result_2 == true_result_1
+        with self.assertRaises(NotImplementedError):
+            VP_1.minkowski_difference(VP_3)
 
     def test_project(self):
         ''' Test for projection '''
@@ -296,13 +426,24 @@ class TestVPolytope(unittest.TestCase):
         VP_1_proj = VPolytope(V = np.array([[2., -1.]]))
         VP_2_proj = VPolytope(V = np.array([[0., -1.], [-1., 0.], [1., 2.], [-1., 1.], [1., 1.], [2., 0.]]))
 
-        assert VP_1_proj == VP_1.project(axis = (0,3))
-        assert VP_2_proj == VP_2.project(axis = (1,2))
+        assert VP_1_proj == VP_1.project(axis = (0, 3))
+        assert VP_2_proj == VP_2.project(axis = (1, 2))
 
     def test_represents(self):
         ''' Test for representation check '''
-        # todo
-        assert True
+        # cases:
+        # - single vertex
+        # - multiple vertices
+        VP_1 = VPolytope(V = np.array([2., 1.]))
+        VP_2 = VPolytope(V = np.array([[-1., 0.], [2., 0.], [2., 1.], [-1., 1.]]))
+
+        assert VP_1.represents(set_class = 'VPolytope')
+        assert VP_1.represents(set_class = 'HPolyhedron')
+        assert VP_1.represents(set_class = 'Interval')
+        assert VP_1.represents(set_class = 'Zonotope')
+        assert VP_2.represents(set_class = 'HPolyhedron')
+        with self.assertRaises(NotImplementedError):
+            VP_2.represents(set_class = 'Interval')
 
     def test_support_function(self):
         ''' Test for support function evaluation '''
@@ -365,8 +506,26 @@ class TestVPolytope(unittest.TestCase):
 
     def test_zonotope(self):
         ''' Test for zonotope conversion '''
-        # todo
-        assert True
+        # cases:
+        # - single vertex
+        # - multiple vertices
+        V1 = np.array([[2., 3., -1.]])
+        VP_1 = VPolytope(V = V1)
+        V2 = np.array([[2., 1.], [-1., 2.], [0., -4.]])
+        VP_2 = VPolytope(V = V2)
+
+        result_1 = Zonotope(**VP_1.zonotope())
+        result_2 = Zonotope(**VP_2.zonotope(mode = 'outer'))
+
+        true_result_1 = Zonotope(c = V1.flatten())
+
+        assert result_1 == true_result_1
+        with self.assertRaises(NotImplementedError):
+            assert result_2.contains(VP_2)
+
+        # unsupported conversions
+        with self.assertRaises(NotImplementedError):
+            VP_2.zonotope(mode = 'exact')
 
 if __name__ == '__main__':
     unittest.main()

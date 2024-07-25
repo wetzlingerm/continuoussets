@@ -452,6 +452,15 @@ class TestZonotope(unittest.TestCase):
         with self.assertRaises(NotImplementedError):
             Z1.convex_hull(Z2, mode='inner')
 
+    def test_hpolyhedron(self):
+        ''' Test for conversion to HPolyhedron '''
+        # cases:
+        # - only center
+        Z = Zonotope(c = np.array([1., 0.]))
+
+        with self.assertRaises(NotImplementedError):
+            Z.hpolyhedron()
+
     def test_intersects(self):
         ''' Test for intersection check '''
         # cases:
@@ -464,8 +473,9 @@ class TestZonotope(unittest.TestCase):
         # - zonotope x zonotope (no intersection)
         # - zonotope x zonotope (no generators)
         # - zonotope (no generators) x zonotope
+        # - zonotope x vpolytope
 
-        # init zonotopes and intervals
+        # init sets
         center1 = np.array([1., 0.])
         generators1 = np.array([[1., -1.], [-1., 2.], [2., 1.], [0., 1.]])
         Z1 = Zonotope(c = center1, G = generators1)
@@ -478,6 +488,7 @@ class TestZonotope(unittest.TestCase):
         Z2 = Z1 + np.array([3., -2.])
         Z3 = Z1 + np.array([5., 5.])
         Z4 = Zonotope(c = center1)
+        VP = VPolytope(V = center1)
 
         # check results
         assert Z1.intersects(center1)
@@ -489,6 +500,7 @@ class TestZonotope(unittest.TestCase):
         assert not Z1.intersects(Z3)
         assert Z1.intersects(Z4)
         assert Z4.intersects(Z1)
+        assert Z1.intersects(VP)
 
     def test_interval(self):
         ''' Test for conversion from zonotope to interval '''

@@ -97,5 +97,12 @@ class TestUtils(unittest.TestCase):
         assert 'float' in e.args[0]
         assert other_function in e.args[0]
 
+    def test_ExactEvaluationImpossible(self):
+        ''' Test for ExactEvaluationImpossible class '''
+        e = exceptions.ExactEvaluationImpossible()
+
+        # check that 'no exact evaluation' information is contained in output string
+        assert 'no exact evaluation' in e.args[0]
+
 if __name__ == '__main__':
     unittest.main()

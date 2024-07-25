@@ -18,7 +18,9 @@ class VPolytope(ConvexSet):
     # the operations in this class are taken from
     # [1] Wetzlinger et al. "Implementation of Polyhedral Operations in CORA 2024", ARCH'24.
 
-    def __init__(self, *, V: Union[np.ndarray, list, float, int] = None, validate: bool = True):
+    def __init__(self, *,
+                 V: Union[np.ndarray, list, float, int] = None,
+                 validate: bool = True):
         if self.validate and validate:
             # enforce that some vertices are given
             if V is None:
@@ -153,7 +155,8 @@ class VPolytope(ConvexSet):
             other = VPolytope(**other.vpolytope(mode = mode))
 
         # all potential combinations of vertices
-        V_product = np.hstack((np.tile(self.V, (other.number_vertices(), 1)), np.repeat(other.V, self.number_vertices(), axis = 0)))
+        V_product = np.hstack((np.tile(self.V, (other.number_vertices(), 1)),
+                               np.repeat(other.V, self.number_vertices(), axis = 0)))
         return VPolytope(V = V_product, validate = False)
 
     # center
@@ -181,6 +184,10 @@ class VPolytope(ConvexSet):
             # single vertex
             return VPolytope(V = self.V, validate = False)
         
+        elif self.dimension == 1:
+            # just take min and max
+            return VPolytope(V = np.vstack((np.min(self.V, axis=0), np.max(self.V, axis=0))), validate = False)
+        
         elif self.number_vertices() <= self.dimension:
             # check manually for duplicates
             index_nonduplicate = np.ones(self.number_vertices(), dtype = bool)
@@ -204,7 +211,7 @@ class VPolytope(ConvexSet):
             return self._contains_point(other)
 
         if not isinstance(other, VPolytope):
-            other = VPolytope(**other.vpolytope(), mode = 'exact')
+            other = VPolytope(**other.vpolytope(mode = 'exact'))
 
         return self == other.convex_hull(self)
 
@@ -237,22 +244,71 @@ class VPolytope(ConvexSet):
         V_all = np.vstack((self.V, other.V))
         return VPolytope(V = V_all, validate = False)
     
+    # conversion to hpolyhedron
+    def hpolyhedron(self, *, mode: str = 'exact') -> dict:
+        """Conversion of an VPolytope VP to an HPolyhedron HP.
+
+        Args:
+            mode (str, optional): Approximation of conversion: 'inner', 'exact', 'outer'. Defaults to 'exact'.
+
+        Returns:
+            dict: keyword arguments for instantiation of a HPolyhedron object
+        """
+        self._checkMode(mode)
+
+        raise NotImplementedError
+        # return {'A': A, 'b': b}
+    
     # intersection check
     def intersects(self, other: Union[ConvexSet, np.ndarray]) -> bool:
+        """Checks if an VPolytope VP intersects another set of vector S.
+        Defined as exists s in VP: s in S?
+
+        Args:
+            other (Union[ConvexSet, np.ndarray]): Set or vector.
+
+        Returns:
+            bool: Result of the intersection check.
+        """
         self._checkOtherOperand(other)
 
         if isinstance(other, np.ndarray):
             return self.contains(other)
 
-        if type(other).__name__ in ['Interval', 'HPolyhedron']:
+        if type(other).__name__ == 'HPolyhedron':
             return other.intersects(self)
+        
+        if type(other).__name__ in ['Interval', 'Zonotope']:
+            other = VPolytope(**other.vpolytope(mode = 'exact'))
 
-        # TODO: intersection of vpolytopes via LP
-        raise NotImplementedError
+        # read out number of vertices
+        m1 = self.number_vertices()
+        m2 = other.number_vertices()
+        if (m1 == 1):
+            return other.contains(self.V[0])
+        elif (m2 == 1):
+            return self.contains(other.V[0])
+
+        # objective function
+        c = np.zeros(m1 + m2)
+
+        # constraints
+        A_eq = np.vstack((np.hstack((self.V.T, other.V.T)),
+                          np.hstack((np.ones(m1), np.zeros(m2))),
+                          np.hstack((np.zeros(m1), np.ones(m2)))))
+        b_eq = np.hstack((np.zeros(self.dimension), np.array([1., 1.])))
+        A_ub = -np.eye(m1 + m2)
+        b_ub = np.zeros(m1 + m2)
+
+        # solve linear program
+        res = linprog(c, A_ub, b_ub, A_eq, b_eq, bounds = (None, None))
+
+        # vector is contained if the LP is feasible
+        return res.success
 
     # conversion to interval
     def interval(self, *, mode: str = 'exact') -> dict:
-        """_summary_
+        """Conversion to Interval.
 
         Args:
             mode (str, optional): Approximation of the conversion: 'inner', 'exact', 'outer'. Defaults to 'exact'.
@@ -267,15 +323,17 @@ class VPolytope(ConvexSet):
         self._checkMode(mode)
 
         if mode == 'inner':
-            raise NotImplementedError
+            if not self.represents(set_class = 'Interval'):
+                # exact evaluation is also an inner approximation
+                raise NotImplementedError
         elif mode == 'exact':
             # only continue if polytope is actually an interval
-            if not self.represents('interval'):
+            if not self.represents(set_class = 'Interval'):
                 raise ExactEvaluationImpossible
 
         # take minimum and maximum in every dimension
-        lower_bound = np.min(self.V, axis = 1)
-        upper_bound = np.max(self.V, axis = 1)
+        lower_bound = np.min(self.V, axis = 0)
+        upper_bound = np.max(self.V, axis = 0)
 
         return {'lb': lower_bound, 'ub': upper_bound}
     
@@ -293,7 +351,7 @@ class VPolytope(ConvexSet):
         self._checkMatrix(matrix)
 
         # simple linear transformation of all points
-        return VPolytope(V = np.matmul(self.V, matrix), validate = False)
+        return VPolytope(V = np.matmul(self.V, matrix.T), validate = False)
 
     # Minkowski sum
     def minkowski_sum(self, other: Union[ConvexSet, np.ndarray], *, mode: str = 'outer') -> VPolytope:
@@ -303,10 +361,16 @@ class VPolytope(ConvexSet):
         if isinstance(other, np.ndarray):
             return self + other
         elif not isinstance(other, VPolytope):
-            other = VPolytope(**other.vpolytope(), mode = mode)
+            other = VPolytope(**other.vpolytope(mode = mode))
 
-        # todo: add each combination
-        raise NotImplementedError
+        # add each combination
+        V_sum = np.zeros((self.number_vertices()*other.number_vertices(), self.dimension))
+        # todo: replace this by a faster method
+        for i in range(self.number_vertices()):
+            for j in range(other.number_vertices()):
+                V_sum[i * other.number_vertices() + j] = self.V[i] + other.V[j]
+
+        return VPolytope(V = V_sum, validate = False)
     
     # Minkowski difference
     def minkowski_difference(self, other: Union[ConvexSet, np.ndarray], *, mode: str = 'exact') -> VPolytope:
@@ -315,6 +379,8 @@ class VPolytope(ConvexSet):
 
         if isinstance(other, np.ndarray):
             return self - other
+        elif isinstance(other, VPolytope) and other.number_vertices() == 1:
+            return self - np.reshape(other.V, (self.dimension, ))
 
         raise NotImplementedError
     
@@ -346,6 +412,8 @@ class VPolytope(ConvexSet):
     def represents(self, *, set_class: str) -> bool:
         self._checkSetClass(set_class)
 
+        if self.number_vertices() <= 1:
+            return True
         if set_class in ['VPolytope', 'HPolyhedron']:
             return True
         
@@ -412,7 +480,7 @@ class VPolytope(ConvexSet):
         return {'V': self.V}
 
     # conversion to zonotope
-    def zonotope(self, *, mode: str = 'outer') -> dict:
+    def zonotope(self, *, mode: str = 'exact') -> dict:
         """Conversion to Zonotope. We use a box enclosure.
 
         Args:
@@ -423,10 +491,17 @@ class VPolytope(ConvexSet):
         """
         self._checkMode(mode)
 
-        # convert to interval
+        if self.number_vertices() == 1:
+            return {'c': self.V[0].flatten(), 'G': None}
+
+        if mode in ['inner', 'exact']:
+            raise NotImplementedError
+
+        # convert to interval (outer approximation)
         interval_dict = self.interval(mode = 'outer')
         lower_bound = interval_dict['lb']
         upper_bound = interval_dict['ub']
+
         # convert interval to zonotope (note: we cannot call Interval methods here)
         center = (upper_bound + lower_bound) / 2
         generators = np.diag((upper_bound - lower_bound) / 2)

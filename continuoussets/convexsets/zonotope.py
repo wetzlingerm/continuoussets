@@ -26,7 +26,8 @@ class Zonotope(ConvexSet):
 
         Args:
             c (Union[np.ndarray, list, float, int], optional): Center of the zonotope. Defaults to None.
-            G (Union[np.ndarray, list, float, int], optional): 2D generator matrix of the zonotope, each generator is a row. Defaults to None.
+            G (Union[np.ndarray, list, float, int], optional): 2D generator matrix of the zonotope, each generator is a row.
+            Defaults to None.
             validate (bool, optional): Validation of input arguments. Defaults to True.
 
         Raises:
@@ -391,6 +392,21 @@ class Zonotope(ConvexSet):
             bool: Degeneracy of the zonotope.
         """
         return self.G.size == 0 or np.linalg.matrix_rank(self.G) < self.dimension
+    
+    # conversion to hpolyhedron
+    def hpolyhedron(self, *, mode: str = 'exact') -> dict:
+        """Conversion of a Zonotope Z to an HPolyhedron HP.
+
+        Args:
+            mode (str, optional): Approximation of conversion: 'inner', 'exact', 'outer'. Defaults to 'exact'.
+
+        Returns:
+            dict: keyword arguments for instantiation of a HPolyhedron object
+        """
+        self._checkMode(mode)
+
+        raise NotImplementedError
+        # return {'A': A, 'b': b}
 
     # intersection check
     def intersects(self, other: Union[ConvexSet, np.ndarray]) -> bool:

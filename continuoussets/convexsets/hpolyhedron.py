@@ -5,44 +5,63 @@ from typing import Union
 import numpy as np
 # from scipy.optimize import linprog
 from continuoussets.convexsets.convexset import ConvexSet
-from continuoussets.utils.exceptions import OtherFunctionError
+# from continuoussets.utils import comparison
+from continuoussets.utils.exceptions import OtherFunctionError  # , ExactEvaluationImpossible
 
 if __name__ == '__main__':
-    print('This is the Hpolyhedron class.')
+    print('This is the HPolyhedron class.')
 
 
 class HPolyhedron(ConvexSet):
     # the operations in this class are taken from
     # [1] Wetzlinger et al. "Implementation of Polyhedral Operations in CORA 2024", ARCH'24.
 
-    def __init__(self, *, A: Union[np.ndarray, list, float, int] = None,
-                 b: Union[np.ndarray, list, float, int] = None, validate: bool = True):
-        # some input has to be given
-        if A is None or b is None:
-            raise ValueError('HPolyhedron:__init__',
-                             'No input arguments provided to constructor')
+    def __init__(self, *,
+                 A: Union[np.ndarray, list, float, int] = None,
+                 b: Union[np.ndarray, list, float, int] = None,
+                 validate: bool = True):
+        # constraint matrix and constraint offset have to be given
+        if self.validate and validate:
+            if A is None or b is None:
+                raise ValueError('HPolyhedron:__init__',
+                                 'The constructor requires two input arguments')
+            if (not isinstance(A, int) and not isinstance(A, float)
+                    and not isinstance(A, list) and not isinstance(A, np.ndarray)):
+                raise TypeError('HPolyhedron:__init__',
+                                'Constraint matrix must be int, float, list or np.ndarray')
+            elif (not isinstance(b, int) and not isinstance(b, float)
+                    and not isinstance(b, list) and not isinstance(b, np.ndarray)):
+                raise TypeError('HPolyhedron:__init__',
+                                'Constraint offset must be int, float, list or np.ndarray')
+            elif isinstance(b, np.ndarray) and b.ndim > 1:
+                raise ValueError('HPolyhedron:__init__',
+                                 'Constraint offset needs to be a 1D array.')
 
         # convert to numpy if possible
         if not isinstance(A, np.ndarray):
-            A = np.array(A)
+            if isinstance(A, int) or isinstance(A, float):
+                A = np.reshape(np.array([float(A)]), (1, 1))
+            elif isinstance(A, list):
+                A = np.array(A, dtype = float)
         if not isinstance(b, np.ndarray):
             b = np.array(b)
 
-        # validate input arguments
+        # expand to 2D array
+        if A.ndim == 1:
+            A = np.reshape(A, (1, A.size))
+
+        # post-check: no higher than 2D
         if self.validate and validate:
-            if b.ndim != 1:
-                raise ValueError('HPolyhedron:__init__',
-                                 'Offset must be a 1D array.')
             if A.ndim > 2:
                 raise ValueError('HPolyhedron:__init__',
                                  'Constraint matrix must be a 1D or 2D array.')
-            elif A.shape[0] != b.size:
+            elif b.size != A.shape[0]:
                 raise ValueError('HPolyhedron:__init__',
-                                 'Dimension of constrained matrix and offset must match.')
+                                 'Number of constraints differs between constraint matrix and constraint offset.')
 
-        self.dimension = b.size
-        self.A = A
-        self.b = b
+        self.dimension = A.shape[1]
+        self.A = A.copy()
+        self.b = b.copy()
 
     # display
     def __repr__(self):
@@ -180,6 +199,20 @@ class HPolyhedron(ConvexSet):
         # check emptiness using LP
         raise NotImplementedError
     
+    # conversion to zonotope
+    def hpolyhedron(self, *, mode: str = 'exact') -> dict:
+        """Overloaded conversion to HPolyhedron.
+
+        Args:
+            mode (str, optional): Approximation of the conversion: 'inner', 'exact', 'outer'. Defaults to 'exact'.
+
+        Returns:
+            dict: Keyword arguments for instantiation of an HPolyhedron object.
+        """
+        self._checkMode(mode)
+
+        return {'A': self.A, 'b': self.b}
+    
     # intersection check
     def intersects(self, other: Union[ConvexSet, np.ndarray]) -> bool:
         self._checkOtherOperand(other)
@@ -228,6 +261,10 @@ class HPolyhedron(ConvexSet):
 
         # b vector - support function values along all normal vectors in A
         raise NotImplementedError
+    
+    # number of constraints
+    def number_constraints(self) -> int:
+        return self.b.size
     
     # projection onto subspace
     def project(self, *, axis: tuple) -> HPolyhedron:
