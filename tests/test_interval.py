@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 from continuoussets.utils import comparison, exceptions
 from continuoussets.convexsets.zonotope import Zonotope
 from continuoussets.convexsets.interval import Interval
+from continuoussets.convexsets.hpolyhedron import HPolyhedron
 
 
 class TestInterval(unittest.TestCase):
@@ -1076,6 +1077,25 @@ class TestInterval(unittest.TestCase):
         assert result1 == true_result1
         assert result2 == true_result2
         assert result3 == true_result3
+
+    def test_hpolyhedron(self):
+        ''' Test for conversion to HPolyhedron '''
+        # cases:
+        # - degenerate
+        # - non-degenerate
+        I1 = Interval(lb = np.array([-1., 0.]), ub = np.array([-1., 2.]))
+        I2 = Interval(lb = np.array([-1., 0.]), ub = np.array([3., 2.]))
+
+        HP1 = HPolyhedron(**I1.hpolyhedron())
+        HP2 = HPolyhedron(**I2.hpolyhedron())
+
+        true_result1 = HPolyhedron(A = np.array([[1., 0.], [0., 1.], [-1., 0.], [0., -1.]]),
+                                   b = np.array([-1., 2., 1., 0.]))
+        true_result2 = HPolyhedron(A = np.array([[1., 0.], [0., 1.], [-1., 0.], [0., -1.]]),
+                                   b = np.array([3., 2., 1., 0.]))
+        
+        assert HP1 == true_result1
+        assert HP2 == true_result2
 
     def test_intersects(self):
         ''' Test for intersection check '''

@@ -86,6 +86,13 @@ class TestUtils(unittest.TestCase):
         # check that empty set information is contained in output string
         assert 'empty set' in e.args[0]
 
+    def test_UnboundedSetError(self):
+        ''' Test for EmptySetError class '''
+        e = exceptions.UnboundedSetError()
+
+        # check that unbounded information is contained in output string
+        assert 'unbounded' in e.args[0]
+
     def test_OtherFunctionError(self):
         ''' Test for OtherFunctionError class '''
         args = (1, 2.)
@@ -97,9 +104,9 @@ class TestUtils(unittest.TestCase):
         assert 'float' in e.args[0]
         assert other_function in e.args[0]
 
-    def test_ExactEvaluationImpossible(self):
+    def test_ExactEvaluationImpossibleError(self):
         ''' Test for ExactEvaluationImpossible class '''
-        e = exceptions.ExactEvaluationImpossible()
+        e = exceptions.ExactEvaluationImpossibleError()
 
         # check that 'no exact evaluation' information is contained in output string
         assert 'no exact evaluation' in e.args[0]

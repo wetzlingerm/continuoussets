@@ -275,14 +275,14 @@ class TestZonotope(unittest.TestCase):
 
         # init zonotopes
         center1 = np.array([-1., 0.])
-        center2 = np.array([3., 1.])
+        center2 = np.array([3.])
         generators1 = np.array([[2., 1.]])
-        generators2 = np.array([[2., 0.], [1., 1.], [-1., -1.], [0., 4.]])
+        generators2 = np.array([[2.], [1.], [-1.], [0.]])
         Z1_onlycenter = Zonotope(c = center1)
         Z2_onlycenter = Zonotope(c = center2)
         Z3 = Zonotope(c = center1, G = generators1)
         Z4 = Zonotope(c = center2, G = generators2)
-        I = Interval(lb = np.array([3., 1.]), ub = np.array([3., 1.]))
+        I = Interval(lb = np.array([-1.]), ub = np.array([7.]))
 
         # compute Cartesian product
         result1 = Z1_onlycenter.cartesian_product(Z2_onlycenter)
@@ -294,17 +294,17 @@ class TestZonotope(unittest.TestCase):
         result7 = Z1_onlycenter.cartesian_product(I)
         
         # manual computation
-        centers_stacked = np.array([-1., 0., 3., 1.])
-        zero_generators2 = np.array([[0., 0., 2., 0.], [0., 0., 1., 1.], [0., 0., -1., -1.], [0., 0., 0., 4.]])
-        generators1_zero = np.array([[2., 1., 0., 0.]])
-        generators1_generators2 = np.array([[2., 1., 0., 0.], [0., 0., 2., 0.], [0., 0., 1., 1.], [0., 0., -1., -1.], [0., 0., 0., 4.]])
+        centers_stacked = np.array([-1., 0., 3.])
+        zero_generators2 = np.array([[0., 0., 2.], [0., 0., 1.], [0., 0., -1.]])
+        generators1_zero = np.array([[2., 1., 0.]])
+        generators1_generators2 = np.array([[2., 1., 0.], [0., 0., 2.], [0., 0., 1.], [0., 0., -1.]])
         true_result1 = Zonotope(c = centers_stacked)
         true_result2 = true_result1
         true_result3 = Zonotope(c = centers_stacked, G = zero_generators2)
         true_result4 = Zonotope(c = centers_stacked, G = generators1_zero)
         true_result5 = Zonotope(c = centers_stacked, G = generators1_zero)
         true_result6 = Zonotope(c = centers_stacked, G = generators1_generators2)
-        true_result7 = true_result1
+        true_result7 = Zonotope(c = centers_stacked, G = zero_generators2)
 
         # check results
         assert result1 == true_result1
