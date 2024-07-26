@@ -8,7 +8,7 @@ from scipy.spatial import ConvexHull
 
 from continuoussets.convexsets.convexset import ConvexSet
 from continuoussets.utils import comparison
-from continuoussets.utils.exceptions import OtherFunctionError, ExactEvaluationImpossible
+from continuoussets.utils.exceptions import OtherFunctionError, ExactEvaluationImpossibleError
 
 if __name__ == '__main__':
     print('This is the VPolytope class.')
@@ -88,6 +88,15 @@ class VPolytope(ConvexSet):
         
     # set equality
     def __eq__(self, other: Union[ConvexSet, np.ndarray]) -> bool:
+        """Set equality of a VPolytope VP with another set or vector S.
+        Defined as forall i in VP: i in VP and forall s in S: s in VP?
+
+        Args:
+            other (Union[ConvexSet, np.ndarray]): Set or vector.
+
+        Returns:
+            bool: Set equality.
+        """
         self._checkOtherOperand(other)
 
         if not isinstance(other, VPolytope):
@@ -315,7 +324,7 @@ class VPolytope(ConvexSet):
 
         Raises:
             NotImplementedError: Conversion to inner approximation not supported.
-            ExactEvaluationImpossible: Exact conversion only possible in special cases.
+            ExactEvaluationImpossibleError: Exact conversion only possible in special cases.
 
         Returns:
             dict: Keyword arguments for instantiation of an Interval object.
@@ -329,7 +338,7 @@ class VPolytope(ConvexSet):
         elif mode == 'exact':
             # only continue if polytope is actually an interval
             if not self.represents(set_class = 'Interval'):
-                raise ExactEvaluationImpossible
+                raise ExactEvaluationImpossibleError
 
         # take minimum and maximum in every dimension
         lower_bound = np.min(self.V, axis = 0)

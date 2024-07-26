@@ -990,7 +990,7 @@ class Interval(ConvexSet):
         """Enumeration of all vertices of an Interval I.
 
         Returns:
-            np.ndarray: 2D array containing vertices as columns.
+            np.ndarray: 2D array containing vertices as rows.
         """
         # reformat so that each dimension is a single np.ndarray (required for combinations below)
         bounds_per_dimension = np.vsplit(np.vstack((self.lb, self.ub)).transpose(), self.dimension)
@@ -1020,7 +1020,7 @@ class Interval(ConvexSet):
     
     # conversion to vpolytope
     def vpolytope(self, *, mode: str = 'exact') -> dict:
-        """Conversion to VPolytope.
+        """Conversion to a VPolytope VP.
 
         Args:
             mode (str, optional): Approximation of the conversion: 'inner', 'exact', 'outer'. Defaults to 'exact'.
@@ -1034,7 +1034,7 @@ class Interval(ConvexSet):
 
     # conversion to zonotope
     def zonotope(self, *, mode: str = 'exact') -> dict:
-        """Conversion of an Interval I to a Zonotope Z.
+        """Conversion to a Zonotope Z.
 
         Args:
             mode (str, optional): Approximation of conversion: 'inner', 'exact', 'outer'. Defaults to 'exact'.

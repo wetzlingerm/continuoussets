@@ -48,7 +48,7 @@ class OtherFunctionError(Exception):
         super().__init__(message)
 
 
-class ExactEvaluationImpossible(Exception):
+class ExactEvaluationImpossibleError(Exception):
 
     def __init__(self):
         """Exception raised if an exact evaluation of a given operation is requested, but mathematically impossible.
