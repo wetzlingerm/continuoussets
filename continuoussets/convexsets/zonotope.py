@@ -243,22 +243,27 @@ class Zonotope(ConvexSet):
         Returns:
             Zonotope: Result of the Cartesian product.
         """
-        self._checkOtherOperand(other)
         self._checkMode(mode)
 
+        n1 = self.dimension
+        m1 = self.number_generators()       
+
         if isinstance(other, np.ndarray):
-            if self.number_generators() == 0:
-                return Zonotope(c = np.hstack((self.c, other)), G = None, validate = False)
+            if m1 == 0:
+                return Zonotope(c = np.hstack((self.c, other)), G = self.G, validate = False)
             else:
                 return Zonotope(c = np.hstack((self.c, other)),
-                                G = np.hstack((self.G, np.zeros([self.number_generators(), other.size]))), validate = False)
+                                G = np.hstack((self.G, np.zeros((m1, other.size)))),
+                                validate = False)
 
         elif isinstance(other, Zonotope):
+            n2 = other.dimension
+            m2 = other.number_generators()
             # concatenate centers
             center = np.hstack((self.c, other.c))
             # block-concatenate generator matrices
-            generators = np.hstack((np.vstack((self.G, np.zeros([other.number_generators(), other.dimension]))),
-                                    np.vstack((np.zeros([self.number_generators(), self.dimension]), other.G))))
+            generators = np.vstack((np.hstack((self.G, np.zeros((m1, n2)))),
+                                    np.hstack((np.zeros((m2, n1)), other.G))))
 
             return Zonotope(c = center, G = generators, validate = False)
 

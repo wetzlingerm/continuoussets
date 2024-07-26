@@ -5,6 +5,7 @@ from typing import Union
 import numpy as np
 from scipy.optimize import linprog
 from scipy.spatial import ConvexHull
+# from pypoman import compute_polytope_halfspaces
 
 from continuoussets.convexsets.convexset import ConvexSet
 from continuoussets.utils import comparison
@@ -265,6 +266,7 @@ class VPolytope(ConvexSet):
         """
         self._checkMode(mode)
 
+        # todo: use pypoman
         raise NotImplementedError
         # return {'A': A, 'b': b}
     

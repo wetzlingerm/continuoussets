@@ -4,9 +4,11 @@ from typing import Union
 
 import numpy as np
 from scipy.optimize import linprog
+# from pypoman import compute_polytope_vertices, compute_polytope_halfspaces, project_polytope
 from continuoussets.convexsets.convexset import ConvexSet
 # from continuoussets.utils import comparison
-from continuoussets.utils.exceptions import OtherFunctionError, ExactEvaluationImpossibleError
+from continuoussets.utils.exceptions import OtherFunctionError, ExactEvaluationImpossibleError, \
+    EmptySetError, UnboundedSetError
 
 if __name__ == '__main__':
     print('This is the HPolyhedron class.')
@@ -175,8 +177,8 @@ class HPolyhedron(ConvexSet):
             bool: Boundedness.
         """
         # check if the support function value is finite in all directions of the nD simplex (eye(n), -1)
-        value = self.support_function(-np.ones(self.dimension))
-        if value == np.inf:
+        value = self.support_function(-np.ones(self.dimension))[0]
+        if value == np.inf:  # unbounded
             return False
         elif value == -np.inf:  # empty -> bounded
             return True
@@ -184,17 +186,14 @@ class HPolyhedron(ConvexSet):
         for i in range(self.dimension):
             basis_vector = np.zeros(self.dimension)
             basis_vector[i] = 1
-            value = self.support_function(basis_vector)
-            if value == np.inf:
+            value = self.support_function(basis_vector)[0]
+            if value == np.inf:  # unbounded
                 return False
-            elif value == -np.inf:
-                return True
             
         return True
 
     # Cartesian product
     def cartesian_product(self, other: Union[ConvexSet, np.ndarray], *, mode: str = 'exact') -> HPolyhedron:
-        self._checkOtherOperand(other)
         self._checkMode(mode)
 
         # convert other sets to Hpolyhedron
@@ -217,9 +216,27 @@ class HPolyhedron(ConvexSet):
 
     # center
     def center(self) -> np.ndarray:
+        
+        # LP for Chebyshev center
 
-        # LP for Chebyshev center (raise error for unbounded sets)
-        raise NotImplementedError
+        # objective function
+        c = np.hstack((-1, np.zeros(self.dimension)))
+
+        # inequality constraints
+        A_ub = np.vstack((np.hstack((-1, np.zeros(self.dimension))),
+                          np.hstack((np.reshape(np.linalg.norm(self.A, axis=1, ord=2), (self.number_constraints(), 1)), self.A))))
+        b_ub = np.hstack((0, self.b))
+
+        # solve linear program
+        res = linprog(c, A_ub = A_ub, b_ub = b_ub, bounds = (None, None))
+
+        # check empty and unbounded cases
+        if res.status == 2:  # infeasible -> empty
+            raise EmptySetError
+        elif res.status == 3:  # unbounded
+            raise UnboundedSetError
+        
+        return res.x[1:]
     
     # compact representation
     def compact(self, *, rtol: float = 1e-12) -> HPolyhedron:
@@ -236,14 +253,13 @@ class HPolyhedron(ConvexSet):
         
         for i in range(self.number_constraints()):
             # compute support function value of in-body along all normal vectors in A and compare to b
-            (value, vector) = other.support_function(self.A[i])
-            if value > self.b:
+            if other.support_function(self.A[i])[0] > self.b[i]:
                 return False
         
         return True
 
     # convex hull
-    def convex_hull(self, other: Union[ConvexSet, np.ndarray], *, mode: str = 'outer') -> HPolyhedron:
+    def convex_hull(self, other: Union[ConvexSet, np.ndarray], *, mode: str = 'exact') -> HPolyhedron:
         self._checkOtherOperand(other)
         self._checkMode(mode)
 
@@ -262,17 +278,37 @@ class HPolyhedron(ConvexSet):
         # for the first constraints, we already have the value computed for the HPolyhedron
         for i in range(h):
             # compute support function value of other set
-            value_other = other.support_function(self.A[i])
+            value_other = other.support_function(self.A[i])[0]
             b_new[i] = self.b[i] if self.b[i] > value_other else value_other
 
         # for the remaining constraints, we also have to evaluate the support function for the HPolyhedron
         for i in range(2*self.dimension):
-            value_polyhedron = self.support_function(self.A[h+i])
-            value_other = other.support_function(self.A[h+i])
-            b_new[i] = value_polyhedron if value_polyhedron < value_other else value_other
+            value_polyhedron = self.support_function(A_new[h+i])[0]
+            value_other = other.support_function(A_new[h+i])[0]
+            b_new[h+i] = value_polyhedron if value_polyhedron > value_other else value_other
 
         return HPolyhedron(A = A_new, b = b_new)
     
+    # degeneracy
+    def degenerate(self) -> bool:
+        """Check if an HPolyhedron is degenerate.
+
+        Returns:
+            bool: Degeneracy
+        """
+        # compute Chebyshev center and check if it fulfills any inequality with equality
+        try:
+            c = self.center()
+        except EmptySetError:
+            # we consider empty sets to be degenerate
+            return True
+        except UnboundedSetError:
+            # todo: unbounded sets may be degenerate
+            raise NotImplementedError
+
+        return np.any(np.isclose(self.b - np.matmul(self.A, c), 0.))
+    
+    # emptiness
     def empty(self) -> bool:
         """Checks if an HPolyhedron HP is empty.
 
@@ -283,12 +319,16 @@ class HPolyhedron(ConvexSet):
         c = self.b
 
         # constraints
-        A_eq = self.A
-        b_eq = np.zeros(self.number_constraints())
+        A_eq = self.A.T
+        b_eq = np.zeros(self.dimension)
 
         # solve linear program (bounds default (0, Inf) which is required here)
         res = linprog(c, A_eq = A_eq, b_eq = b_eq)
 
+        if res.status == 2:
+            return False
+        elif res.status == 3:
+            return True
         return res.fun < 0
     
     # conversion to zonotope
@@ -374,8 +414,8 @@ class HPolyhedron(ConvexSet):
             return self - other
 
         b_new = self.b
-        for i in range(self.b):
-            b_new[i] -= other.support_function(self.A[i])
+        for i in range(self.number_constraints()):
+            b_new[i] -= other.support_function(self.A[i])[0]
 
         return HPolyhedron(A = self.A, b = b_new)
     
@@ -400,7 +440,7 @@ class HPolyhedron(ConvexSet):
         """
         self._checkSubspace(axis)
 
-        # todo: implement fourier_motzkin helper function
+        # todo: use pypoman
         raise NotImplementedError
 
     # representation by other set representation
@@ -444,9 +484,9 @@ class HPolyhedron(ConvexSet):
         # LP for value and vector
         res = linprog(-direction, A_ub = self.A, b_ub = self.b, bounds = (None, None))
         if res.status == 3:  # unbounded
-            return (np.inf, [])
+            return (np.inf, None)
         elif res.status == 2:  # infeasible
-            return (-np.inf, [])
+            return (-np.inf, None)
 
         return (-res.fun, res.x)
     
@@ -460,7 +500,10 @@ class HPolyhedron(ConvexSet):
         # obtain minimal representation
         # H = self.compact()
 
-        # could be difficult... some built-in function?
+        if self.empty():
+            raise EmptySetError
+
+        # todo: use pypoman
         raise NotImplementedError
 
     # volume

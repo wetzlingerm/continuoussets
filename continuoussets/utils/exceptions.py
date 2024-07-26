@@ -32,6 +32,17 @@ class EmptySetError(Exception):
         super().__init__(message)
 
 
+class UnboundedSetError(Exception):
+
+    def __init__(self):
+        """Exception raised if an operation is applied to an unbounded set, leading to no result.
+        """
+        newline = "\n"
+        message = f"{inspect.stack()[1].function}:{newline}\
+                    The operation cannot return a result as the set is unbounded."
+        super().__init__(message)
+
+
 class OtherFunctionError(Exception):
 
     def __init__(self, types: tuple, other_function: str):

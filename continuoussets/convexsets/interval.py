@@ -694,7 +694,6 @@ class Interval(ConvexSet):
         Returns:
             Interval: Result of the Cartesian product.
         """
-        self._checkOtherOperand(other)
         self._checkMode(mode)
 
         if mode in ['inner', 'exact'] and not other.represents('Interval'):
@@ -795,7 +794,7 @@ class Interval(ConvexSet):
 
         # for consistency, support modes 'exact', 'outer', 'inner'
         return {'A': np.vstack((np.eye(self.dimension), -np.eye(self.dimension))),
-                'b': np.hstack((np.ones(self.dimension, 1), -np.ones(self.dimension, 1)))}
+                'b': np.hstack((self.ub, -self.lb))}
 
     # intersection check
     def intersects(self, other: Union[ConvexSet, np.ndarray]) -> bool:
