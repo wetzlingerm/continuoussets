@@ -246,7 +246,7 @@ class Zonotope(ConvexSet):
         self._checkMode(mode)
 
         n1 = self.dimension
-        m1 = self.number_generators()       
+        m1 = self.number_generators()
 
         if isinstance(other, np.ndarray):
             if m1 == 0:

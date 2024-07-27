@@ -2,7 +2,7 @@ import unittest
 import numpy as np
 #import matplotlib.pyplot as plt
 from continuoussets.utils import comparison, exceptions
-from continuoussets.convexsets.hpolyhedron import HPolyhedron
+from continuoussets.convexsets.hpolyhedron import HPolyhedron, _init_from_vector
 from continuoussets.convexsets.vpolytope import VPolytope
 from continuoussets.convexsets.interval import Interval
 from continuoussets.convexsets.zonotope import Zonotope
@@ -60,6 +60,26 @@ class TestHPolyhedron(unittest.TestCase):
         with self.assertRaises(ValueError):
             # number of constraints do not match
             HPolyhedron(A = np.array([[1., 0.], [0., 1.]]), b = np.array([2., 1., 1.]))
+
+    def test_init_from_vector(self):
+        ''' Test for initialization from vector (note: only called internally) '''
+        # cases:
+        # - 1D
+        # - 2D
+        # - 5D
+        v_1D = np.array([2.])
+        v_2D = np.array([-1., 2.])
+        v_5D = np.array([5., 3., -2., 1., 0.])
+        HP_1D = _init_from_vector(v_1D)
+        HP_2D = _init_from_vector(v_2D)
+        HP_5D = _init_from_vector(v_5D)
+
+        assert HP_1D.contains(v_1D)
+        assert HP_1D.degenerate()
+        assert HP_2D.contains(v_2D)
+        assert HP_2D.degenerate()
+        assert HP_5D.contains(v_5D)
+        assert HP_5D.degenerate()
 
     def test_repr(self):
         ''' Test for display on the command window '''
@@ -170,17 +190,18 @@ class TestHPolyhedron(unittest.TestCase):
         HP2 = HPolyhedron(A = np.array([[1.], [-1.]]), b = np.array([3., 2.]))
         I = Interval(lb = -2., ub = 3.)
 
-        with self.assertRaises(NotImplementedError):
-            HP1.cartesian_product(np.array([2., 1.]))
-
-        result1 = HP1.cartesian_product(HP2)
-        result2 = HP1.cartesian_product(I)
+        result1 = HP1.cartesian_product(np.array([2.]))
+        result2 = HP1.cartesian_product(HP2)
+        result3 = HP1.cartesian_product(I)
 
         true_result1 = HPolyhedron(A = np.array([[1., 0., 0.], [0., 1., 0.], [0., 0., 1.], [0., 0., -1.]]),
+                                   b = np.array([1., 1., 2., -2.]))
+        true_result2 = HPolyhedron(A = np.array([[1., 0., 0.], [0., 1., 0.], [0., 0., 1.], [0., 0., -1.]]),
                                    b = np.array([1., 1., 3., 2.]))
         
         assert result1 == true_result1
-        assert result2 == true_result1
+        assert result2 == true_result2
+        assert result3 == true_result2
 
     def test_center(self):
         ''' Test for center computation '''
@@ -321,6 +342,97 @@ class TestHPolyhedron(unittest.TestCase):
         assert np.array_equal(d['A'], A)
         assert np.array_equal(d['b'], b)
 
+    def test_intersection(self):
+        ''' Test for intersection '''
+        # cases:
+        # - hpolyhedron x vector (contained)
+        # - hpolyhedron x vector (not contained)
+        # - hpolyhedron x hpolyhedron
+        HP1 = HPolyhedron(A = np.array([[1., 0.], [-1., 1.], [-1., -1.]]), b = np.array([1., 1., 1.]))
+        HP2 = HPolyhedron(A = np.array([[1., 1.], [1., -1.]]), b = np.array([1., 1.]))
+
+        result1 = HP1.intersection(np.array([0., 0.]))
+        result2 = HP1.intersection(HP2)
+        result3 = HP2.intersection(HP1)
+
+        true_result2 = HPolyhedron(A = np.array([[1., 1.], [-1., 1.], [-1., -1.], [1., -1.]]),
+                                   b = np.array([1., 1., 1., 1.]))
+
+        assert result1 == np.array([0., 0.])
+        assert HP1.intersection(np.array([10., 5.])).empty()
+        assert result2 == true_result2
+        assert result2 == result3
+
+    def test_intersects(self):
+        ''' Test for intersection check '''
+        # cases:
+        # - hpolyhedron x vector
+        # - hpolyhedron x hpolyhedron
+        # - hpolyhedron x interval
+        # - hpolyhedron x zonotope
+        # - hpolyhedron x vpolytope
+        HP1 = HPolyhedron(A = np.array([[1., 0.], [-1., 1.], [-1., -1.]]),
+                          b = np.array([1., 1., 1.]))
+        HP2 = HPolyhedron(A = np.array([[-1., 0.], [1., 1.], [1., -1.]]),
+                          b = np.array([2., 0., 0.]))
+        I1 = Interval(lb = np.array([-1., -4.]), ub = np.array([4., 1.]))
+        I2 = Interval(lb = np.array([2., -4.]), ub = np.array([4., 1.]))
+        Z1 = Zonotope(c = np.array([1., 1.]), G = np.array([[1., -1.], [0., 1.]]))
+        Z2 = Zonotope(c = np.array([2.5, 1.]), G = np.array([[1., -1.], [0., 1.]]))
+        VP1 = VPolytope(V = np.array([[-1., -1.], [0., 0.], [-2., 2.]]))
+        VP2 = VPolytope(V = np.array([[1.5, -2.], [3., 0.], [1., 4.]]))
+
+        assert HP1.intersects(np.array([0., 0.]))
+        assert not HP1.intersects(np.array([10., 5.]))
+        assert HP1.intersects(HP2)
+        assert HP2.intersects(HP1)
+        assert HP1.intersects(I1)
+        assert not HP1.intersects(I2)
+        assert HP1.intersects(Z1)
+        assert not HP1.intersects(Z2)
+        assert HP1.intersects(VP1)
+        assert not HP1.intersects(VP2)
+
+    def test_interval(self):
+        ''' Test for conversion to Interval '''
+        # cases:
+        # - bounded
+        # - empty
+        # - unbounded
+        HP1 = HPolyhedron(A = np.array([[1., 0.], [-1., 1.], [-1., -1.]]),
+                          b = np.array([1., 1., 1.]))
+        HP2 = HPolyhedron(A = np.array([[1., 0.], [0., -1.], [1., 1.], [-1., 0.]]),
+                          b = np.array([-1., 0., -2., 1.]))
+        HP3 = HPolyhedron(A = np.array([[1., 0.], [-1., 1.]]), b = np.array([1., 0.]))
+
+        result1 = Interval(**HP1.interval(mode = 'outer'))
+
+        true_result1 = Interval(lb = np.array([-1., -2.]), ub = np.array([1., 2.]))
+
+        assert result1 == true_result1
+
+        with self.assertRaises(NotImplementedError):
+            HP1.interval()
+        with self.assertRaises(NotImplementedError):
+            HP1.interval(mode = 'inner')
+        with self.assertRaises(exceptions.EmptySetError):
+            HP2.interval(mode = 'outer')
+        with self.assertRaises(exceptions.UnboundedSetError):
+            HP3.interval(mode = 'outer')
+
+    def test_matmul(self):
+        ''' Test for linear map '''
+        # cases:
+        # - hpolyhedron x identity
+        # - hpolyhedron x square invertible
+        HP1 = HPolyhedron(A = np.array([[1., 0.], [-1., 1.], [-1., -1.]]),
+                          b = np.array([1., 1., 1.]))
+        M1 = np.eye(2)
+        M2 = np.array([[2., 1.], [-1., -1.]])
+
+        with self.assertRaises(NotImplementedError):
+            HP1.matmul(M2)
+
     def test_minkowski_difference(self):
         ''' Test for Minkowski difference '''
         # cases:
@@ -335,6 +447,29 @@ class TestHPolyhedron(unittest.TestCase):
                                    b = np.array([0.8, 0.6, 0.7]))
         
         assert result1 == true_result1
+
+    def test_minkowski_sum(self):
+        ''' Test for Minkowski sum '''
+        # cases:
+        # - hpolyhedron + vector
+        # - hpolyhedron + hpolyhedron
+        HP1 = HPolyhedron(A = np.array([[1., 0.], [-1., 1.], [-1., -1.]]),
+                          b = np.array([1., 1., 1.]))
+        v = np.array([2., -1.])
+
+        result1 = HP1.minkowski_sum(v)
+        result3 = HP1.minkowski_sum(HP1, mode = 'outer')
+
+        true_result1 = HPolyhedron(A = np.array([[1., 0.], [-1., 1.], [-1., -1.]]),
+                                   b = np.array([3., -2., 0.]))
+        true_result2 = HPolyhedron(A = np.array([[0.5, 0.], [-0.5, 0.5], [-0.5, -0.5]]),
+                                   b = np.array([1., 1., 1.]))
+        
+        assert result1 == true_result1
+        assert result3.contains(true_result2)
+
+        with self.assertRaises(NotImplementedError):
+            result2 = HP1.minkowski_sum(HP1)
 
     def test_represents(self):
         ''' Test for representation equivalence '''
