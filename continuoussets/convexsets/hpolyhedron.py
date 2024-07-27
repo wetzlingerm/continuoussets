@@ -114,7 +114,8 @@ class HPolyhedron(ConvexSet):
         if isinstance(other, np.ndarray):
             if not self.contains(other):
                 return False
-            raise NotImplementedError
+            other = _init_from_vector(other)
+            return other.contains(self)
         
         # convert everything to a HPolyhedron
         if not isinstance(other, HPolyhedron):
@@ -198,7 +199,7 @@ class HPolyhedron(ConvexSet):
 
         # convert other sets to Hpolyhedron
         if isinstance(other, np.ndarray):
-            raise NotImplementedError
+            other = _init_from_vector(other)
         
         if not isinstance(other, HPolyhedron):
             other = HPolyhedron(**other.hpolyhedron(mode = 'exact'))
@@ -216,6 +217,16 @@ class HPolyhedron(ConvexSet):
 
     # center
     def center(self) -> np.ndarray:
+        """Computation of the Chebyshev center of an HPolyhedron HP.
+        Defined as the center with the ball of largest radius contained in HP.
+
+        Raises:
+            EmptySetError: Set is empty.
+            UnboundedSetError: Set is unbounded. LP could not converge.
+
+        Returns:
+            np.ndarray: Chebyshev center.
+        """
         
         # LP for Chebyshev center
 
@@ -299,11 +310,25 @@ class HPolyhedron(ConvexSet):
 
     # convex hull
     def convex_hull(self, other: Union[ConvexSet, np.ndarray], *, mode: str = 'exact') -> HPolyhedron:
+        """Convex hull of an HPolyhedron HP and another set or vector S.
+        Defined as {lambda*h + (1-lambda)*s | h in HP, s in S, lambda in [0,1]}
+
+        Args:
+            other (Union[ConvexSet, np.ndarray]): Set or vector.
+            mode (str, optional): Approximation of operation: 'inner', 'exact', 'outer'. Defaults to 'exact'.
+
+        Raises:
+            NotImplementedError: Convex hull with vector not supported.
+            NotImplementedError: mode in ['inner', 'exact'] not supported.
+
+        Returns:
+            HPolyhedron: Result of the convex hull.
+        """
         self._checkOtherOperand(other)
         self._checkMode(mode)
 
         if isinstance(other, np.ndarray):
-            raise NotImplementedError
+            other = _init_from_vector(other)
         
         if mode == ['inner', 'exact']:
             raise NotImplementedError
@@ -326,7 +351,7 @@ class HPolyhedron(ConvexSet):
             value_other = other.support_function(A_new[h+i])[0]
             b_new[h+i] = value_polyhedron if value_polyhedron > value_other else value_other
 
-        return HPolyhedron(A = A_new, b = b_new)
+        return HPolyhedron(A = A_new, b = b_new, validate = False)
     
     # degeneracy
     def degenerate(self) -> bool:
@@ -384,31 +409,142 @@ class HPolyhedron(ConvexSet):
 
         return {'A': self.A, 'b': self.b}
     
+    # intersection
+    def intersection(self, other: Union[ConvexSet, np.ndarray], mode: str = 'exact') -> HPolyhedron:
+        self._checkOtherOperand(other)
+        self._checkMode(mode)
+
+        if isinstance(other, np.ndarray):
+            other = _init_from_vector(other)
+            return self.intersection(other)
+            
+        # convert all other sets to HPolyhedron
+        if not isinstance(other, HPolyhedron):
+            other = HPolyhedron(**other.hpolyhedron(mode = mode))
+
+        return HPolyhedron(A = np.vstack((self.A, other.A)),
+                           b = np.hstack((self.b, other.b)),
+                           validate = False)
+    
     # intersection check
     def intersects(self, other: Union[ConvexSet, np.ndarray]) -> bool:
+        """Checks if an HPolyhedron intersects another set of vector S.
+        Defined as exists s in HP: s in S?
+
+        Args:
+            other (Union[ConvexSet, np.ndarray]): Set or vector.
+
+        Returns:
+            bool: Result of the intersection check.
+        """
         self._checkOtherOperand(other)
 
         if isinstance(other, np.ndarray):
             return self.contains(other)
+        elif isinstance(other, HPolyhedron):
+            return self._intersects_hpolyhedron(other)
+        elif type(other).__name__ == 'Interval':
+            return self._intersects_interval(other)
+        elif type(other).__name__ == 'Zonotope':
+            return self._intersects_zonotope(other)
+        elif type(other).__name__ == 'VPolytope':
+            return self._intersects_vpolytope(other)
+        
+        return NotImplementedError
+    
+    # intersection check with hpolyhedron
+    def _intersects_hpolyhedron(self, other) -> bool:
+        # compute explicit intersection and check whether it is empty
+        return not self.intersection(other).empty()
 
-        # LPs for all other ConvexSet classes
-        raise NotImplementedError
+    # intersection check with interval
+    def _intersects_interval(self, other) -> bool:
+        # linear program: min 0  s.t.  Ax <= b, lb <= x <= ub
+        res = linprog(np.zeros(self.dimension),
+                      A_ub = np.vstack((self.A, np.eye(self.dimension), -np.eye(self.dimension))),
+                      b_ub = np.hstack((self.b, other.ub, -other.lb)))
+        return res.success
+    
+    # intersection check with zonotope
+    def _intersects_zonotope(self, other) -> bool:
+        # linear program: min 0  s.t.  Ax <= b, c + Gbeta == x, beta <= 1
+        n = self.dimension
+        m = other.number_generators()
+
+        c = np.zeros(n + m)
+        A_ub = np.vstack((np.hstack((self.A, np.zeros((self.number_constraints(), m)))),
+                          np.hstack((np.zeros((m, n)), -np.eye(m)))))
+        b_ub = np.hstack((self.b, np.ones(m)))
+        A_eq = np.hstack((-np.eye(n), other.G.T))
+        b_eq = -other.c
+
+        res = linprog(c, A_ub = A_ub, b_ub = b_ub, A_eq = A_eq, b_eq = b_eq, bounds = (None, None))
+        return res.success
+    
+    def _intersects_vpolytope(self, other) -> bool:
+        # linear program: min 0  s.t.  Ax <= b, Vbeta == x, sum beta = 1, beta >= 0
+
+        n = self.dimension
+        m = other.number_vertices()
+
+        c = np.zeros(n + m)
+        A_ub = np.vstack((np.hstack((self.A, np.zeros((self.number_constraints(), m)))),
+                          np.hstack((np.zeros((m, n)), -np.eye(m)))))
+        b_ub = np.hstack((self.b, np.zeros(m)))
+        A_eq = np.vstack((np.hstack((-np.eye(n), other.V.T)),
+                          np.hstack((np.zeros(n), np.ones(m)))))
+        b_eq = np.hstack((np.zeros(n), 1))
+
+        res = linprog(c, A_ub = A_ub, b_ub = b_ub, A_eq = A_eq, b_eq = b_eq, bounds = (None, None))
+        return res.success
 
     # conversion to interval
     def interval(self, *, mode: str = 'exact') -> dict:
+        """Conversion of an HPolyhedron HP to an Interval I.
+
+        Args:
+            mode (str, optional): Approximation of the conversion: 'inner', 'exact', 'outer'. Defaults to 'exact'.
+
+        Raises:
+            NotImplementedError: mode = 'inner' not supported unless HP represents an interval.
+            ExactEvaluationImpossibleError: mode = 'exact' not supported unless HP represents an interval.
+            UnboundedSetError: HPolyhedron is unbounded.
+            EmptySetError: HPolyhedron is empty.
+
+        Returns:
+            dict: Keyword arguments for instantiation of an Interval object.
+        """
         self._checkMode(mode)
 
         if mode == 'inner':
-            if not self.represents('Interval'):
+            if not self.represents(set_class = 'Interval'):
                 raise NotImplementedError
             # else: proceed with 'outer' conversion, which is exact
         if mode == 'exact':
-            if not self.represents('Interval'):
+            if not self.represents(set_class = 'Interval'):
                 raise ExactEvaluationImpossibleError
         
-        # support function in positive/negative axis-aligned directions
-        # raise error if polyhedron is unbounded
-        raise NotImplementedError
+        # loop over all 2n -+ basis vectors and use support function value
+        n = self.dimension
+        lower_bound = np.zeros(n)
+        upper_bound = np.zeros(n)
+
+        basis_vector = np.zeros(n)
+        for i in range(n):
+            for s in [-1., 1.]:
+                basis_vector[i] = s
+                value = self.support_function(basis_vector)[0]
+                basis_vector[i] = 0.
+                if value == np.inf:
+                    raise UnboundedSetError
+                elif value == -np.inf:
+                    raise EmptySetError
+                elif s == -1.:
+                    lower_bound[i] = -value
+                else:  # s == 1.
+                    upper_bound[i] = value
+        
+        return {'lb': lower_bound, 'ub': upper_bound}
     
     # linear map
     def matmul(self, matrix: np.ndarray) -> HPolyhedron:
@@ -425,14 +561,33 @@ class HPolyhedron(ConvexSet):
         if isinstance(other, np.ndarray):
             return self + other
         
-        # todo: for mode = 'outer', implement addition of support function evaluation
+        n = self.dimension
+        h = self.number_constraints()
+
+        if mode == 'outer':
+            # addition of support function evaluation
+            A_new = np.vstack((self.A, np.eye(n), -np.eye(n)))
+            b_new = np.hstack((self.b, np.zeros(2*n)))
+        
+            # first h constraints: only compute support function of other
+            for i in range(h):
+                b_new[i] += other.support_function(A_new[i])[0]
+
+            # remaining 2n constraints: also compute support function of self
+            for i in range(2*n):
+                b_new[h+i] = self.support_function(A_new[h+i])[0] + other.support_function(A_new[h+i])[0]
+
+            return HPolyhedron(A = A_new, b = b_new, validate = False)
         
         if not isinstance(other, HPolyhedron):
             other = HPolyhedron(**other.hpolyhedron(mode = 'exact'))
         
         # 2. concatenation/lifting
+        HP_lifted = self.cartesian_product(other)
+
         # 3. projection onto first n dimensions
-        raise NotImplementedError
+        M = np.hstack((np.eye(n), np.eye(n)))
+        return HP_lifted.matmul(M)
     
     # Minkowski difference
     def minkowski_difference(self, other: Union[ConvexSet, np.ndarray], *, mode: str = 'exact') -> HPolyhedron:
@@ -589,3 +744,12 @@ class HPolyhedron(ConvexSet):
         # call conversion to interval and convert interval to zonotope
         raise NotImplementedError
         # return {'c': ..., 'G': ...}
+
+
+# initialize HPolyhedron from vector
+def _init_from_vector(v: np.ndarray) -> HPolyhedron:
+    n = v.size
+    A = np.vstack((-np.ones(n), np.eye(n)))
+    b = np.matmul(A, v)
+
+    return HPolyhedron(A = A, b = b, validate = False)
