@@ -240,12 +240,51 @@ class HPolyhedron(ConvexSet):
     
     # compact representation
     def compact(self, *, rtol: float = 1e-12) -> HPolyhedron:
+        """Minimal representation of an HPolyhedron HP.
+        Removes all redundant inequality constraints from the constraint matrix and constraint vector.
 
-        # check for redundancy of each halfspace constraint
-        raise NotImplementedError
+        Args:
+            rtol (float, optional): Relative tolerance. Defaults to 1e-12.
+
+        Returns:
+            HPolyhedron: HPolyhedron in minimal representation.
+        """
+        index_irredundant = np.full((self.number_constraints(),), False)
+        index_keep_for_i = np.full((self.number_constraints(),), True)
+
+        for i in range(self.number_constraints()):
+            if not index_irredundant[i]:
+                # evaluate support function in direction of ith normal vector
+                # for polyhedron without ith constraint
+                index_keep_for_i[i] = False
+                polyhedron_i = HPolyhedron(A = self.A[index_keep_for_i], b = self.b[index_keep_for_i])
+                (value, vector) = polyhedron_i.support_function(self.A[i])
+
+                # compare to value of support function
+                if self.b[i] < value:
+                    # ith constraint is irredundant
+                    index_irredundant[i] = True
+                    index_keep_for_i[i] = True
+                else:
+                    # support vector x is a vertex of the (minimal) polyhedron
+                    # -> constraints that fulfill Ax = b (with equality!) are irredundant as well
+                    if vector is not None:  # avoid empty/unbounded cases
+                        index_irredundant = np.logical_or(index_irredundant,
+                                                          np.isclose(np.matmul(self.A, vector), self.b))
+        
+        return HPolyhedron(A = self.A[index_irredundant], b = self.b[index_irredundant], validate = False)
 
     # containment check
     def contains(self, other: Union[ConvexSet, np.ndarray]) -> bool:
+        """Checks containment of a ConvexSet or vector (np.ndarray) S in an HPolyhedron HP.
+        Defined as forall s in S: s in HP?
+
+        Args:
+            other (Union[ConvexSet, np.ndarray]): Set or vector.
+
+        Returns:
+            bool: Containment.
+        """
         self._checkOtherOperand(other)
 
         if isinstance(other, np.ndarray):

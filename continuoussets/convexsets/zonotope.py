@@ -313,7 +313,7 @@ class Zonotope(ConvexSet):
     # containment check
     def contains(self, other: Union[ConvexSet, np.ndarray]) -> bool:
         """Checks containment of a ConvexSet or vector (np.ndarray) S in a Zonotope Z.
-        Defined as forall s in S: s in I?
+        Defined as forall s in S: s in Z?
 
         Args:
             other (Union[ConvexSet, np.ndarray]): Set or vector.

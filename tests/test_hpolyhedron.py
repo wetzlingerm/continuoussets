@@ -204,11 +204,30 @@ class TestHPolyhedron(unittest.TestCase):
         ''' Test for minimal representation '''
         # cases:
         # - minimal
+        # - single redundant constraint
+        # - multiple redundant constraints (1D, 2D)
         HP1 = HPolyhedron(A = np.array([[1., 0.], [0., 1.], [-1., -1.]]),
                           b = np.array([2., 1., 3.]))
+        HP2 = HPolyhedron(A = np.array([[1., 0.], [1., 1.], [0., 1.], [-1., -1.]]),
+                          b = np.array([2., 10., 1., 3.]))
+        HP3 = HPolyhedron(A = np.array([[1.], [1.], [1.], [1.]]),
+                          b = np.array([1., 3., 2., 4.]))
+        HP4 = HPolyhedron(A = np.array([[1., 0], [1., 1.], [-1., 1.], [-1., 0.], [0., -1.], [-1., -1.]]),
+                          b = np.array([1., 4., 1., 1.5, 2.5, 1.]))
         
-        with self.assertRaises(NotImplementedError):
-            HP1.compact()
+        result1 = HP1.compact()
+        result2 = HP2.compact()
+        result3 = HP3.compact()
+        result4 = HP4.compact()
+
+        assert result1.number_constraints() == 3
+        assert result1 == HP1
+        assert result2.number_constraints() == 3
+        assert result2 == HP2
+        assert result3.number_constraints() == 1
+        assert result3 == HP3
+        assert result4.number_constraints() == 3
+        assert result4 == HP4
 
     def test_contains(self):
         ''' Test for containment check '''
