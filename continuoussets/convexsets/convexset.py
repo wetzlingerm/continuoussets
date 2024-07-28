@@ -172,7 +172,7 @@ class ConvexSet(ABC):
             check_dimension (bool, optional): Whether unequal dimensions should raise an Exception. Defaults to True.
 
         Raises:
-            TypeError: Other operand has to be either a ConvexSet object or an np.ndarray.
+            TypeError: Other operand must be either a ConvexSet object or an np.ndarray.
             AttributeError: Only vectors (1D np.ndarray) supported.
             AttributeError: Length of np.ndarray does not match dimension of ConvexSet. (Only if check_dimension = True)
             AttributeError: Dimensions of ConvexSet objects do not match. (Only if check_dimension = True)

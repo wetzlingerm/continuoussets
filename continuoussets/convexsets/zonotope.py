@@ -9,7 +9,7 @@ from scipy.spatial import ConvexHull
 
 from continuoussets.convexsets.convexset import ConvexSet
 from continuoussets.utils import comparison
-from continuoussets.utils.exceptions import OtherFunctionError
+from continuoussets.utils.exceptions import OtherFunctionError, ExactEvaluationImpossibleError
 
 if __name__ == '__main__':
     print('This is the Zonotope class.')
@@ -230,6 +230,15 @@ class Zonotope(ConvexSet):
         # shift zonotope to origin
         Z = self - self.c
         return direction / Z.zonotope_norm(direction) + self.c
+    
+    # boundedness
+    def bounded(self) -> bool:
+        """Checks if a Zonotope Z is bounded.
+
+        Returns:
+            bool: Boundedness.
+        """
+        return True
 
     # Cartesian product
     def cartesian_product(self, other: Union[ConvexSet, np.ndarray], *, mode: str = 'exact') -> Zonotope:
@@ -398,6 +407,15 @@ class Zonotope(ConvexSet):
         """
         return self.G.size == 0 or np.linalg.matrix_rank(self.G) < self.dimension
     
+    # emptiness
+    def empty(self) -> bool:
+        """Checks if a Zonotope Z is empty.
+
+        Returns:
+            bool: Emptiness.
+        """
+        return False
+
     # conversion to hpolyhedron
     def hpolyhedron(self, *, mode: str = 'exact') -> dict:
         """Conversion of a Zonotope Z to an HPolyhedron HP.
@@ -474,8 +492,7 @@ class Zonotope(ConvexSet):
             if self.represents('Interval'):
                 return self.interval(mode = 'outer')
             else:
-                # define error specifying that a given conversion is not possible
-                raise NotImplementedError
+                raise ExactEvaluationImpossibleError
 
         return {'lb': lower_bound, 'ub': upper_bound}
 
@@ -509,7 +526,7 @@ class Zonotope(ConvexSet):
 
         Args:
             other (Union[ConvexSet, np.ndarray]): Set or vector.
-            mode (str, optional): Approximation of the result: 'inner', 'exact', 'outer'. Defaults to 'outer'.
+            mode (str, optional): Approximation of the evaluation: 'inner', 'exact', 'outer'. Defaults to 'outer'.
 
         Returns:
             Zonotope: Result of the Minkowski sum.

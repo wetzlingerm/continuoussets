@@ -654,7 +654,7 @@ class Interval(ConvexSet):
 
         Raises:
             NotImplementedError: Interval must contain the origin.
-            NotImplementedError: Interval must be non-degenerate
+            NotImplementedError: Interval must be non-degenerate.
 
         Returns:
             np.ndarray: Boundary point.
@@ -678,6 +678,15 @@ class Interval(ConvexSet):
         ratio = np.min(ratio[np.logical_not(np.isinf(ratio))])
         # multiply (normalized) direction with that factor
         return direction * ratio
+    
+    # boundedness
+    def bounded(self) -> bool:
+        """Checks if an Interval is bounded.
+
+        Returns:
+            bool: Boundedness.
+        """
+        return True
 
     # Cartesian product
     def cartesian_product(self, other: Union[ConvexSet, np.ndarray], *, mode: str = 'outer') -> Interval:
@@ -779,6 +788,24 @@ class Interval(ConvexSet):
         else:
             return Interval(lb = np.minimum(self.lb, other),
                             ub = np.maximum(self.ub, other), validate=False)
+        
+    # degeneracy
+    def degenerate(self) -> bool:
+        """Check if an Interval is degenerate.
+
+        Returns:
+            bool: Degeneracy.
+        """
+        return np.any(np.isclose(self.diameter(), 0))
+    
+    # emptiness
+    def empty(self) -> bool:
+        """Check if an Interval is empty.
+
+        Returns:
+            bool: Emptiness.
+        """
+        return False
 
     # conversion to hpolyhedron
     def hpolyhedron(self, *, mode: str = 'exact') -> dict:
@@ -848,7 +875,6 @@ class Interval(ConvexSet):
             matrix_ub = matrix * self.ub
             lower = np.sum(np.minimum(matrix_lb, matrix_ub), axis=1)
             upper = np.sum(np.maximum(matrix_lb, matrix_ub), axis=1)
-        # TODO: matrix has to be IntervalMatrix object!
 
         return Interval(lb = lower, ub = upper, validate=False)
 
@@ -901,6 +927,7 @@ class Interval(ConvexSet):
             return self - other
 
         # convert subtrahend to interval
+        # note: outer approximative conversion still yields exact result
         if not isinstance(other, Interval):
             other = Interval(**other.interval(mode = 'outer'))
 
@@ -1043,14 +1070,21 @@ class Interval(ConvexSet):
         """
         self._checkMode(mode)
 
-        # for consistency, support modes 'exact', 'outer', 'inner'
-        # since every interval is a zonotope, these yield the same results
+        # every interval is a zonotope, so all modes 'exact', 'outer', 'inner' yield the same result
         generators = np.diag(self.diameter())
         generators = 0.5*generators[~np.all(generators == 0, axis=0), :]
         return {'c': self.center(), 'G': generators}
 
     # check function
-    def _checkIntervalArithmetic(self, other):
+    def _checkIntervalArithmetic(self, other: Union[Interval, np.ndarray]):
+        """Check function for the arguments of an interval arithmetic operation.
+
+        Args:
+            other (Interval, np.ndarray): Interval or vector.
+
+        Raises:
+            TypeError: Ohter operand must be either an Interval or a vector.
+        """
         # wrapper ensures that the other operand is either int, float, list, np.ndarray or Interval object
         if self.validate:
             if (not isinstance(other, int) and not isinstance(other, float) and not isinstance(other, list)

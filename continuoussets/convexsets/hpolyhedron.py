@@ -394,7 +394,7 @@ class HPolyhedron(ConvexSet):
         """Check if an HPolyhedron is degenerate.
 
         Returns:
-            bool: Degeneracy
+            bool: Degeneracy.
         """
         # compute Chebyshev center and check if it fulfills any inequality with equality
         try:

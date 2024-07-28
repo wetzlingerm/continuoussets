@@ -179,6 +179,20 @@ class TestVPolytope(unittest.TestCase):
         with self.assertRaises(NotImplementedError):
             VP_singlevertex.boundary_point(direction)
 
+    def test_bounded(self):
+        ''' Test for boundedness '''
+        # cases:
+        # - single vertex
+        # - degenerate
+        # - non-degenerate
+        VP_1 = VPolytope(V = np.array([[1., 0.]]))
+        VP_2 = VPolytope(V = np.array([[1., 0.], [0., 1.]]))
+        VP_3 = VPolytope(V = np.array([[1., 0.], [0., 1.], [-1., -1.]]))
+
+        assert VP_1.bounded()
+        assert VP_2.bounded()
+        assert VP_3.bounded()
+
     def test_cartesian_product(self):
         ''' Test for Cartesian product '''
         # cases:
@@ -285,6 +299,34 @@ class TestVPolytope(unittest.TestCase):
         assert result_1 == true_result_1
         assert result_2 == true_result_2
         assert result_3 == true_result_3
+    
+    def test_degenerate(self):
+        ''' Test for degeneracy '''
+        # cases:
+        # - single vertex
+        # - degenerate
+        # - non-degenerate
+        VP_1 = VPolytope(V = np.array([[1., 0.]]))
+        VP_2 = VPolytope(V = np.array([[1., 0.], [0., 1.]]))
+        VP_3 = VPolytope(V = np.array([[1., 0.], [0., 1.], [-1., -1.]]))
+
+        assert VP_1.degenerate()
+        assert VP_2.degenerate()
+        assert not VP_3.degenerate()
+
+    def test_empty(self):
+        ''' Test for emptiness '''
+        # cases:
+        # - single vertex
+        # - degenerate
+        # - non-degenerate
+        VP_1 = VPolytope(V = np.array([[1., 0.]]))
+        VP_2 = VPolytope(V = np.array([[1., 0.], [0., 1.]]))
+        VP_3 = VPolytope(V = np.array([[1., 0.], [0., 1.], [-1., -1.]]))
+
+        assert not VP_1.empty()
+        assert not VP_2.empty()
+        assert not VP_3.empty()
 
     def test_hpolyedron(self):
         ''' Test for conversion to HPolyhedron '''
