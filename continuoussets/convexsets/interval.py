@@ -757,7 +757,7 @@ class Interval(ConvexSet):
 
         Args:
             other (Union[ConvexSet, np.ndarray]): Set or vector.
-            mode (str, optional): Approximation of operation: 'inner', 'exact', 'outer'. Defaults to 'outer'.
+            mode (str, optional): Approximation of the evaluation: 'inner', 'exact', 'outer'. Defaults to 'outer'.
 
         Raises:
             NotImplementedError: Inner approximation and exact evaluation not implemented in the general case.
@@ -798,7 +798,7 @@ class Interval(ConvexSet):
 
     # intersection check
     def intersects(self, other: Union[ConvexSet, np.ndarray]) -> bool:
-        """Checks if an Interval I intersects another set of vector S.
+        """Checks if an Interval I intersects another set or vector S.
         Defined as exists s in I: s in S?
 
         Args:
@@ -854,7 +854,7 @@ class Interval(ConvexSet):
 
     # Minkowski sum
     def minkowski_sum(self, other: Union[ConvexSet, np.ndarray], *, mode: str = 'outer') -> Interval:
-        """Minkowski sum between an Interval I and another set of vector S.
+        """Minkowski sum of an Interval I and another set or vector S.
         Defined as {a + s | a in I, s in S}.
 
         Args:

@@ -415,7 +415,7 @@ class Zonotope(ConvexSet):
 
     # intersection check
     def intersects(self, other: Union[ConvexSet, np.ndarray]) -> bool:
-        """Checks if a Zonotope Z intersects another set of vector S.
+        """Checks if a Zonotope Z intersects another set or vector S.
         Defined as exists s in Z: s in S?
 
         Args:
