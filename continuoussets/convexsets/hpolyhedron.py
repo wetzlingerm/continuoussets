@@ -22,6 +22,24 @@ class HPolyhedron(ConvexSet):
                  A: Union[np.ndarray, list, float, int] = None,
                  b: Union[np.ndarray, list, float, int] = None,
                  validate: bool = True):
+        """Instantiates an HPolyhedron object HP = {x | Ax <= b}.
+
+        Args:
+            A (Union[np.ndarray, list, float, int], optional): Constraint matrix. Defaults to None.
+            b (Union[np.ndarray, list, float, int], optional): Constraint offset. Defaults to None.
+            validate (bool, optional): Input argument check. Defaults to True.
+
+        Raises:
+            ValueError: Two inputs are required.
+            TypeError: Constraint matrix must be int, float, list or np.ndarray.
+            TypeError: Constraint offset must be int, float, list or np.ndarray.
+            ValueError: Constraint offset needs to be a 1D array.
+            ValueError: Constraint matrix must be a 1D or 2D array.
+            ValueError: Columns in constraint matrix must match size of constraint offset.
+
+        Returns:
+            HPolyhedron: Polyhedron.
+        """
         # constraint matrix and constraint offset have to be given
         if self.validate and validate:
             if A is None or b is None:
@@ -166,6 +184,17 @@ class HPolyhedron(ConvexSet):
 
     # point on boundary along a given direction
     def boundary_point(self, direction: np.ndarray) -> np.ndarray:
+        """Computation of the point on the boundary of an HPolyhedron HP in a given direction.
+
+        Args:
+            direction (np.ndarray): Direction along which to find the boundary point.
+
+        Raises:
+            NotImplementedError: Currently not supported.
+
+        Returns:
+            np.ndarray: Boundary point.
+        """
         self._checkOtherOperand(direction)
 
         raise NotImplementedError
@@ -195,6 +224,16 @@ class HPolyhedron(ConvexSet):
 
     # Cartesian product
     def cartesian_product(self, other: Union[ConvexSet, np.ndarray], *, mode: str = 'exact') -> HPolyhedron:
+        """Cartesian product of an HPolyhedron HP and another set or vector S.
+        Defined as {[a^T s^T]^T | a in HP, s in S}.
+
+        Args:
+            other (Union[ConvexSet, np.ndarray]): Set or vector.
+            mode (str, optional): Approximation of the evaluation: 'inner', 'exact', 'outer'. Defaults to 'exact'.
+
+        Returns:
+            HPolyhedron: Result of the Cartesian product.
+        """
         self._checkMode(mode)
 
         # convert other sets to Hpolyhedron
@@ -217,7 +256,7 @@ class HPolyhedron(ConvexSet):
 
     # center
     def center(self) -> np.ndarray:
-        """Computation of the Chebyshev center of an HPolyhedron HP.
+        """Computation of the Chebyshev center of an HPolyhedron HP via linear programming.
         Defined as the center with the ball of largest radius contained in HP.
 
         Raises:
@@ -227,9 +266,6 @@ class HPolyhedron(ConvexSet):
         Returns:
             np.ndarray: Chebyshev center.
         """
-        
-        # LP for Chebyshev center
-
         # objective function
         c = np.hstack((-1, np.zeros(self.dimension)))
 
@@ -315,7 +351,7 @@ class HPolyhedron(ConvexSet):
 
         Args:
             other (Union[ConvexSet, np.ndarray]): Set or vector.
-            mode (str, optional): Approximation of operation: 'inner', 'exact', 'outer'. Defaults to 'exact'.
+            mode (str, optional): Approximation of the evaluation: 'inner', 'exact', 'outer'. Defaults to 'exact'.
 
         Raises:
             NotImplementedError: Convex hull with vector not supported.
@@ -411,6 +447,15 @@ class HPolyhedron(ConvexSet):
     
     # intersection
     def intersection(self, other: Union[ConvexSet, np.ndarray], mode: str = 'exact') -> HPolyhedron:
+        """Computation of the intersection of an HPolyhedron HP and another set or vector S.
+
+        Args:
+            other (Union[ConvexSet, np.ndarray]): Set or vector.
+            mode (str, optional): Approximation of the evaluation: 'inner', 'exact', 'outer'. Defaults to 'exact'.
+
+        Returns:
+            HPolyhedron: Result of the intersection.
+        """
         self._checkOtherOperand(other)
         self._checkMode(mode)
 
@@ -453,12 +498,28 @@ class HPolyhedron(ConvexSet):
         return NotImplementedError
     
     # intersection check with hpolyhedron
-    def _intersects_hpolyhedron(self, other) -> bool:
+    def _intersects_hpolyhedron(self, other: HPolyhedron) -> bool:
+        """Intersection of an HPolyhedron HP with another HPolyhedron S.
+
+        Args:
+            other (HPolyhedron): HPolyhedron.
+
+        Returns:
+            bool: Result of the intersection check.
+        """
         # compute explicit intersection and check whether it is empty
         return not self.intersection(other).empty()
 
     # intersection check with interval
     def _intersects_interval(self, other) -> bool:
+        """Intersection of an HPolyhedron HP with an Interval I.
+
+        Args:
+            other (Interval): Interval.
+
+        Returns:
+            bool: Result of the intersection check.
+        """
         # linear program: min 0  s.t.  Ax <= b, lb <= x <= ub
         res = linprog(np.zeros(self.dimension),
                       A_ub = np.vstack((self.A, np.eye(self.dimension), -np.eye(self.dimension))),
@@ -467,6 +528,14 @@ class HPolyhedron(ConvexSet):
     
     # intersection check with zonotope
     def _intersects_zonotope(self, other) -> bool:
+        """Intersection of an HPolyhedron HP with a Zonotope Z.
+
+        Args:
+            other (Zonotope): Zonotope.
+
+        Returns:
+            bool: Result of the intersection check.
+        """
         # linear program: min 0  s.t.  Ax <= b, c + Gbeta == x, beta <= 1
         n = self.dimension
         m = other.number_generators()
@@ -482,6 +551,14 @@ class HPolyhedron(ConvexSet):
         return res.success
     
     def _intersects_vpolytope(self, other) -> bool:
+        """Intersection of an HPolyhedron HP with a VPolytope VP.
+
+        Args:
+            other (VPolytope): VPolytope.
+
+        Returns:
+            bool: Result of the intersection check.
+        """
         # linear program: min 0  s.t.  Ax <= b, Vbeta == x, sum beta = 1, beta >= 0
 
         n = self.dimension
@@ -548,6 +625,15 @@ class HPolyhedron(ConvexSet):
     
     # linear map
     def matmul(self, matrix: np.ndarray) -> HPolyhedron:
+        """Linear map of an HPolyhedron HP by a matrix (np.ndarray).
+        Defined as {M s | s in HP}.
+
+        Args:
+            matrix (np.ndarray): Matrix for left-multiplication.
+
+        Returns:
+            Interval: Result of the matrix multiplication.
+        """
         self._checkMatrix(matrix)
 
         # case differentiation between square invertible matrices and projections
@@ -555,6 +641,16 @@ class HPolyhedron(ConvexSet):
 
     # Minkowski sum
     def minkowski_sum(self, other: Union[ConvexSet, np.ndarray], *, mode: str = 'exact') -> HPolyhedron:
+        """Minkowski sum of an HPolyhedron HP and another set or vector S.
+        Defined as {a + s | a in HP, s in S}.
+
+        Args:
+            other (Union[ConvexSet, np.ndarray]): Summand.
+            mode (str, optional): Approximation of the evaluation: 'inner', 'exact', 'outer'. Defaults to 'outer'.
+
+        Returns:
+            HPolyhedron: Result of the Minkowski sum.
+        """
         self._checkOtherOperand(other)
         self._checkMode(mode)
 
@@ -596,7 +692,7 @@ class HPolyhedron(ConvexSet):
 
         Args:
             other (Union[ConvexSet, np.ndarray]): Set or vector.
-            mode (str, optional): Approximation of the result: 'inner', 'exact', 'outer'. Defaults to 'exact'.
+            mode (str, optional): Approximation of the evaluation: 'inner', 'exact', 'outer'. Defaults to 'exact'.
 
         Returns:
             HPolyhedron: Result of the Minkowski difference.
@@ -748,6 +844,14 @@ class HPolyhedron(ConvexSet):
 
 # initialize HPolyhedron from vector
 def _init_from_vector(v: np.ndarray) -> HPolyhedron:
+    """Initialization of an HPolyhedron as a single given vector.
+
+    Args:
+        v (np.ndarray): Vector.
+
+    Returns:
+        HPolyhedron: Hpolyhedron containing only one point.
+    """
     n = v.size
     A = np.vstack((-np.ones(n), np.eye(n)))
     b = np.matmul(A, v)

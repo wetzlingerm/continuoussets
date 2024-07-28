@@ -22,6 +22,20 @@ class VPolytope(ConvexSet):
     def __init__(self, *,
                  V: Union[np.ndarray, list, float, int] = None,
                  validate: bool = True):
+        """Instantiates a VPolytope object VP = {sum_i v_i beta_i | sum_i beta_i = 1, beta >= 0}.
+
+        Args:
+            V (Union[np.ndarray, list, float, int], optional): Points. Defaults to None.
+            validate (bool, optional): Input argument check. Defaults to True.
+
+        Raises:
+            ValueError: Vertices must be provided.
+            TypeError: Vertices must be int, float, list or np.ndarray.
+            ValueError: Vertices array must be 1D or 2D.
+
+        Returns:
+            VPolytope: Polytope.
+        """
         if self.validate and validate:
             # enforce that some vertices are given
             if V is None:
@@ -50,7 +64,7 @@ class VPolytope(ConvexSet):
         if self.validate and validate:
             if V.ndim > 2:
                 raise ValueError('VPolytope:__init__',
-                                 'V must be 1D or 2D.')
+                                 'Vertices array must be 1D or 2D.')
 
         self.dimension = V.shape[1]
         self.V = V.copy()
@@ -150,6 +164,17 @@ class VPolytope(ConvexSet):
 
     # point on boundary along a given direction
     def boundary_point(self, direction: np.ndarray) -> np.ndarray:
+        """Computation of the point on the boundary of an VPolytope VP in a given direction.
+
+        Args:
+            direction (np.ndarray): Direction along which to find the boundary point.
+
+        Raises:
+            NotImplementedError: Currently not supported.
+
+        Returns:
+            np.ndarray: Boundary point.
+        """
         self._checkOtherOperand(direction)
 
         # todo
@@ -157,6 +182,16 @@ class VPolytope(ConvexSet):
 
     # Cartesian product
     def cartesian_product(self, other: Union[ConvexSet, np.ndarray], *, mode: str = 'exact') -> VPolytope:
+        """Cartesian product of a VPolytope VP and another set or vector S.
+        Defined as {[a^T s^T]^T | a in VP, s in S}.
+
+        Args:
+            other (Union[ConvexSet, np.ndarray]): Set or vector.
+            mode (str, optional): Approximation of the evaluation: 'inner', 'exact', 'outer'. Defaults to 'exact'.
+
+        Returns:
+            VPolytope: Result of the Cartesian product.
+        """
         self._checkOtherOperand(other)
         self._checkMode(mode)
 
@@ -171,12 +206,15 @@ class VPolytope(ConvexSet):
 
     # center
     def center(self) -> np.ndarray:
-        # trivial solution for single vertex
-        if (self.number_vertices() == 1):
-            return self.V
+        """Center of the VPolytope VP.
+        Defined as sum_i 1/N*v_i, where N is the number of vertices.
+        Note: This is no more than a good guess, however, it is guaranteed to be in the interior if an interior exists.
 
-        # todo: weight each vertex by same factor and compute that 'center' (guaranteed to be contained in vpolytope)
-        raise NotImplementedError
+        Returns:
+            np.ndarray: Center.
+        """
+        # weight each point by the same factor -> guaranteed to be contained in vpolytope
+        return np.sum(1/self.number_vertices()*self.V, axis = 0)
     
     # compact representation
     def compact(self, *, rtol: float = 1e-12) -> VPolytope:
@@ -215,6 +253,15 @@ class VPolytope(ConvexSet):
 
     # containment check
     def contains(self, other: Union[ConvexSet, np.ndarray]) -> bool:
+        """Checks containment of a ConvexSet or vector (np.ndarray) S in a VPolytope VP.
+        Defined as forall s in S: s in VP?
+
+        Args:
+            other (Union[ConvexSet, np.ndarray]): Set or vector.
+
+        Returns:
+            bool: Containment.
+        """
         self._checkOtherOperand(other)
 
         if isinstance(other, np.ndarray):
@@ -226,6 +273,14 @@ class VPolytope(ConvexSet):
         return self == other.convex_hull(self)
 
     def _contains_point(self, other: np.ndarray) -> bool:
+        """Point-in-VPolytope check.
+
+        Args:
+            other (np.ndarray): Vector.
+
+        Returns:
+            bool: Containment.
+        """
         # no checks in underscore-functions
 
         # objective function
@@ -245,6 +300,16 @@ class VPolytope(ConvexSet):
 
     # convex hull
     def convex_hull(self, other: Union[ConvexSet, np.ndarray], *, mode: str = 'exact') -> VPolytope:
+        """Convex hull of a VPolytope VP and another set or vector S.
+        Defined as {lambda*v + (1-lambda)*s | v in VP, s in S, lambda in [0,1]}
+
+        Args:
+            other (Union[ConvexSet, np.ndarray]): Set or vector.
+            mode (str, optional): Approximation of the evaluation: 'inner', 'exact', 'outer'. Defaults to 'exact'.
+
+        Returns:
+            VPolytope: Result of the convex hull.
+        """
         self._checkOtherOperand(other)
         self._checkMode(mode)
 
@@ -366,6 +431,16 @@ class VPolytope(ConvexSet):
 
     # Minkowski sum
     def minkowski_sum(self, other: Union[ConvexSet, np.ndarray], *, mode: str = 'outer') -> VPolytope:
+        """Minkowski sum of a VPolytope VP and another set or vector S.
+        Defined as {a + s | a in VP, s in S}.
+
+        Args:
+            other (Union[ConvexSet, np.ndarray]): Summand.
+            mode (str, optional): Approximation of the evaluation: 'inner', 'exact', 'outer'. Defaults to 'outer'.
+
+        Returns:
+            VPolytope: Result of the Minkowski sum.
+        """
         self._checkOtherOperand(other)
         self._checkMode(mode)
 
@@ -385,6 +460,19 @@ class VPolytope(ConvexSet):
     
     # Minkowski difference
     def minkowski_difference(self, other: Union[ConvexSet, np.ndarray], *, mode: str = 'exact') -> VPolytope:
+        """Minkowski difference between a VPolytope VP and another set or vector S.
+        Defined as {s | s + S in VP}.
+
+        Args:
+            other (Union[ConvexSet, np.ndarray]): Subtrahend.
+            mode (str, optional): Approximation of the evaluation: 'inner', 'exact', 'outer'. Defaults to 'exact'.
+
+        Raises:
+            NotImplementedError: Not implemented other than for single-point subtrahend.
+
+        Returns:
+            VPolytope: Result of the Minkowski difference.
+        """
         self._checkOtherOperand(other)
         self._checkMode(mode)
 
@@ -421,6 +509,17 @@ class VPolytope(ConvexSet):
 
     # representation by other set representation
     def represents(self, *, set_class: str) -> bool:
+        """Check if a VPolytope VP can also be equivalently represented using another ConvexSet class.
+
+        Args:
+            set_class (str): Name of another ConvexSet class.
+
+        Raises:
+            NotImplementedError: Zonotope and Interval currently not supported.
+
+        Returns:
+            bool: Representation possible.
+        """
         self._checkSetClass(set_class)
 
         if self.number_vertices() <= 1:

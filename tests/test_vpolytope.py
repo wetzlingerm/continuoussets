@@ -212,10 +212,10 @@ class TestVPolytope(unittest.TestCase):
         VP_2D = VPolytope(V = V_2D)
 
         c_single = VP_singlevertex.center()
-        assert np.array_equal(c_single, V_singlevertex)
+        c_2D = VP_2D.center()
 
-        with self.assertRaises(NotImplementedError):
-            c_2D = VP_2D.center()
+        assert np.array_equal(c_single, np.reshape(V_singlevertex, (2,)))
+        assert VP_2D.contains(c_2D)
 
     def test_compact(self):
         ''' Test for minimal representation '''
