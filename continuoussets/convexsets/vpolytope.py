@@ -179,6 +179,15 @@ class VPolytope(ConvexSet):
 
         # todo
         raise NotImplementedError
+    
+    # boundedness
+    def bounded(self) -> bool:
+        """Checks if a VPolytope VP is bounded.
+
+        Returns:
+            bool: Boundedness.
+        """
+        return True
 
     # Cartesian product
     def cartesian_product(self, other: Union[ConvexSet, np.ndarray], *, mode: str = 'exact') -> VPolytope:
@@ -318,6 +327,24 @@ class VPolytope(ConvexSet):
 
         V_all = np.vstack((self.V, other.V))
         return VPolytope(V = V_all, validate = False)
+    
+    # degeneracy
+    def degenerate(self) -> bool:
+        """Checks if a VPolytope VP is degenerate.
+
+        Returns:
+            bool: Degeneracy.
+        """
+        return np.linalg.matrix_rank(self.V - np.mean(self.V, axis = 0)) < self.dimension
+
+    # emptiness
+    def empty(self) -> bool:
+        """Checks if a VPolytope VP is empty.
+
+        Returns:
+            bool: Emptiness.
+        """
+        return False
     
     # conversion to hpolyhedron
     def hpolyhedron(self, *, mode: str = 'exact') -> dict:

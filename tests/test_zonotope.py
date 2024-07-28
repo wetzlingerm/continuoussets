@@ -5,8 +5,9 @@ from continuoussets.utils import comparison, exceptions
 from continuoussets.convexsets.zonotope import Zonotope
 from continuoussets.convexsets.interval import Interval
 from continuoussets.convexsets.vpolytope import VPolytope
+from continuoussets.convexsets.hpolyhedron import HPolyhedron
 
-# TODO: generator matrix should have generators in rows, not columns
+
 class TestZonotope(unittest.TestCase):
 
     def test_init(self):
@@ -80,6 +81,10 @@ class TestZonotope(unittest.TestCase):
         ''' Test for positive translation '''
         # cases:
         # - zonotope + vector
+        # - zonotope + zonotope
+        # todo zonotope + interval (error)
+        # todo zonotope + vpolytope (error)
+        # todo zonotope + hpolyhedron (error)
 
         # init zonotope and vector
         center = np.array([1., 0.])
@@ -130,6 +135,8 @@ class TestZonotope(unittest.TestCase):
         # - center and -1*generators
         # - center and aligned generators
         # - zonotope x interval
+        # todo zonotope x vpolytope
+        # todo zonotope x hpolyhedron
 
         # init zonotopes
         center = np.array([1., 0.])
@@ -165,42 +172,55 @@ class TestZonotope(unittest.TestCase):
     def test_neg(self):
         ''' Test for unary minus '''
         # cases:
-        # - zonotope
+        # - only center
+        # - center and generators
 
         # init zonotope
         center = np.array([1., 0.])
         generators = np.array([[1., 0.], [0., 2.], [-1., 1.], [2., -1.]])
-        Z = Zonotope(c = center, G = generators)
+        Z1 = Zonotope(c = center)
+        Z2 = Zonotope(c = center, G = generators)
 
         # unary minus
-        result1 = -Z
+        result1 = -Z1
+        result2 = -Z2
 
         # manual computation
-        true_result1 = Zonotope(c = -center, G = generators)
+        true_result1 = Zonotope(c = -center)
+        true_result2 = Zonotope(c = -center, G = generators)
 
         # check result
         assert result1 == true_result1
+        assert result2 == true_result2
 
     def test_pos(self):
         ''' Test for unary plus '''
         # cases:
-        # - zonotope
+        # - only center
+        # - center and generators
 
         # init zonotope
         center = np.array([1., 0.])
         generators = np.array([[1., 0.], [0., 2.], [-1., 1.], [2., -1.]])
-        Z = Zonotope(c = center, G = generators)
+        Z1 = Zonotope(c = center)
+        Z2 = Zonotope(c = center, G = generators)
 
         # unary plus
-        result1 = +Z
+        result1 = +Z1
+        result2 = +Z2
 
         # check result
-        assert result1 == Z
+        assert result1 == Z1
+        assert result2 == Z2
 
     def test_sub(self):
         ''' Test for negative translation '''
         # cases:
         # - zonotope - vector
+        # - zonotope - zonotope
+        # todo zonotope - interval (error)
+        # todo zonotope - vpolytope (error)
+        # todo zonotope - hpolyhedron (error)
 
         # init zonotope and vector
         center = np.array([1., 0.])
@@ -225,7 +245,7 @@ class TestZonotope(unittest.TestCase):
     def test_rsub(self):
         ''' Test for negative translation '''
         # cases:
-        # - zonotope + vector
+        # - vector - zonotope
 
         # init zonotope and vector
         center = np.array([1., 0.])
@@ -246,6 +266,7 @@ class TestZonotope(unittest.TestCase):
         ''' Test for computation of boundary points '''
         # cases:
         # - full zonotope
+        # todo assert errors
 
         # init zonotope
         center = np.array([1., 0.])
@@ -262,6 +283,16 @@ class TestZonotope(unittest.TestCase):
         # check results
         assert np.all(np.isclose(result1, true_result1))
 
+    def test_bounded(self):
+        ''' Test for boundedness '''
+        # - only center
+        # - center and generator matrix
+        Z1 = Zonotope(c = np.array([1., 0., 1.]))
+        Z2 = Zonotope(c = np.array([1., 0.]), G = np.array([[1., -1.], [0., 2.]]))
+
+        assert Z1.bounded()
+        assert Z2.bounded()
+
     def test_cartesian_product(self):
         ''' Test for Cartesian product '''
         # cases:
@@ -272,6 +303,8 @@ class TestZonotope(unittest.TestCase):
         # - zonotope x zonotope with only center
         # - zonotope x zonotope
         # - zonotope x interval
+        # todo zonotope x vpolytope
+        # todo zonotope x hpolyhedron
 
         # init zonotopes
         center1 = np.array([-1., 0.])
@@ -381,6 +414,9 @@ class TestZonotope(unittest.TestCase):
         # - full-dimensional x point (boundary)
         # - full-dimensional x point (outside)
         # - zonotope x zonotope (only center)
+        # todo zonotope x interval
+        # todo zonotope x vpolytope
+        # todo zonotope x hpolyhedron
 
         # init zonotopes
         center = np.array([1., 0.])
@@ -408,6 +444,8 @@ class TestZonotope(unittest.TestCase):
         # - center and generators x only center
         # - center and generators x center and generators
         # - zonotope x interval
+        # todo zonotope x vpolytope
+        # todo zonotope x hpolyhedron
 
         # init zonotopes
         center1 = np.array([1., 0.])
@@ -452,14 +490,46 @@ class TestZonotope(unittest.TestCase):
         with self.assertRaises(NotImplementedError):
             Z1.convex_hull(Z2, mode='inner')
 
+    def test_degenerate(self):
+        ''' Test for degeneracy '''
+        # cases:
+        # - only center
+        # - degenerate
+        # - non-degenerate
+        Z1 = Zonotope(c = np.array([1., 0., 1.]))
+        Z2 = Zonotope(c = np.array([1., 0., 1.]),
+                      G = np.array([[1., 0., -1.], [-1., 0., 1.], [0., 1., 0.], [0., -1., 0.]]))
+        Z3 = Zonotope(c = np.array([1., 0.]), G = np.array([[1., -1.], [0., 2.]]))
+
+        assert Z1.degenerate()
+        assert Z2.degenerate()
+        assert not Z3.degenerate()
+
+    def test_empty(self):
+        ''' Test for emptiness '''
+        # cases:
+        # - only center
+        # - center and generator matrix
+        Z1 = Zonotope(c = np.array([1., 0., 1.]))
+        Z2 = Zonotope(c = np.array([1., 0.]), G = np.array([[1., -1.], [0., 2.]]))
+
+        assert not Z1.empty()
+        assert not Z2.empty()
+
     def test_hpolyhedron(self):
         ''' Test for conversion to HPolyhedron '''
         # cases:
         # - only center
-        Z = Zonotope(c = np.array([1., 0.]))
+        # - center and generators
+        center = np.array([1., 0.])
+        generators = np.array([[1., 0.], [-1., 1.], [2., 1.]])
+        Z1 = Zonotope(c = center)
+        Z2 = Zonotope(c = center, G = generators)
 
         with self.assertRaises(NotImplementedError):
-            Z.hpolyhedron()
+            Z1.hpolyhedron()
+        with self.assertRaises(NotImplementedError):
+            Z2.hpolyhedron()
 
     def test_intersects(self):
         ''' Test for intersection check '''
@@ -473,7 +543,9 @@ class TestZonotope(unittest.TestCase):
         # - zonotope x zonotope (no intersection)
         # - zonotope x zonotope (no generators)
         # - zonotope (no generators) x zonotope
-        # - zonotope x vpolytope
+        # - zonotope x vpolytope (single point)
+        # todo zonotope x vpolytope (full)
+        # todo zonotope x hpolyhedron
 
         # init sets
         center1 = np.array([1., 0.])
@@ -542,7 +614,7 @@ class TestZonotope(unittest.TestCase):
         with self.assertRaises(NotImplementedError):
             # inner approximation not supported in general case
             Z3.interval(mode='inner')
-        with self.assertRaises(NotImplementedError):
+        with self.assertRaises(exceptions.ExactEvaluationImpossibleError):
             # exact conversion not supported in general case
             Z3.interval(mode='exact')
 
@@ -584,6 +656,8 @@ class TestZonotope(unittest.TestCase):
         # - zonotope + zonotope
         # - zonotope + vector
         # - zonotope + interval
+        # todo zonotope + vpolytope
+        # todo zonotope + hpolyhedron
 
         # init zonotopes
         center1 = np.array([1., 0.])
@@ -618,7 +692,10 @@ class TestZonotope(unittest.TestCase):
     def test_minkowski_difference(self):
         ''' Test for Minkowski difference '''
         # cases:
-        # - zonotope x vector
+        # - zonotope - vector
+        # - zonotope - zonotope
+        # todo zonotope - vpolytope
+        # todo zonotope - hpolyhedron
         
         # init zonotope
         center = np.array([1., 0.])
@@ -750,6 +827,8 @@ class TestZonotope(unittest.TestCase):
         assert Z2.represents('Interval')
         assert not Z3.represents('Interval')
         assert Z1.represents('Zonotope')
+        assert Z3.represents('VPolytope')
+        assert Z3.represents('HPolyhedron')
 
     def test_support_function(self):
         ''' Test for support function evaluation '''
@@ -850,21 +929,29 @@ class TestZonotope(unittest.TestCase):
         ''' Test for conversion to vpolytope '''
         # cases:
         # - only center
+        # - center and generators
 
         # init zonotope
         center = np.array([1., 0.])
-        Z = Zonotope(c = center)
+        generators = np.array([[1., -1.], [2., 1.], [-1., 3.]])
+        Z1 = Zonotope(c = center)
+        Z2 = Zonotope(c = center, G = generators)
 
         # convert to vpolytope
-        result1 = VPolytope(**(Z.vpolytope()))
+        result1 = VPolytope(**(Z1.vpolytope()))
+        result2 = VPolytope(**(Z2.vpolytope()))
+
+        # true results 
+        true_result2 = np.array([[1., -5.], [5., -3.], [3., 3.], [1., 5.], [-3., 3.], [-1., -3.]])
 
         # check result
         assert np.array_equal(np.reshape(center, (1, 2)), result1.V)
+        assert comparison.compare_matrices(true_result2, result2.V)
 
     def test_zonotope(self):
         ''' Test for conversion to zonotope '''
         # cases:
-        # - zonotope
+        # - center and generators
 
         # init zonotope
         center = np.array([1., 2.])
