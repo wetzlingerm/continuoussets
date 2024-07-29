@@ -7,6 +7,8 @@ The Python library [continuoussets](https://github.com/wetzlingerm/continuousset
 - [Set Representations](https://github.com/wetzlingerm/continuoussets/#set-representations)
   - [Intervals](https://github.com/wetzlingerm/continuoussets/#intervals)
   - [Zonotopes](https://github.com/wetzlingerm/continuoussets/#zonotopes)
+  - [V-Polytopes](https://github.com/wetzlingerm/continuoussets/#v-polytopes)
+  - [H-Polyhedra](https://github.com/wetzlingerm/continuoussets/#h-polyhedra)
 - [Set Operations](https://github.com/wetzlingerm/continuoussets/#set-operations)
 - [References](https://github.com/wetzlingerm/continuoussets/#references)
 
@@ -26,7 +28,7 @@ The implemented classes inherit from the abstract base class `ConvexSet`.
 They represent continuous sets of n-dimensional vectors.
 
 > [!TIP]
-> Many operations, notably including the constructors, also support scalar types, such as `int` and `float`, as well as vectors defined using the type `list`. However, these are internally converted to numpy arrays, which may slow down the computation.
+> Many operations, notably including the constructors, also support scalar types, such as `int` and `float`, as well as vectors defined using the type `list`. However, these are internally converted to numpy arrays.
 
 > [!IMPORTANT]
 > The usage of keyword arguments for constructors is **mandatory**.
@@ -47,7 +49,7 @@ I = Interval(lb = numpy.array([-2., 0.]), ub = numpy.array([2., 1.]))
 
 ### Zonotopes
 
-A zonotopes `Z` is defined using a center `c` and a generator matrix `G`:
+A zonotope `Z` is defined using a center `c` and a generator matrix `G`:
 
 > Z = { c + sum_i G_i a_i | -1 <= a_i <= 1 }
 
@@ -56,8 +58,36 @@ In contrast to intervals, zonotopes can represent dependencies between different
 
 The `Zonotope` class allows to instantiate such objects:
 ```python
-Z = Zonotope(c = numpy.array([1., 0.]), G = numpy.array([[1., 0., 2.], [-1., 1., 1.]]))
+Z = Zonotope(c = numpy.array([1., 0.]), G = numpy.array([[1. -1.], [0., 1.], [2., 1.]]))
 ```
+Note that the ith generator is stored as `G[i]` in the matrix `G`.
+
+
+### V-Polytopes
+
+A polytope in vertex representation `VP` is defined via the convex hull of a set of points `v`:
+
+> VP = { sum_i v_i beta_i | sum_i beta_i = 1, beta_i >= 0 }
+
+The `VPolytope` class allows to instantiate such objects:
+```python
+VP = VPolytope(V = numpy.array([[1., 0.], [-1., 1.], [-2., -1.]]))
+```
+Note that the ith point is stored as `V[i]` in the matrix `V`.
+
+
+### H-Polyhedra
+
+A polyhedron in vertex representation `HP` is defined via the constraint matrix `A` and the constraint offset `b`:
+
+> HP = { x | A x <= b }
+
+The `HPolyhedron` class allows to instantiate such objects:
+```python
+HP = HPolyhedron(A = numpy.array([[1., 0.], [-1., 1.], [-2., -1.]]), b = numpy.array([1., 2., 1.]))
+```
+Note that the ith constraint vector is stored as `A[i]` in the matrix `A`.
+Furthermore, h-polyhedra may be unbounded or empty.
 
 
 ## Set Operations
@@ -84,11 +114,14 @@ Many standard set operations are implemented:
 > Operands for binary operations can also be vectors, represented by 1D numpy arrays.
 
 > [!TIP]
-> Many operations support **various evaluation modes** via the keyword argument `mode`. These detail whether an exact solution, an outer approximation or an inner approximation should be computed. Not all modes are supported for each operation, some operations cannot be evaluated exactly, and runtime may differ strongly between modes.
+> Many operations support **various evaluation modes** via the keyword argument `mode`. These detail whether an exact solution (`mode = 'exact'`, by default), an outer approximation (`mode = 'outer'`) or an inner approximation (`mode = 'inner'`) should be computed. Not all modes are supported for each operation, some operations cannot be evaluated exactly, and runtime may differ strongly between modes.
 
 Furthermore, the following checks are supported:
 
+- `bounded`: Boundedness of a set
 - `contains`: Containment of one set or vector in another set
+- `degenerate`: Degeneracy of a set
+- `empty`: Emptiness of a set
 - `intersects`: Intersection between a set and another set or vector
 - `__eq__`: Equality of a set and another set or vector
 - `represents`: Equivalent representation of a set by another set representation
@@ -109,3 +142,5 @@ However, this implementation is based on original sources, e.g.,
   In: Computational and Applied Mathematics 121.1-2 (2000), pp. 421–464. doi: 10.1016/S0377-0427(00)00342-3
 - M. Althoff. “Reachability analysis and its application to the safety assessment of autonomous cars”.
   Dissertation. Technische Universität München, 2010.
+- M. Wetzlinger, V. Kotsev, A. Kulmburg, and M. Althoff. "Implementation of polyhedral operations in CORA 2024".
+  In: Proceedings of the 11th Workshop on Applied Verification of Continuous and Hybrid Systems.
