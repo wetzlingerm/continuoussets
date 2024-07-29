@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "continuoussets"
-version = "0.0.0"
+version = "1.0.0"
 authors = ["Mark Wetzlinger <m.wetzlinger@tum.de>"]
 description = "A package for set-based computing."
 readme = "README.md"
@@ -8,7 +8,8 @@ license = "GNU"
 keywords = [
   "Set-based computing",
   "Interval arithmetic",
-  "Zonotopes"
+  "Zonotopes",
+  "Polytopes"
 ]
 
 [tool.poetry.dependencies]
