@@ -201,7 +201,7 @@ class HPolyhedron(ConvexSet):
     
     # check for boundedness
     def bounded(self) -> bool:
-        """Checks if an HPolyhedron is bounded or not.
+        """Checks if an HPolyhedron is bounded.
 
         Returns:
             bool: Boundedness.
