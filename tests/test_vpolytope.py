@@ -3,6 +3,7 @@ import numpy as np
 #import matplotlib.pyplot as plt
 from continuoussets.utils import comparison, exceptions
 from continuoussets.convexsets.vpolytope import VPolytope
+from continuoussets.convexsets.hpolyhedron import HPolyhedron, _init_from_vector
 from continuoussets.convexsets.interval import Interval
 from continuoussets.convexsets.zonotope import Zonotope
 
@@ -328,14 +329,30 @@ class TestVPolytope(unittest.TestCase):
         assert not VP_2.empty()
         assert not VP_3.empty()
 
-    def test_hpolyedron(self):
+    def test_hpolyhedron(self):
         ''' Test for conversion to HPolyhedron '''
         # cases:
         # - single vertex
-        VP_1 = VPolytope(V = np.array([1., 0.]))
+        # - degenerate
+        # - non-degenerate
+        V_singlevertex = np.array([1., 0.])
+        VP_1 = VPolytope(V = V_singlevertex)
+        VP_2 = VPolytope(V = np.array([[1., 0.], [0., 1.]]))
+        VP_3 = VPolytope(V = np.array([[1., 0.], [0., 1.], [-1., -1.]]))
 
-        with self.assertRaises(NotImplementedError):
-            VP_1.hpolyhedron()
+        #HP_1 = HPolyhedron(**VP_1.hpolyhedron()) # todo implement
+        #HP_2 = HPolyhedron(**VP_2.hpolyhedron()) # todo implement
+        HP_3 = HPolyhedron(**VP_3.hpolyhedron())
+
+        true_result1 = _init_from_vector(V_singlevertex)
+        true_result2 = HPolyhedron(A = np.array([[1., 0.], [0., 1.], [1., 1.], [-1., -1.]]),
+                                   b = np.array([1., 1., 1., -1.]))
+        true_result3 = HPolyhedron(A = np.array([[1., -2.], [1., 1.], [-2., 1.]]),
+                                   b = np.array([1., 1., 1.]))
+
+        #assert HP_1 == true_result1
+        #assert HP_2 == true_result2
+        assert HP_3 == true_result3
     
     def test_intersects(self):
         ''' Test for intersection check '''
@@ -345,12 +362,17 @@ class TestVPolytope(unittest.TestCase):
         # - vpolytope x vpolytope
         # - vpolytope x single vertex
         # - vpolytope x interval
-        # - vpolytope x hpolyhedron #todo
-
+        # - vpolytope x zonotope
+        # - vpolytope x hpolyhedron
         VP_1 = VPolytope(V = np.array([[-1., 0.], [1., 1.], [0., -1.]]))
         VP_2 = VPolytope(V = np.array([[1., 0.], [0., 0.], [0., 1.]]))
         VP_3 = VPolytope(V = np.array([0.25, 0.25]))
-        I = Interval(lb = [-1., 0.], ub = [0., 1.])
+        I_1 = Interval(lb = [-1., 0.], ub = [0., 1.])
+        I_2 = Interval(lb = [0.75, -1.], ub = [1., 0.])
+        Z_1 = Zonotope(c = np.array([1., -1.]), G = np.array([[1., -1.], [0.5, 0.]]))
+        Z_2 = Zonotope(c = np.array([1., -1.]), G = np.array([[1., 1.], [0.5, 0.]]))
+        HP_1 = HPolyhedron(A = np.array([[0., 1.]]), b = np.array([-0.5]))
+        HP_2 = HPolyhedron(A = np.array([[-1., 1.]]), b = np.array([-1.1]))
 
         assert VP_1.intersects(np.array([0., 0.]))
         assert VP_1.intersects(np.array([1., 1.]))
@@ -359,7 +381,12 @@ class TestVPolytope(unittest.TestCase):
         assert VP_2.intersects(VP_1)
         assert VP_1.intersects(VP_3)
         assert VP_3.intersects(VP_1)
-        assert VP_1.intersects(I)
+        assert VP_1.intersects(I_1)
+        assert not VP_1.intersects(I_2)
+        assert VP_1.intersects(Z_1)
+        assert not VP_1.intersects(Z_2)
+        assert VP_1.intersects(HP_1)
+        assert not VP_1.intersects(HP_2)
     
     def test_interval(self):
         ''' Test for interval conversion '''

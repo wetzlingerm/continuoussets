@@ -14,8 +14,6 @@ from continuoussets.utils.exceptions import OtherFunctionError, ExactEvaluationI
 if __name__ == '__main__':
     print('This is the Zonotope class.')
 
-# TODO: generator matrix should have generators in rows, not columns
-
 
 class Zonotope(ConvexSet):
 
@@ -148,12 +146,14 @@ class Zonotope(ConvexSet):
             raise OtherFunctionError((self, other), 'minkowski_sum')
 
     # set equality
-    def __eq__(self, other: Union[ConvexSet, np.ndarray]) -> bool:
+    def __eq__(self, other: Union[ConvexSet, np.ndarray], *, rtol: float = 1e-10, atol: float = 1e-12) -> bool:
         """Set equality of a Zonotope Z with another set or vector S.
         Defined as forall Z in Z: i in S and forall s in S: s in Z?
 
         Args:
             other (Union[ConvexSet, np.ndarray]): Set or vector.
+            rtol (float, optional): Relative tolerance. Defaults to 1e-10.
+            atol (float, optional): Absolute tolerance. Defaults to 1e-12.
 
         Returns:
             bool: Set equality.
@@ -164,15 +164,17 @@ class Zonotope(ConvexSet):
                 or (isinstance(other, np.ndarray) and self.dimension != other.shape[0])):
             return False
         elif isinstance(other, np.ndarray):
-            return (not np.any(self.G)) and np.array_equal(self.c, other)
+            return (self.number_generators() == 0) and np.allclose(self.c, other, rtol = rtol, atol = atol)
         elif isinstance(other, Zonotope):
             # check center
-            if not np.array_equal(self.c, other.c):
+            if not np.allclose(self.c, other.c, rtol = rtol, atol = atol):
                 return False
             # compact both and compare generator matrices
-            return comparison.compare_matrices(self.compact().G, other.compact().G, remove_zeros=True, check_negation=True)
+            return comparison.compare_matrices(self.compact().G, other.compact().G,
+                                               rtol = rtol, atol = atol, remove_zeros = True, check_negation = True)
         elif isinstance(other, ConvexSet):
-            return other.represents('Zonotope') and self == Zonotope(**other.zonotope(mode = 'exact'), validate = False)
+            return other.represents('Zonotope', rtol = rtol, atol = atol) and \
+                self.__eq__(Zonotope(**other.zonotope(mode = 'exact'), validate = False), rtol = rtol, atol = atol)
 
     # unary minus
     def __neg__(self) -> Zonotope:
@@ -320,12 +322,14 @@ class Zonotope(ConvexSet):
         return Zonotope(c = self.c, G = generators, validate = False)
 
     # containment check
-    def contains(self, other: Union[ConvexSet, np.ndarray]) -> bool:
+    def contains(self, other: Union[ConvexSet, np.ndarray], *, rtol: float = 1e-5, atol: float = 1e-8) -> bool:
         """Checks containment of a ConvexSet or vector (np.ndarray) S in a Zonotope Z.
         Defined as forall s in S: s in Z?
 
         Args:
             other (Union[ConvexSet, np.ndarray]): Set or vector.
+            rtol (float, optional): Relative tolerance. Defaults to 1e-5.
+            atol (float, optional): Absolute tolerance. Defaults to 1e-8.
 
         Raises:
             NotImplementedError: Zonotope-in-zonotope not supported.
@@ -337,15 +341,15 @@ class Zonotope(ConvexSet):
 
         if isinstance(other, np.ndarray):
             if self.number_generators() == 0:
-                return np.all(np.isclose(self.c, other))
+                return np.allclose(self.c, other, rtol = rtol, atol = atol)
             else:
                 # shift zonotope and other by center of zonotope and check zonotope norm
                 norm = (self - self.c).zonotope_norm(other - self.c)
-                return norm <= 1 or np.isclose(norm, 1.)
-        elif isinstance(other, Zonotope) and other.G.size == 0:
+                return norm <= 1 or np.isclose(norm, 1., rtol = rtol, atol = atol)
+        elif isinstance(other, Zonotope) and other.number_generators() == 0:
             # shift zonotope and other by center of zonotope and check zonotope norm
             norm = (self - self.c).zonotope_norm(other.c - self.c)
-            return norm <= 1 or np.isclose(norm, 1.)
+            return norm <= 1 or np.isclose(norm, 1., rtol = rtol, atol = atol)
         else:
             # TODO: convert self to Hpolyhedron and use its contains function
             raise NotImplementedError
@@ -399,13 +403,14 @@ class Zonotope(ConvexSet):
         return Zonotope(c = center, G = generators, validate = False)
     
     # degeneracy
-    def degenerate(self) -> bool:
+    def degenerate(self, *, tol: float = 1e-12) -> bool:
         """Determines if a Zonotope Z is degenerate.
 
         Returns:
             bool: Degeneracy of the zonotope.
+            rtol (float, optional): Tolerance. Defaults to 1e-12.
         """
-        return self.G.size == 0 or np.linalg.matrix_rank(self.G) < self.dimension
+        return self.number_generators() == 0 or np.linalg.matrix_rank(self.G, tol = tol) < self.dimension
     
     # emptiness
     def empty(self) -> bool:
@@ -648,11 +653,13 @@ class Zonotope(ConvexSet):
                         validate = False)
 
     # representation by other set representation
-    def represents(self, set_class: str) -> bool:
+    def represents(self, set_class: str, *, rtol: float = 1e-5, atol: float = 1e-8) -> bool:
         """Check if a Zonotope Z can also be equivalently represented using another ConvexSet class.
 
         Args:
             set_class (str): Name of another ConvexSet class.
+            rtol (float, optional): Relative tolerance. Defaults to 1e-5.
+            atol (float, optional): Absolute tolerance. Defaults to 1e-8.
 
         Returns:
             bool: Representation possible.
@@ -661,11 +668,9 @@ class Zonotope(ConvexSet):
 
         if set_class == 'Interval':
             if self.number_generators() == 0:
-                # only center
                 return True
-
             G_abs = np.abs(self.G)
-            return np.array_equal(np.sum(G_abs, axis=1), np.max(G_abs, axis=1))
+            return np.allclose(np.sum(G_abs, axis=1), np.max(G_abs, axis=1), rtol = rtol, atol = atol)
         else:
             # every zonotope is a zonotope/polytope/constrained zonotope
             return True
@@ -792,27 +797,27 @@ class Zonotope(ConvexSet):
         """
         self._checkOtherOperand(other)
 
-        self_generators = self.number_generators()
+        n, m = self.dimension, self.number_generators()
         # special case: no generators
-        if self_generators == 0:
-            if np.all(np.isclose(other, 0)):
+        if m == 0:
+            if np.allclose(other, 0):
                 return 0.
             else:
                 return np.inf
 
         # ensure that center is close to zero
-        if not np.all(np.isclose(self.c, np.zeros(self.dimension))):
+        if not np.allclose(self.c, np.zeros(n)):
             raise NotImplementedError
 
         # objective function
-        c = np.hstack((1, np.zeros(self_generators)))
+        c = np.hstack((1., np.zeros(m)))
 
         # constraints
-        A_eq = np.hstack((np.zeros((self.dimension, 1)), self.G.T))
+        A_eq = np.hstack((np.zeros((n, 1)), self.G.T))
         b_eq = other
-        A_ub = np.vstack((np.hstack((-np.ones((self_generators, 1)), np.eye(self_generators))),
-                          np.hstack((-np.ones((self_generators, 1)), -np.eye(self_generators)))))
-        b_ub = np.zeros(2*self_generators)
+        A_ub = np.vstack((np.hstack((-np.ones((m, 1)), np.eye(m))),
+                          np.hstack((-np.ones((m, 1)), -np.eye(m)))))
+        b_ub = np.zeros(2*m)
 
         # solve linear program
         res = linprog(c, A_ub, b_ub, A_eq, b_eq, bounds = (None, None))

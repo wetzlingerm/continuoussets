@@ -189,12 +189,14 @@ class Interval(ConvexSet):
         return self + other
 
     # set equality
-    def __eq__(self, other: Union[ConvexSet, np.ndarray]) -> bool:
+    def __eq__(self, other: Union[ConvexSet, np.ndarray], *, rtol: float = 1e-5, atol: float = 1e-8) -> bool:
         """Set equality of an Interval I with another set or vector S.
         Defined as forall i in I: i in S and forall s in S: s in I?
 
         Args:
             other (Union[ConvexSet, np.ndarray]): Set or vector.
+            rtol (float, optional): Relative tolerance. Defaults to 1e-5.
+            atol (float, optional): Absolute tolerance. Defaults to 1e-8.
 
         Returns:
             bool: Set equality.
@@ -205,11 +207,13 @@ class Interval(ConvexSet):
                 or (isinstance(other, np.ndarray) and self.dimension != other.shape[0])):
             return False
         elif isinstance(other, np.ndarray):
-            return self == Interval(lb = other, ub = other)
+            return self.__eq__(Interval(lb = other, ub = other), rtol = rtol, atol = atol)
         elif isinstance(other, Interval):
-            return np.allclose(self.lb, other.lb) and np.allclose(self.ub, other.ub)
+            return np.allclose(self.lb, other.lb, rtol = rtol, atol = atol) and \
+                np.allclose(self.ub, other.ub, rtol = rtol, atol = atol)
         elif isinstance(other, ConvexSet):
-            return other.represents('Interval') and self == Interval(**other.interval(), validate=False)
+            return other.represents('Interval', rtol = rtol, atol = atol) and \
+                self.__eq__(Interval(**other.interval(), validate=False), rtol = rtol, atol = atol)
 
     # element-wise multiplication
     def __mul__(self, other: Union[Interval, np.ndarray, list, int, float]) -> Interval:
@@ -664,7 +668,7 @@ class Interval(ConvexSet):
         # limit to intervals containing the origin for now...
         if not self.contains(np.zeros(self.dimension)):
             raise NotImplementedError
-        elif np.any(self.diameter() == 0):
+        elif np.any(np.isclose(self.diameter(), 0.)):
             # exclude degenerate for now...
             raise NotImplementedError
 
@@ -740,12 +744,14 @@ class Interval(ConvexSet):
         return Interval(lb = self.lb, ub = self.ub)
 
     # containment check
-    def contains(self, other: Union[ConvexSet, np.ndarray]) -> bool:
+    def contains(self, other: Union[ConvexSet, np.ndarray], *, rtol: float = 1e-5, atol: float = 1e-8) -> bool:
         """Checks containment of a set or vector S in an Interval I.
         Defined as forall s in S: s in I?
 
         Args:
             other (Union[ConvexSet, np.ndarray]): Set or vector.
+            rtol (float, optional): Relative tolerance. Defaults to 1e-5.
+            atol (float, optional): Absolute tolerance. Defaults to 1e-8.
 
         Returns:
             bool: Containment status.
@@ -753,10 +759,12 @@ class Interval(ConvexSet):
         self._checkOtherOperand(other)
 
         if isinstance(other, Interval):
+            # todo: use tolerances
             return np.all(self.lb <= other.lb) and np.all(self.ub >= other.ub)
         elif isinstance(other, ConvexSet):
-            return self.contains(Interval(**other.interval(), validate=False))
+            return self.contains(Interval(**other.interval(), validate=False), rtol = rtol, atol = atol)
         else:
+            # todo: use tolerances
             return np.all(self.lb <= other) and np.all(self.ub >= other)
 
     # convex hull
@@ -790,13 +798,17 @@ class Interval(ConvexSet):
                             ub = np.maximum(self.ub, other), validate=False)
         
     # degeneracy
-    def degenerate(self) -> bool:
+    def degenerate(self, *, rtol: float = 1e-5, atol: float = 1e-8) -> bool:
         """Check if an Interval is degenerate.
+
+        Args:
+            rtol (float, optional): Relative tolerance. Defaults to 1e-5.
+            atol (float, optional): Absolute tolerance. Defaults to 1e-8.
 
         Returns:
             bool: Degeneracy.
         """
-        return np.any(np.isclose(self.diameter(), 0))
+        return np.any(np.isclose(self.diameter(), 0, rtol = rtol, atol = atol))
     
     # emptiness
     def empty(self) -> bool:
@@ -965,11 +977,13 @@ class Interval(ConvexSet):
         return Interval(lb = self.lb, ub = self.ub, validate=False)
 
     # representation by other set representation
-    def represents(self, set_class: str) -> bool:
+    def represents(self, set_class: str, *, rtol: float = 1e-5, atol: float = 1e-8) -> bool:
         """Check if an interval I can also be equivalently represented using another ConvexSet class.
 
         Args:
             set_class (str): Name of another ConvexSet class.
+            rtol (float, optional): Relative tolerance. Defaults to 1e-5.
+            atol (float, optional): Absolute tolerance. Defaults to 1e-8.
 
         Returns:
             bool: Representation possible.
