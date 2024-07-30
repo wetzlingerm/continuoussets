@@ -116,12 +116,14 @@ class HPolyhedron(ConvexSet):
             raise OtherFunctionError((self, other), 'minkowski_sum')
         
     # set equality
-    def __eq__(self, other: Union[ConvexSet, np.ndarray]) -> bool:
+    def __eq__(self, other: Union[ConvexSet, np.ndarray], *, rtol: float = 1e-5, atol: float = 1e-8) -> bool:
         """Set equality of an HPolyhedron HP with another set or vector S.
         Defined as forall i in HP: i in S and forall s in S: s in HP?
 
         Args:
             other (Union[ConvexSet, np.ndarray]): Set or vector.
+            rtol (float, optional): Relative tolerance. Defaults to 1e-5.
+            atol (float, optional): Absolute tolerance. Defaults to 1e-8.
 
         Returns:
             bool: Set equality.
@@ -130,17 +132,17 @@ class HPolyhedron(ConvexSet):
 
         # special check for comparison to vector
         if isinstance(other, np.ndarray):
-            if not self.contains(other):
+            if not self.contains(other, rtol = rtol, atol = atol):
                 return False
             other = _init_from_vector(other)
-            return other.contains(self)
+            return other.contains(self, rtol = rtol, atol = atol)
         
         # convert everything to a HPolyhedron
         if not isinstance(other, HPolyhedron):
             other = HPolyhedron(**other.hpolyhedron(mode = 'exact'))
 
         # slow containment method
-        return self.contains(other) and other.contains(self)
+        return self.contains(other, rtol = rtol, atol = atol) and other.contains(self, rtol = rtol, atol = atol)
     
     # unary minus
     def __neg__(self) -> HPolyhedron:
@@ -322,12 +324,14 @@ class HPolyhedron(ConvexSet):
         return HPolyhedron(A = self.A[index_irredundant], b = self.b[index_irredundant], validate = False)
 
     # containment check
-    def contains(self, other: Union[ConvexSet, np.ndarray]) -> bool:
+    def contains(self, other: Union[ConvexSet, np.ndarray], *, rtol: float = 1e-5, atol: float = 1e-8) -> bool:
         """Checks containment of a ConvexSet or vector (np.ndarray) S in an HPolyhedron HP.
         Defined as forall s in S: s in HP?
 
         Args:
             other (Union[ConvexSet, np.ndarray]): Set or vector.
+            rtol (float, optional): Relative tolerance. Defaults to 1e-5.
+            atol (float, optional): Absolute tolerance. Defaults to 1e-8.
 
         Returns:
             bool: Containment.
@@ -335,12 +339,22 @@ class HPolyhedron(ConvexSet):
         self._checkOtherOperand(other)
 
         if isinstance(other, np.ndarray):
-            return np.all(np.matmul(self.A, other) <= self.b)
+            values = np.matmul(self.A, other)
+            # check absolute tolerance... only then check relative tolerance
+            if not np.all(values <= self.b + atol):
+                min_value = np.min((np.abs(values), np.abs(self.b)), axis = 0)
+                if np.any(min_value == 0.) or np.any(np.abs(values - self.b) / min_value > rtol):
+                    return False
+            return True
         
         for i in range(self.number_constraints()):
             # compute support function value of in-body along all normal vectors in A and compare to b
-            if other.support_function(self.A[i])[0] > self.b[i]:
-                return False
+            value = other.support_function(self.A[i])[0]
+            # check absolute tolerance... only then check relative tolerance
+            if value > self.b[i] + atol:
+                min_value = np.min((np.abs(value), np.abs(self.b[i])))
+                if (min_value == 0.) or (np.abs(value - self.b[i]) / min_value > rtol):
+                    return False
         
         return True
 
@@ -366,7 +380,7 @@ class HPolyhedron(ConvexSet):
         if isinstance(other, np.ndarray):
             other = _init_from_vector(other)
         
-        if mode == ['inner', 'exact']:
+        if mode in ['inner', 'exact']:
             raise NotImplementedError
         
         h = self.number_constraints()
@@ -390,8 +404,12 @@ class HPolyhedron(ConvexSet):
         return HPolyhedron(A = A_new, b = b_new, validate = False)
     
     # degeneracy
-    def degenerate(self) -> bool:
+    def degenerate(self, *, rtol: float = 1e-5, atol: float = 1e-8) -> bool:
         """Check if an HPolyhedron is degenerate.
+
+        Args:
+            rtol (float, optional): Relative tolerance. Defaults to 1e-5.
+            atol (float, optional): Absolute tolerance. Defaults to 1e-8.
 
         Returns:
             bool: Degeneracy.
@@ -406,7 +424,7 @@ class HPolyhedron(ConvexSet):
             # todo: unbounded sets may be degenerate
             raise NotImplementedError
 
-        return np.any(np.isclose(self.b - np.matmul(self.A, c), 0.))
+        return np.any(np.isclose(self.b - np.matmul(self.A, c), 0., rtol = rtol, atol = atol))
     
     # emptiness
     def empty(self) -> bool:
@@ -472,12 +490,14 @@ class HPolyhedron(ConvexSet):
                            validate = False)
     
     # intersection check
-    def intersects(self, other: Union[ConvexSet, np.ndarray]) -> bool:
+    def intersects(self, other: Union[ConvexSet, np.ndarray], *, rtol: float = 1e-5, atol: float = 1e-8) -> bool:
         """Checks if an HPolyhedron intersects another set of vector S.
         Defined as exists s in HP: s in S?
 
         Args:
             other (Union[ConvexSet, np.ndarray]): Set or vector.
+            rtol (float, optional): Relative tolerance. Defaults to 1e-5.
+            atol (float, optional): Absolute tolerance. Defaults to 1e-8.
 
         Returns:
             bool: Result of the intersection check.
@@ -487,18 +507,18 @@ class HPolyhedron(ConvexSet):
         if isinstance(other, np.ndarray):
             return self.contains(other)
         elif isinstance(other, HPolyhedron):
-            return self._intersects_hpolyhedron(other)
+            return self._intersects_hpolyhedron(other, rtol = rtol, atol = atol)
         elif type(other).__name__ == 'Interval':
-            return self._intersects_interval(other)
+            return self._intersects_interval(other, rtol = rtol, atol = atol)
         elif type(other).__name__ == 'Zonotope':
-            return self._intersects_zonotope(other)
+            return self._intersects_zonotope(other, rtol = rtol, atol = atol)
         elif type(other).__name__ == 'VPolytope':
-            return self._intersects_vpolytope(other)
+            return self._intersects_vpolytope(other, rtol = rtol, atol = atol)
         
         return NotImplementedError
     
     # intersection check with hpolyhedron
-    def _intersects_hpolyhedron(self, other: HPolyhedron) -> bool:
+    def _intersects_hpolyhedron(self, other: HPolyhedron, *, rtol: float = 1e-5, atol: float = 1e-8) -> bool:
         """Intersection of an HPolyhedron HP with another HPolyhedron S.
 
         Args:
@@ -511,11 +531,13 @@ class HPolyhedron(ConvexSet):
         return not self.intersection(other).empty()
 
     # intersection check with interval
-    def _intersects_interval(self, other) -> bool:
+    def _intersects_interval(self, other, *, rtol: float = 1e-5, atol: float = 1e-8) -> bool:
         """Intersection of an HPolyhedron HP with an Interval I.
 
         Args:
             other (Interval): Interval.
+            rtol (float, optional): Relative tolerance. Defaults to 1e-5.
+            atol (float, optional): Absolute tolerance. Defaults to 1e-8.
 
         Returns:
             bool: Result of the intersection check.
@@ -527,18 +549,19 @@ class HPolyhedron(ConvexSet):
         return res.success
     
     # intersection check with zonotope
-    def _intersects_zonotope(self, other) -> bool:
+    def _intersects_zonotope(self, other, *, rtol: float = 1e-5, atol: float = 1e-8) -> bool:
         """Intersection of an HPolyhedron HP with a Zonotope Z.
 
         Args:
             other (Zonotope): Zonotope.
+            rtol (float, optional): Relative tolerance. Defaults to 1e-5.
+            atol (float, optional): Absolute tolerance. Defaults to 1e-8.
 
         Returns:
             bool: Result of the intersection check.
         """
         # linear program: min 0  s.t.  Ax <= b, c + Gbeta == x, beta <= 1
-        n = self.dimension
-        m = other.number_generators()
+        n, m = self.dimension, other.number_generators()
 
         c = np.zeros(n + m)
         A_ub = np.vstack((np.hstack((self.A, np.zeros((self.number_constraints(), m)))),
@@ -550,27 +573,27 @@ class HPolyhedron(ConvexSet):
         res = linprog(c, A_ub = A_ub, b_ub = b_ub, A_eq = A_eq, b_eq = b_eq, bounds = (None, None))
         return res.success
     
-    def _intersects_vpolytope(self, other) -> bool:
+    def _intersects_vpolytope(self, other, *, rtol: float = 1e-5, atol: float = 1e-8) -> bool:
         """Intersection of an HPolyhedron HP with a VPolytope VP.
 
         Args:
             other (VPolytope): VPolytope.
+            rtol (float, optional): Relative tolerance. Defaults to 1e-5.
+            atol (float, optional): Absolute tolerance. Defaults to 1e-8.
 
         Returns:
             bool: Result of the intersection check.
         """
         # linear program: min 0  s.t.  Ax <= b, Vbeta == x, sum beta = 1, beta >= 0
-
-        n = self.dimension
-        m = other.number_vertices()
+        n, h, m = self.dimension, self.number_constraints(), other.number_vertices()
 
         c = np.zeros(n + m)
-        A_ub = np.vstack((np.hstack((self.A, np.zeros((self.number_constraints(), m)))),
+        A_ub = np.vstack((np.hstack((self.A, np.zeros((h, m)))),
                           np.hstack((np.zeros((m, n)), -np.eye(m)))))
         b_ub = np.hstack((self.b, np.zeros(m)))
         A_eq = np.vstack((np.hstack((-np.eye(n), other.V.T)),
                           np.hstack((np.zeros(n), np.ones(m)))))
-        b_eq = np.hstack((np.zeros(n), 1))
+        b_eq = np.hstack((np.zeros(n), 1.))
 
         res = linprog(c, A_ub = A_ub, b_ub = b_ub, A_eq = A_eq, b_eq = b_eq, bounds = (None, None))
         return res.success
@@ -734,11 +757,13 @@ class HPolyhedron(ConvexSet):
         raise NotImplementedError
 
     # representation by other set representation
-    def represents(self, *, set_class: str) -> bool:
+    def represents(self, set_class: str, *, rtol: float = 1e-5, atol: float = 1e-8) -> bool:
         """Check if an HPolyhedron HP can also be equivalently represented using another ConvexSet class.
 
         Args:
             set_class (str): Name of another ConvexSet class.
+            rtol (float, optional): Relative tolerance. Defaults to 1e-5.
+            atol (float, optional): Absolute tolerance. Defaults to 1e-8.
 
         Returns:
             bool: Representation possible.

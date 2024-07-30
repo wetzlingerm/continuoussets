@@ -253,16 +253,19 @@ class TestHPolyhedron(unittest.TestCase):
     def test_contains(self):
         ''' Test for containment check '''
         # cases:
-        # - HPolyhedron x vector
+        # - HPolyhedron x vector (inside)
+        # - HPolyhedron x vector (boundary)
         # - HPolyhedron x HPolyhedron (self)
         # - HPolyhedron x HPolyhedron
         HP1 = HPolyhedron(A = np.array([[1., 0.], [0., 1.], [-1., -1.]]),
                           b = np.array([2., 1., 3.]))
-        v = np.array([0., 0.])
+        v_inside = np.array([0., 0.])
+        v_boundary = np.array([2., 1.])
         HP2 = HPolyhedron(A = np.array([[1., 0.], [1., 1.]]),
                           b = np.array([5., 3.]))
 
-        assert HP1.contains(v)
+        assert HP1.contains(v_inside)
+        assert HP1.contains(v_boundary)
         assert HP1.contains(HP1)
         assert HP2.contains(HP1)
         assert not HP1.contains(HP2)

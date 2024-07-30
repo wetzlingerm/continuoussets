@@ -276,6 +276,7 @@ class TestInterval(unittest.TestCase):
         Z = Zonotope(c = np.array([0.5, 1.5]), G = np.array([[2.5, 0.],[0., 2.5]]))
 
         assert I1 == I1
+        assert I1.__eq__(I1, rtol = 0., atol = 0.)
         assert not I1 == I2
         assert not I1 == lower
         assert not I3 == (lower + np.array([1., 0.]))

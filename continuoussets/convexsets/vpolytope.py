@@ -5,7 +5,7 @@ from typing import Union
 import numpy as np
 from scipy.optimize import linprog
 from scipy.spatial import ConvexHull
-# from pypoman import compute_polytope_halfspaces
+from pypoman import compute_polytope_halfspaces
 
 from continuoussets.convexsets.convexset import ConvexSet
 from continuoussets.utils import comparison
@@ -102,12 +102,14 @@ class VPolytope(ConvexSet):
             raise OtherFunctionError((self, other), 'minkowski_sum')
         
     # set equality
-    def __eq__(self, other: Union[ConvexSet, np.ndarray]) -> bool:
+    def __eq__(self, other: Union[ConvexSet, np.ndarray], *, rtol: float = 1e-5, atol: float = 1e-8) -> bool:
         """Set equality of a VPolytope VP with another set or vector S.
         Defined as forall i in VP: i in VP and forall s in S: s in VP?
 
         Args:
             other (Union[ConvexSet, np.ndarray]): Set or vector.
+            rtol (float, optional): Relative tolerance. Defaults to 1e-5.
+            atol (float, optional): Absolute tolerance. Defaults to 1e-8.
 
         Returns:
             bool: Set equality.
@@ -118,9 +120,8 @@ class VPolytope(ConvexSet):
             other = VPolytope(**other.vpolytope(mode = 'exact'))
         
         # compute minimal representation of both sets and compare list of vertices
-        other_minimal = other.compact()
-        self = self.compact()
-        return comparison.compare_matrices(self.V, other_minimal.V)
+        self, other_minimal = self.compact(), other.compact()
+        return comparison.compare_matrices(self.V, other_minimal.V, rtol = rtol, atol = atol)
     
     # unary minus
     def __neg__(self) -> VPolytope:
@@ -251,7 +252,7 @@ class VPolytope(ConvexSet):
             for j in range(self.number_vertices()):
                 other_vertices = np.vstack((self.V[0:j, :], self.V[j+1:-1, :]))
                 this_vertex = self.V[j, :]
-                if np.any(np.isclose(np.linalg.norm(other_vertices - this_vertex), 0, rtol=rtol)):
+                if np.any(np.isclose(np.linalg.norm(other_vertices - this_vertex), 0, rtol = rtol)):
                     index_nonduplicate[j] = False
             # remove duplicates
             return VPolytope(V = self.V[index_nonduplicate, :], validate = False)
@@ -261,12 +262,14 @@ class VPolytope(ConvexSet):
             return VPolytope(V = self.V[ConvexHull(self.V).vertices, :], validate = False)
 
     # containment check
-    def contains(self, other: Union[ConvexSet, np.ndarray]) -> bool:
+    def contains(self, other: Union[ConvexSet, np.ndarray], *, rtol: float = 1e-5, atol: float = 1e-8) -> bool:
         """Checks containment of a ConvexSet or vector (np.ndarray) S in a VPolytope VP.
         Defined as forall s in S: s in VP?
 
         Args:
             other (Union[ConvexSet, np.ndarray]): Set or vector.
+            rtol (float, optional): Relative tolerance. Defaults to 1e-5.
+            atol (float, optional): Absolute tolerance. Defaults to 1e-8.
 
         Returns:
             bool: Containment.
@@ -274,23 +277,26 @@ class VPolytope(ConvexSet):
         self._checkOtherOperand(other)
 
         if isinstance(other, np.ndarray):
-            return self._contains_point(other)
+            return self._contains_point(other, rtol = rtol, atol = atol)
 
         if not isinstance(other, VPolytope):
             other = VPolytope(**other.vpolytope(mode = 'exact'))
 
-        return self == other.convex_hull(self)
+        return self.__eq__(other.convex_hull(self), rtol = rtol, atol = atol)
 
-    def _contains_point(self, other: np.ndarray) -> bool:
+    def _contains_point(self, other: np.ndarray, *, rtol: float = 1e-5, atol: float = 1e-8) -> bool:
         """Point-in-VPolytope check.
 
         Args:
             other (np.ndarray): Vector.
+            rtol (float, optional): Relative tolerance. Defaults to 1e-5.
+            atol (float, optional): Absolute tolerance. Defaults to 1e-8.
 
         Returns:
             bool: Containment.
         """
         # no checks in underscore-functions
+        # todo: use dual and integrate tolerances...
 
         # objective function
         c = np.zeros(self.number_vertices())
@@ -329,13 +335,16 @@ class VPolytope(ConvexSet):
         return VPolytope(V = V_all, validate = False)
     
     # degeneracy
-    def degenerate(self) -> bool:
+    def degenerate(self, *, tol: float = 1e-12) -> bool:
         """Checks if a VPolytope VP is degenerate.
+
+        Args:
+            tol (float, optional): Tolerance. Defaults to 1e-12.
 
         Returns:
             bool: Degeneracy.
         """
-        return np.linalg.matrix_rank(self.V - np.mean(self.V, axis = 0)) < self.dimension
+        return np.linalg.matrix_rank(self.V - np.mean(self.V, axis = 0), tol = tol) < self.dimension
 
     # emptiness
     def empty(self) -> bool:
@@ -358,17 +367,21 @@ class VPolytope(ConvexSet):
         """
         self._checkMode(mode)
 
-        # todo: use pypoman
-        raise NotImplementedError
-        # return {'A': A, 'b': b}
+        if self.degenerate():
+            raise NotImplementedError
+
+        A, b = compute_polytope_halfspaces(self.V)
+        return {'A': A, 'b': b}
     
     # intersection check
-    def intersects(self, other: Union[ConvexSet, np.ndarray]) -> bool:
+    def intersects(self, other: Union[ConvexSet, np.ndarray], *, rtol: float = 1e-5, atol: float = 1e-8) -> bool:
         """Checks if an VPolytope VP intersects another set of vector S.
         Defined as exists s in VP: s in S?
 
         Args:
             other (Union[ConvexSet, np.ndarray]): Set or vector.
+            rtol (float, optional): Relative tolerance. Defaults to 1e-5.
+            atol (float, optional): Absolute tolerance. Defaults to 1e-8.
 
         Returns:
             bool: Result of the intersection check.
@@ -376,17 +389,30 @@ class VPolytope(ConvexSet):
         self._checkOtherOperand(other)
 
         if isinstance(other, np.ndarray):
-            return self.contains(other)
-
+            return self.contains(other, rtol = rtol, atol = atol)
+        elif isinstance(other, VPolytope):
+            return self._intersects_vpolytope(other, rtol = rtol, atol = atol)
         if type(other).__name__ == 'HPolyhedron':
-            return other.intersects(self)
-        
-        if type(other).__name__ in ['Interval', 'Zonotope']:
-            other = VPolytope(**other.vpolytope(mode = 'exact'))
+            return other.intersects(self, rtol = rtol, atol = atol)
+        elif type(other).__name__ == 'Zonotope':
+            return self._intersects_zonotope(other, rtol = rtol, atol = atol)
+        elif type(other).__name__ == 'Interval':
+            return self._intersects_interval(other, rtol = rtol, atol = atol)
+    
+    # intersection check with vpolytope
+    def _intersects_vpolytope(self, other: VPolytope, *, rtol: float = 1e-5, atol: float = 1e-8) -> bool:
+        """Check if a VPolytope intersects another VPolytope.
 
+        Args:
+            other (VPolytope): VPolytope.
+            rtol (float, optional): Relative tolerance. Defaults to 1e-5.
+            atol (float, optional): Absolute tolerance. Defaults to 1e-8.
+
+        Returns:
+            bool: Result of the intersection check.
+        """
         # read out number of vertices
-        m1 = self.number_vertices()
-        m2 = other.number_vertices()
+        m1, m2 = self.number_vertices(), other.number_vertices()
         if (m1 == 1):
             return other.contains(self.V[0])
         elif (m2 == 1):
@@ -396,12 +422,81 @@ class VPolytope(ConvexSet):
         c = np.zeros(m1 + m2)
 
         # constraints
-        A_eq = np.vstack((np.hstack((self.V.T, other.V.T)),
+        A_eq = np.vstack((np.hstack((self.V.T, -other.V.T)),
                           np.hstack((np.ones(m1), np.zeros(m2))),
                           np.hstack((np.zeros(m1), np.ones(m2)))))
         b_eq = np.hstack((np.zeros(self.dimension), np.array([1., 1.])))
         A_ub = -np.eye(m1 + m2)
         b_ub = np.zeros(m1 + m2)
+
+        # solve linear program
+        res = linprog(c, A_ub, b_ub, A_eq, b_eq, bounds = (None, None))
+
+        # vector is contained if the LP is feasible
+        return res.success
+    
+    # intersection check with interval
+    def _intersects_interval(self, other, *, rtol: float = 1e-5, atol: float = 1e-8) -> bool:
+        """Check if a VPolytope intersects an Interval.
+
+        Args:
+            other (VPolytope): Interval.
+            rtol (float, optional): Relative tolerance. Defaults to 1e-5.
+            atol (float, optional): Absolute tolerance. Defaults to 1e-8.
+
+        Returns:
+            bool: Result of the intersection check.
+        """
+        # read out dimension and number of vertices
+        n, m = self.dimension, self.number_vertices()
+
+        # convert interval to halfspace representation
+        hpolyhedron_dict = other.hpolyhedron()
+        A, b = hpolyhedron_dict['A'], hpolyhedron_dict['b']
+
+        # objective function
+        c = np.zeros(m + n)
+
+        # constraints
+        A_eq = np.vstack((np.hstack((self.V.T, -np.eye(n))),
+                          np.hstack((np.ones((1, m)), np.zeros((1, n))))))
+        b_eq = np.hstack((np.zeros(n), 1.))
+        A_ub = np.vstack((np.hstack((-np.eye(m), np.zeros((m, n)))),
+                          np.hstack((np.zeros((2*n, m)), A))))
+        b_ub = np.hstack((np.zeros(m), b))
+
+        # solve linear program
+        res = linprog(c, A_ub, b_ub, A_eq, b_eq, bounds = (None, None))
+
+        # vector is contained if the LP is feasible
+        return res.success
+    
+    # intersection check with zonotope
+    def _intersects_zonotope(self, other, *, rtol: float = 1e-5, atol: float = 1e-8) -> bool:
+        """Check if a VPolytope intersects a Zonotope.
+
+        Args:
+            other (VPolytope): Zonotope.
+            rtol (float, optional): Relative tolerance. Defaults to 1e-5.
+            atol (float, optional): Absolute tolerance. Defaults to 1e-8.
+
+        Returns:
+            bool: Result of the intersection check.
+        """
+        # read out dimension, number of vertices, number of generators
+        m, g = self.number_vertices(), other.number_generators()
+
+        # objective function
+        c = np.zeros(g + m)
+
+        # constraints
+        A_eq = np.vstack((np.hstack((other.G.T, -self.V.T)),
+                          np.hstack((np.zeros((1, g)), np.ones((1, m))))))
+        b_eq = np.hstack((-other.c, 1.))
+        A_ub = np.vstack((np.hstack((np.eye(g), np.zeros((g, m)))),
+                          np.hstack((-np.eye(g), np.zeros((g, m)))),
+                          np.hstack((np.zeros((m, g)), -np.eye(m)))))
+        b_ub = np.hstack((np.ones(2*g), np.zeros(m)))
 
         # solve linear program
         res = linprog(c, A_ub, b_ub, A_eq, b_eq, bounds = (None, None))
@@ -535,11 +630,13 @@ class VPolytope(ConvexSet):
         return VPolytope(V = self.V[:, list(axis)], validate = False)
 
     # representation by other set representation
-    def represents(self, *, set_class: str) -> bool:
+    def represents(self, set_class: str, *, rtol: float = 1e-5, atol: float = 1e-8) -> bool:
         """Check if a VPolytope VP can also be equivalently represented using another ConvexSet class.
 
         Args:
             set_class (str): Name of another ConvexSet class.
+            rtol (float, optional): Relative tolerance. Defaults to 1e-5.
+            atol (float, optional): Absolute tolerance. Defaults to 1e-8.
 
         Raises:
             NotImplementedError: Zonotope and Interval currently not supported.
@@ -636,8 +733,7 @@ class VPolytope(ConvexSet):
 
         # convert to interval (outer approximation)
         interval_dict = self.interval(mode = 'outer')
-        lower_bound = interval_dict['lb']
-        upper_bound = interval_dict['ub']
+        lower_bound, upper_bound = interval_dict['lb'], interval_dict['ub']
 
         # convert interval to zonotope (note: we cannot call Interval methods here)
         center = (upper_bound + lower_bound) / 2
