@@ -459,13 +459,13 @@ class TestZonotope(unittest.TestCase):
         I = Interval(lb = center2, ub = center2)
 
         # compute linear combination
-        result1 = Z1.convex_hull(Z2)
-        result2 = Z2.convex_hull(Z1)
-        result3 = Z3.convex_hull(Z2)
-        result4 = Z2.convex_hull(Z3)
-        result5 = Z3.convex_hull(Z4)
-        result6 = Z4.convex_hull(Z3)
-        result7 = Z1.convex_hull(I)
+        result1 = Z1.convex_hull(Z2, mode = 'outer')  # also 'exact'
+        result2 = Z2.convex_hull(Z1, mode = 'outer')  # also 'exact'
+        result3 = Z3.convex_hull(Z2, mode = 'outer')
+        result4 = Z2.convex_hull(Z3, mode = 'outer')
+        result5 = Z3.convex_hull(Z4, mode = 'outer')
+        result6 = Z4.convex_hull(Z3, mode = 'outer')
+        result7 = Z1.convex_hull(I, mode = 'outer')
 
         # manual computation
         true_result1 = Zonotope(c = np.array([0., 1.]), G = np.array([[1., -1.]]))
@@ -488,7 +488,9 @@ class TestZonotope(unittest.TestCase):
 
         # check exceptions
         with self.assertRaises(NotImplementedError):
-            Z1.convex_hull(Z2, mode='inner')
+            Z1.convex_hull(Z2, mode = 'inner')  # should work
+        with self.assertRaises(NotImplementedError):
+            Z2.convex_hull(Z3, mode = 'exact')  # should work
 
     def test_degenerate(self):
         ''' Test for degeneracy '''
@@ -591,10 +593,10 @@ class TestZonotope(unittest.TestCase):
 
         # convert to intervals (dictionary for constructor)
         result1 = Interval(**Z1.interval())
-        result2 = Interval(**Z1.interval(mode='inner'))
-        result3 = Interval(**Z1.interval(mode='exact'))
+        result2 = Interval(**Z1.interval(mode = 'inner'))
+        result3 = Interval(**Z1.interval())
         result4 = Interval(**Z2.interval())
-        result5 = Interval(**Z3.interval())
+        result5 = Interval(**Z3.interval(mode = 'outer'))
 
         # manual computation
         true_result1 = Interval(lb = c, ub = c)
@@ -609,6 +611,9 @@ class TestZonotope(unittest.TestCase):
         assert result3 == true_result3
         assert result4 == true_result4
         assert result5 == true_result5
+
+        with self.assertRaises(exceptions.ExactEvaluationImpossibleError):
+            Interval(**Z3.interval())
 
         # check exceptions
         with self.assertRaises(NotImplementedError):
@@ -813,6 +818,7 @@ class TestZonotope(unittest.TestCase):
         # - only center
         # - center and generators (box)
         # - center and generators (not a box)
+        # - 1D
 
         # init zonotopes
         c = np.array([1., 0.])
@@ -821,6 +827,7 @@ class TestZonotope(unittest.TestCase):
         Z1 = Zonotope(c = c)
         Z2 = Zonotope(c = c, G = G_axisaligned)
         Z3 = Zonotope(c = c, G = G_notaxisaligned)
+        Z4 = Zonotope(c = np.array([1.]), G = np.array([[2.], [-1.]]))
 
         # check representation
         assert Z1.represents('Interval')
@@ -829,6 +836,8 @@ class TestZonotope(unittest.TestCase):
         assert Z1.represents('Zonotope')
         assert Z3.represents('VPolytope')
         assert Z3.represents('HPolyhedron')
+        assert Z4.represents('Interval')
+        assert Z4.represents('HPolyhedron')
 
     def test_support_function(self):
         ''' Test for support function evaluation '''

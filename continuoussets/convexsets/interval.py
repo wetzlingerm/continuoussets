@@ -7,7 +7,8 @@ from typing import Union
 import numpy as np
 
 from continuoussets.convexsets.convexset import ConvexSet
-from continuoussets.utils.exceptions import EmptySetError, OutOfBoundsError
+from continuoussets.utils.exceptions import EmptySetError, OutOfBoundsError, \
+    ExactEvaluationImpossibleError, UnboundedSetError
 
 if __name__ == '__main__':
     print('This is the Interval class.')
@@ -212,8 +213,7 @@ class Interval(ConvexSet):
             return np.allclose(self.lb, other.lb, rtol = rtol, atol = atol) and \
                 np.allclose(self.ub, other.ub, rtol = rtol, atol = atol)
         elif isinstance(other, ConvexSet):
-            return other.represents('Interval', rtol = rtol, atol = atol) and \
-                self.__eq__(Interval(**other.interval(), validate=False), rtol = rtol, atol = atol)
+            return other.__eq__(self, rtol = rtol, atol = atol)
 
     # element-wise multiplication
     def __mul__(self, other: Union[Interval, np.ndarray, list, int, float]) -> Interval:
@@ -693,33 +693,34 @@ class Interval(ConvexSet):
         return True
 
     # Cartesian product
-    def cartesian_product(self, other: Union[ConvexSet, np.ndarray], *, mode: str = 'outer') -> Interval:
+    def cartesian_product(self, other: Union[ConvexSet, np.ndarray], *, mode: str = 'exact') -> Interval:
         """Cartesian product of an Interval I and another set or vector S.
         Defined as {[a^T s^T]^T | a in I, s in S}.
 
         Args:
             other (Union[ConvexSet, np.ndarray]): Set or vector.
-            mode (str, optional): Approximation of the evaluation: 'inner', 'exact', 'outer'. Defaults to 'outer'.
+            mode (str, optional): Approximation of the evaluation: 'inner', 'exact', 'outer'. Defaults to 'exact'.
 
         Raises:
-            NotImplementedError: Inner approximation and exact evaluation not implemented unless other represents an Interval.
+            NotImplementedError: Inner approximation not implemented unless other represents an Interval.
+            ExactEvaluationImpossibleError: Exact Cartesian product only representable by an Interval in special cases.
 
         Returns:
             Interval: Result of the Cartesian product.
         """
         self._checkMode(mode)
 
-        if mode in ['inner', 'exact'] and not other.represents('Interval'):
-            raise NotImplementedError
-
         if isinstance(other, Interval):
             return Interval(lb = np.hstack((self.lb, other.lb)),
                             ub = np.hstack((self.ub, other.ub)), validate=False)
-        elif isinstance(other, ConvexSet):
-            return self.cartesian_product(Interval(**other.interval(mode = mode), validate=False))
-        else:
+        elif isinstance(other, np.ndarray):
             return Interval(lb = np.hstack((self.lb, other)),
                             ub = np.hstack((self.ub, other)), validate=False)
+        elif isinstance(other, ConvexSet):
+            # try converting to an interval according to the given mode
+            # note: operation below may throw ExactEvaluationImpossibleError!
+            other = Interval(**other.interval(mode = mode), validate=False)
+            return self.cartesian_product(other)
 
     # center
     def center(self) -> np.ndarray:
@@ -762,19 +763,23 @@ class Interval(ConvexSet):
             # todo: use tolerances
             return np.all(self.lb <= other.lb) and np.all(self.ub >= other.ub)
         elif isinstance(other, ConvexSet):
-            return self.contains(Interval(**other.interval(), validate=False), rtol = rtol, atol = atol)
+            try:
+                other = Interval(**other.interval(mode = 'outer'), validate=False)
+            except (UnboundedSetError):
+                return False
+            return self.contains(other, rtol = rtol, atol = atol)
         else:
             # todo: use tolerances
             return np.all(self.lb <= other) and np.all(self.ub >= other)
 
     # convex hull
-    def convex_hull(self, other: Union[ConvexSet, np.ndarray], *, mode: str = 'outer') -> Interval:
+    def convex_hull(self, other: Union[ConvexSet, np.ndarray], *, mode: str = 'exact') -> Interval:
         """Convex hull of an Interval I and another set or vector S.
         Defined as {lambda*a + (1-lambda)*s | a in I, s in S, lambda in [0,1]}
 
         Args:
             other (Union[ConvexSet, np.ndarray]): Set or vector.
-            mode (str, optional): Approximation of the evaluation: 'inner', 'exact', 'outer'. Defaults to 'outer'.
+            mode (str, optional): Approximation of the evaluation: 'inner', 'exact', 'outer'. Defaults to 'exact'.
 
         Raises:
             NotImplementedError: Inner approximation and exact evaluation not implemented in the general case.
@@ -785,14 +790,19 @@ class Interval(ConvexSet):
         self._checkOtherOperand(other)
         self._checkMode(mode)
 
-        if mode in ['inner', 'exact'] and not (self.contains(other) or other.contains(self)):
-            raise NotImplementedError
+        if mode in ['inner', 'exact'] and \
+                not (self.contains(other) or (isinstance(other, Interval) and other.contains(self))):
+            if mode == 'inner':
+                raise NotImplementedError
+            elif mode == 'exact':
+                raise ExactEvaluationImpossibleError
 
+        # mode = 'outer' from here on out... (covers exact cases if conditions are met)
         if isinstance(other, Interval):
             return Interval(lb = np.minimum(self.lb, other.lb),
                             ub = np.maximum(self.ub, other.ub), validate=False)
         elif isinstance(other, ConvexSet):
-            return self.convex_hull(Interval(**other.interval(mode = mode), validate=False))
+            return self.convex_hull(Interval(**other.interval(mode = 'outer'), validate=False), mode = 'outer')
         else:
             return Interval(lb = np.minimum(self.lb, other),
                             ub = np.maximum(self.ub, other), validate=False)
@@ -836,12 +846,14 @@ class Interval(ConvexSet):
                 'b': np.hstack((self.ub, -self.lb))}
 
     # intersection check
-    def intersects(self, other: Union[ConvexSet, np.ndarray]) -> bool:
+    def intersects(self, other: Union[ConvexSet, np.ndarray], *, rtol: float = 1e-5, atol: float = 1e-8) -> bool:
         """Checks if an Interval I intersects another set or vector S.
         Defined as exists s in I: s in S?
 
         Args:
             other (Union[ConvexSet, np.ndarray]): Set or vector.
+            rtol (float, optional): Relative tolerance. Defaults to 1e-5.
+            atol (float, optional): Absolute tolerance. Defaults to 1e-8.
 
         Returns:
             bool: Result of the intersection check.
@@ -850,10 +862,10 @@ class Interval(ConvexSet):
 
         if isinstance(other, np.ndarray):
             return self.contains(other)
-        elif not isinstance(other, Interval):
-            other = Interval(**other.interval(mode = 'outer'))
-
-        return np.any(np.logical_not(np.any(np.vstack((other.ub <= self.lb, other.lb >= self.ub)), axis=0)))
+        elif isinstance(other, Interval):
+            return np.any(np.logical_not(np.any(np.vstack((other.ub <= self.lb + atol, other.lb >= self.ub - atol)), axis=0)))
+        else:
+            return other.intersects(self, rtol = rtol, atol = atol)
     
     # conversion to interval
     def interval(self, *, mode: str = 'exact') -> dict:
@@ -891,13 +903,13 @@ class Interval(ConvexSet):
         return Interval(lb = lower, ub = upper, validate=False)
 
     # Minkowski sum
-    def minkowski_sum(self, other: Union[ConvexSet, np.ndarray], *, mode: str = 'outer') -> Interval:
+    def minkowski_sum(self, other: Union[ConvexSet, np.ndarray], *, mode: str = 'exact') -> Interval:
         """Minkowski sum of an Interval I and another set or vector S.
         Defined as {a + s | a in I, s in S}.
 
         Args:
             other (Union[ConvexSet, np.ndarray]): Summand.
-            mode (str, optional): Approximation of the result: 'inner', 'exact', 'outer'. Defaults to 'outer'.
+            mode (str, optional): Approximation of the result: 'inner', 'exact', 'outer'. Defaults to 'exact'.
 
         Returns:
             Interval: Result of the Minkowski sum.
@@ -912,7 +924,9 @@ class Interval(ConvexSet):
             lower = self.lb + other.lb
             upper = self.ub + other.ub
         else:
-            return self + Interval(**other.interval(mode = mode), validate=False)
+            # convert other set to interval (may throw UnboundedSetError)
+            other = Interval(**other.interval(mode = mode), validate=False)
+            return self + other
 
         return Interval(lb = lower, ub = upper, validate=False)
 

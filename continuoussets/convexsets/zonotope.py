@@ -284,7 +284,7 @@ class Zonotope(ConvexSet):
 
     # center
     def center(self) -> np.ndarray:
-        """Center of a Zonotope Z. (Merely implemented for duck typing purposes.)
+        """Center of a Zonotope Z.
 
         Returns:
             np.ndarray: Center of the Zonotope.
@@ -355,13 +355,13 @@ class Zonotope(ConvexSet):
             raise NotImplementedError
 
     # convex hull
-    def convex_hull(self, other: Union[ConvexSet, np.ndarray], *, mode: str = 'outer') -> Zonotope:
+    def convex_hull(self, other: Union[ConvexSet, np.ndarray], *, mode: str = 'exact') -> Zonotope:
         """Convex hull of a Zonotope Z and another set or vector S.
         Defined as {lambda*z + (1-lambda)*s | z in Z, s in S, lambda in [0,1]}
 
         Args:
             other (Union[ConvexSet, np.ndarray]): Set or vector.
-            mode (str, optional): Approximation of operation: 'inner', 'exact', 'outer'. Defaults to 'outer'.
+            mode (str, optional): Approximation of operation: 'inner', 'exact', 'outer'. Defaults to 'exact'.
 
         Raises:
             NotImplementedError: Modes 'inner' and 'exact' not supported in the general case.
@@ -373,10 +373,11 @@ class Zonotope(ConvexSet):
         self._checkMode(mode)
 
         if mode in ['exact', 'inner']:
+            # todo: implement special case 'single point - single point'
             raise NotImplementedError
 
         if not isinstance(other, Zonotope):
-            return self.convex_hull(Zonotope(**other.zonotope(mode = mode), validate = False))
+            return self.convex_hull(Zonotope(**other.zonotope(mode = mode), validate = False), mode = mode)
 
         # new center
         center = 0.5 * (self.c + other.c)
@@ -437,12 +438,14 @@ class Zonotope(ConvexSet):
         # return {'A': A, 'b': b}
 
     # intersection check
-    def intersects(self, other: Union[ConvexSet, np.ndarray]) -> bool:
+    def intersects(self, other: Union[ConvexSet, np.ndarray], *, rtol: float = 1e-5, atol: float = 1e-8) -> bool:
         """Checks if a Zonotope Z intersects another set or vector S.
         Defined as exists s in Z: s in S?
 
         Args:
             other (Union[ConvexSet, np.ndarray]): Set or vector.
+            rtol (float, optional): Relative tolerance. Defaults to 1e-5.
+            atol (float, optional): Absolute tolerance. Defaults to 1e-8.
 
         Returns:
             bool: Result of the intersection check.
@@ -452,25 +455,25 @@ class Zonotope(ConvexSet):
         if isinstance(other, np.ndarray):
             return self.contains(other)
         elif type(other).__name__ in ['VPolytope', 'HPolyhedron']:
-            return other.intersects(self)
+            return other.intersects(self, rtol = rtol, atol = atol)
         elif type(other).__name__ == 'Interval':
             other = Zonotope(**other.zonotope(mode = 'exact'))
 
         # cases without generators: less intermediate computations
         if self.number_generators() == 0:
-            return other.contains(self.c)
+            return other.contains(self.c, rtol = rtol, atol = atol)
         elif other.number_generators() == 0:
-            return self.contains(other.c)
+            return self.contains(other.c, rtol = rtol, atol = atol)
 
         # use identity: Z1 intersects Z2 iff 0 in Z1 + (-Z2)
-        return (self.minkowski_sum(-other)).contains(np.zeros(self.dimension))
+        return (self.minkowski_sum(-other)).contains(np.zeros(self.dimension), rtol = rtol, atol = atol)
 
     # conversion to interval
-    def interval(self, *, mode: str = 'outer') -> dict:
+    def interval(self, *, mode: str = 'exact') -> dict:
         """Conversion to Interval.
 
         Args:
-            mode (str, optional): Approximation of the conversion: 'inner', 'exact', 'outer'. Defaults to 'outer'.
+            mode (str, optional): Approximation of the conversion: 'inner', 'exact', 'outer'. Defaults to 'exact'.
 
         Raises:
             NotImplementedError: Mode 'inner' only supported if the zonotope represents an interval.
@@ -525,13 +528,13 @@ class Zonotope(ConvexSet):
         return Zonotope(c = center, G = generators, validate = False)
 
     # Minkowski sum
-    def minkowski_sum(self, other: Union[ConvexSet, np.ndarray], *, mode: str = 'outer') -> Zonotope:
+    def minkowski_sum(self, other: Union[ConvexSet, np.ndarray], *, mode: str = 'exact') -> Zonotope:
         """Minkowski sum between a Zonotope Z and another set or vector S.
         Defined as {z + s | z in Z, s in S}.
 
         Args:
             other (Union[ConvexSet, np.ndarray]): Set or vector.
-            mode (str, optional): Approximation of the evaluation: 'inner', 'exact', 'outer'. Defaults to 'outer'.
+            mode (str, optional): Approximation of the evaluation: 'inner', 'exact', 'outer'. Defaults to 'exact'.
 
         Returns:
             Zonotope: Result of the Minkowski sum.
@@ -666,14 +669,16 @@ class Zonotope(ConvexSet):
         """
         self._checkSetClass(set_class)
 
-        if set_class == 'Interval':
+        if self.dimension == 1:
+            return True
+        elif set_class == 'Interval':
             if self.number_generators() == 0:
                 return True
             G_abs = np.abs(self.G)
             return np.allclose(np.sum(G_abs, axis=1), np.max(G_abs, axis=1), rtol = rtol, atol = atol)
-        else:
-            # every zonotope is a zonotope/polytope/constrained zonotope
-            return True
+        
+        # every zonotope is a zonotope/hpolyhedron/vpolytope
+        return True
 
     # support function evaluation
     def support_function(self, direction: np.ndarray) -> tuple[float, np.ndarray]:

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import Union
+from itertools import product
 
 import numpy as np
 from scipy.optimize import linprog
@@ -552,13 +553,13 @@ class VPolytope(ConvexSet):
         return VPolytope(V = np.matmul(self.V, matrix.T), validate = False)
 
     # Minkowski sum
-    def minkowski_sum(self, other: Union[ConvexSet, np.ndarray], *, mode: str = 'outer') -> VPolytope:
+    def minkowski_sum(self, other: Union[ConvexSet, np.ndarray], *, mode: str = 'exact') -> VPolytope:
         """Minkowski sum of a VPolytope VP and another set or vector S.
         Defined as {a + s | a in VP, s in S}.
 
         Args:
             other (Union[ConvexSet, np.ndarray]): Summand.
-            mode (str, optional): Approximation of the evaluation: 'inner', 'exact', 'outer'. Defaults to 'outer'.
+            mode (str, optional): Approximation of the evaluation: 'inner', 'exact', 'outer'. Defaults to 'exact'.
 
         Returns:
             VPolytope: Result of the Minkowski sum.
@@ -646,14 +647,47 @@ class VPolytope(ConvexSet):
         """
         self._checkSetClass(set_class)
 
-        if self.number_vertices() <= 1:
+        # 1D or single vertex always true
+        if self.dimension == 1 or self.number_vertices() <= 1:
             return True
+        
         if set_class in ['VPolytope', 'HPolyhedron']:
             return True
         
-        # todo: Zonotope, Interval?
+        if set_class == 'Interval':
+            # todo: check if there is another way to do this...
+            return self._represents_interval(rtol = rtol, atol = atol)
+        
+        # todo: Zonotope
         raise NotImplementedError
     
+    # representation as an interval
+    def _represents_interval(self, *, rtol: float = 1e-5, atol: float = 1e-8):
+        """Check if a VPolytope VP can also be equivalently represented as an Interval.
+
+        Args:
+            rtol (float, optional): Relative tolerance. Defaults to 1e-5.
+            atol (float, optional): Absolute tolerance. Defaults to 1e-8.
+
+        Returns:
+            _type_: Representation possible.
+        """
+        # check whether all 2^n vertices of the interval outer approximation is contained in self
+        interval_dict = self.interval(mode = 'outer')
+        lower_bound, upper_bound = interval_dict['lb'], interval_dict['ub']
+        # !note: functionality below is copied from interval/vertices...
+        # reformat so that each dimension is a single np.ndarray (required for combinations below)
+        bounds_per_dimension = np.vsplit(np.vstack((lower_bound, upper_bound)).transpose(), self.dimension)
+        # remove second dimension for individual dimensions
+        var = [x.flatten() for x in bounds_per_dimension]
+        # flatten dimensions where lower bound equals the upper bound, write in tuple to unpack for itertools.product call
+        t = tuple(x if x[0] != x[1] else np.array([x[0]]) for x in var)
+        # enumerate all combinations
+        all_combinations = product(*t)
+        V = np.vstack([np.array(x) for x in all_combinations])
+        # check for equality
+        return self.__eq__(VPolytope(V = V, validate = False), rtol = rtol, atol = atol)
+
     # support function evaluation
     def support_function(self, direction: np.ndarray) -> tuple[float, np.ndarray]:
         """Support function evaluation of a VPolytope VP in a direction d.
