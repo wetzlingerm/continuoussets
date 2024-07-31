@@ -353,6 +353,9 @@ class TestVPolytope(unittest.TestCase):
         #assert HP_1 == true_result1
         #assert HP_2 == true_result2
         assert HP_3 == true_result3
+
+        with self.assertRaises(NotImplementedError):
+            HP_1 = HPolyhedron(**VP_1.hpolyhedron())
     
     def test_intersects(self):
         ''' Test for intersection check '''
@@ -394,7 +397,6 @@ class TestVPolytope(unittest.TestCase):
         # - single vertex
         # - vpolytope that is an interval
         # - vpolytope that is not an interval
-        # todo: mode = 'exact' where not possible
         VP_1 = VPolytope(V = np.array([1., 1.]))
         VP_2 = VPolytope(V = np.array([[-1., 0.], [0., 0.], [0., 2.], [-1., 2.]]))
         VP_3 = VPolytope(V = np.array([[-1., 0.], [0., -1.], [2., 1.]]))
@@ -414,6 +416,8 @@ class TestVPolytope(unittest.TestCase):
         # unsupported conversions
         with self.assertRaises(NotImplementedError):
             VP_3.interval(mode = 'inner')
+        with self.assertRaises(exceptions.ExactEvaluationImpossibleError):
+            VP_3.interval(mode = 'exact')
     
     def test_matmul(self):
         ''' Test for linear map '''
@@ -510,9 +514,12 @@ class TestVPolytope(unittest.TestCase):
         assert VP_1.represents(set_class = 'HPolyhedron')
         assert VP_1.represents(set_class = 'Interval')
         assert VP_1.represents(set_class = 'Zonotope')
+
+        assert VP_2.represents(set_class = 'VPolytope')
         assert VP_2.represents(set_class = 'HPolyhedron')
+        assert VP_2.represents(set_class = 'Interval')
         with self.assertRaises(NotImplementedError):
-            VP_2.represents(set_class = 'Interval')
+            VP_2.represents(set_class = 'Zonotope')
 
     def test_support_function(self):
         ''' Test for support function evaluation '''

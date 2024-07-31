@@ -113,7 +113,28 @@ class TestHPolyhedron(unittest.TestCase):
 
     def test_eq(self):
         ''' Test for set equality '''
-        assert True
+        # cases:
+        # - hpolyhedron x hpolyhedron
+        # - hpolyhedron x vector
+        # todo hpolyhedron x vpolytope
+        # todo hpolyhedron x zonotope
+        # todo hpolyhedron x interval
+        HP1 = HPolyhedron(A = np.array([[-1., -1.], [1., 0.], [0., 1.]]),
+                          b = np.array([-3., 2., 1.]))
+        v1 = np.array([2., 1.])
+        v2 = np.array([3., 1.])
+        HP2 = HPolyhedron(A = np.array([[1., 0.], [-1., 1.], [-1., -1.]]),
+                          b = np.array([1., 1., 1.]))
+        HP3 = HPolyhedron(A = np.array([[1., 0.], [-1., 1.], [-1., -1.], [0., -1.]]),
+                          b = np.array([1., 1., 1., 5.]))
+        HP4 = HPolyhedron(A = np.array([[1., 0.], [-1., 1.], [-1., -1.], [0., -1.]]),
+                          b = np.array([1., 1., 1., 0.5]))
+        
+        assert HP1 == v1
+        assert not HP1 == v2
+        assert HP2 == HP2
+        assert HP2 == HP3
+        assert not HP2 == HP4
 
     def test_neg(self):
         ''' Test for unary minus '''
@@ -274,14 +295,19 @@ class TestHPolyhedron(unittest.TestCase):
         ''' Test for convex hull '''
         # cases:
         # - HPolyhedron x HPolyhedron
+        # - HPolyhedron x vector
         HP1 = HPolyhedron(A = np.array([[1., 0.], [0., 1.], [-1., -1.]]), b = np.array([0., 0., 1.]))
         HP2 = HPolyhedron(A = np.array([[-1., 0.], [0., -1.], [1., 1.]]), b = np.array([0., 0., 1.]))
+        v = np.array([2., 1.])
 
         result1 = HP1.convex_hull(HP2, mode = 'outer')
         result2 = HP2.convex_hull(HP1, mode = 'outer')
+        result3 = HP1.convex_hull(v, mode = 'outer')
 
         true_result1 = HPolyhedron(A = np.array([[1., 1.], [-1., 1.], [-1., -1.], [1., -1.]]),
                                    b = np.array([1., 1., 1., 1.]))
+        true_result3 = HPolyhedron(A = np.array([[1., -1.], [-1., 3.], [-1., -1.]]),
+                                   b = np.array([1., 1., 1.]))
         
         assert result1.contains(HP1)
         assert result1.contains(HP2)
@@ -289,6 +315,10 @@ class TestHPolyhedron(unittest.TestCase):
         assert result2.contains(HP2)
         assert result1.contains(true_result1)
         assert result2.contains(true_result1)
+        assert result3.contains(true_result3)
+
+        with self.assertRaises(NotImplementedError):
+            HP1.convex_hull(HP2)
 
     def test_degenerate(self):
         ''' Test for degeneracy check '''
@@ -351,20 +381,27 @@ class TestHPolyhedron(unittest.TestCase):
         # - hpolyhedron x vector (contained)
         # - hpolyhedron x vector (not contained)
         # - hpolyhedron x hpolyhedron
+        # - hpolyhedron x interval
+        # todo hpolyhedron x zonotope
         HP1 = HPolyhedron(A = np.array([[1., 0.], [-1., 1.], [-1., -1.]]), b = np.array([1., 1., 1.]))
         HP2 = HPolyhedron(A = np.array([[1., 1.], [1., -1.]]), b = np.array([1., 1.]))
+        I = Interval(lb = np.array([-2., 0.]), ub = np.array([0., 1.]))
 
         result1 = HP1.intersection(np.array([0., 0.]))
         result2 = HP1.intersection(HP2)
         result3 = HP2.intersection(HP1)
+        result4 = HP1.intersection(I)
 
         true_result2 = HPolyhedron(A = np.array([[1., 1.], [-1., 1.], [-1., -1.], [1., -1.]]),
                                    b = np.array([1., 1., 1., 1.]))
+        true_result4 = HPolyhedron(A = np.array([[1., 0.], [0., -1.], [-1., 1.]]),
+                                   b = np.array([0., 0., 1.]))
 
         assert result1 == np.array([0., 0.])
         assert HP1.intersection(np.array([10., 5.])).empty()
         assert result2 == true_result2
         assert result2 == result3
+        assert result4 == true_result4
 
     def test_intersects(self):
         ''' Test for intersection check '''
@@ -414,7 +451,7 @@ class TestHPolyhedron(unittest.TestCase):
 
         assert result1 == true_result1
 
-        with self.assertRaises(NotImplementedError):
+        with self.assertRaises(exceptions.ExactEvaluationImpossibleError):
             HP1.interval()
         with self.assertRaises(NotImplementedError):
             HP1.interval(mode = 'inner')
@@ -440,51 +477,82 @@ class TestHPolyhedron(unittest.TestCase):
         ''' Test for Minkowski difference '''
         # cases:
         # - hpolyhedron - interval
+        # - hpolyhedron - vector
         HP = HPolyhedron(A = np.array([[1., 0.], [-1., 1.], [-1., -1.]]),
                          b = np.array([1., 1., 1.]))
         I = Interval(lb = np.array([-0.1, -0.2]), ub = np.array([0.2, 0.3]))
+        v = np.array([2., -1.])
 
         result1 = HP.minkowski_difference(I)
+        result2 = HP.minkowski_difference(v)
 
         true_result1 = HPolyhedron(A = np.array([[1., 0.], [-1., 1.], [-1., -1.]]),
                                    b = np.array([0.8, 0.6, 0.7]))
+        true_result2 = HPolyhedron(A = np.array([[1., 0.], [-1., 1.], [-1., -1.]]),
+                                   b = np.array([-1., 4., 2.]))
         
         assert result1 == true_result1
+        assert result2 == true_result2
 
     def test_minkowski_sum(self):
         ''' Test for Minkowski sum '''
         # cases:
         # - hpolyhedron + vector
         # - hpolyhedron + hpolyhedron
+        # - hpolyhedron + interval
         HP1 = HPolyhedron(A = np.array([[1., 0.], [-1., 1.], [-1., -1.]]),
                           b = np.array([1., 1., 1.]))
         v = np.array([2., -1.])
+        I = Interval(lb = np.array([-1., 0.]), ub = np.array([3., 1.]))
 
         result1 = HP1.minkowski_sum(v)
         result3 = HP1.minkowski_sum(HP1, mode = 'outer')
+        result4 = HP1.minkowski_sum(I, mode = 'outer')
 
         true_result1 = HPolyhedron(A = np.array([[1., 0.], [-1., 1.], [-1., -1.]]),
                                    b = np.array([3., -2., 0.]))
         true_result2 = HPolyhedron(A = np.array([[0.5, 0.], [-0.5, 0.5], [-0.5, -0.5]]),
                                    b = np.array([1., 1., 1.]))
+        true_result4 = HPolyhedron(A = np.array([[0., 1.], [0., -1.], [1., 0.], [-1., 0.], [-1./np.sqrt(2), 1./np.sqrt(2)], [-1./np.sqrt(2), -1./np.sqrt(2)]]),
+                                   b = np.array([3., 2., 4., 2., 2.121320343559643, np.sqrt(2)]))
         
         assert result1 == true_result1
         assert result3.contains(true_result2)
+        assert result4.contains(true_result4)
 
         with self.assertRaises(NotImplementedError):
             result2 = HP1.minkowski_sum(HP1)
+        with self.assertRaises(NotImplementedError):
+            result2 = HP1.minkowski_sum(I)
 
     def test_represents(self):
         ''' Test for representation equivalence '''
         # cases:
         # - bounded
+        # - 1D
+        # - interval-like
+        # - interval-like, but unbounded
         HP1 = HPolyhedron(A = np.array([[1., 0.], [-1., 1.], [-1., -1.]]),
                           b = np.array([1., 1., 1.]))
+        HP2 = HPolyhedron(A = np.array([[1.], [-1.]]), b = np.array([4., -3.]))
+        HP3 = HPolyhedron(A = np.array([[1., 0.], [0., 2.], [-1., 0.], [0., -4], [1., 1.]]),
+                          b = np.array([3., 2., 5., 1., 30.]))
+        HP4 = HPolyhedron(A = np.array([[1., 0.], [0., 2.], [0., -4], [1., 1.]]),
+                          b = np.array([3., 2., 1., 30.]))
+        HP5 = HPolyhedron(A = np.array([[1., 0.], [0., 2.], [0., -4], [1., 1.]]),
+                          b = np.array([3., 2., 1., 0.]))
         
-        assert HP1.represents(set_class = 'HPolyhedron')
-        assert HP1.represents(set_class = 'VPolytope')
+        assert HP1.represents('HPolyhedron')
+        assert HP1.represents('VPolytope')
+        assert not HP1.represents('Interval')
+        assert HP2.represents('Interval')
+        assert HP2.represents('Zonotope')
+        assert HP3.represents('Interval')
+        assert not HP4.represents('Interval')
+        assert not HP5.represents('Interval')
+
         with self.assertRaises(NotImplementedError):
-            HP1.represents(set_class = 'Zonotope')
+            HP1.represents('Zonotope')
 
     def test_support_function(self):
         ''' Test for support function evaluation '''

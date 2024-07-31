@@ -514,8 +514,6 @@ class HPolyhedron(ConvexSet):
             return self._intersects_zonotope(other, rtol = rtol, atol = atol)
         elif type(other).__name__ == 'VPolytope':
             return self._intersects_vpolytope(other, rtol = rtol, atol = atol)
-        
-        return NotImplementedError
     
     # intersection check with hpolyhedron
     def _intersects_hpolyhedron(self, other: HPolyhedron, *, rtol: float = 1e-5, atol: float = 1e-8) -> bool:
@@ -545,7 +543,8 @@ class HPolyhedron(ConvexSet):
         # linear program: min 0  s.t.  Ax <= b, lb <= x <= ub
         res = linprog(np.zeros(self.dimension),
                       A_ub = np.vstack((self.A, np.eye(self.dimension), -np.eye(self.dimension))),
-                      b_ub = np.hstack((self.b, other.ub, -other.lb)))
+                      b_ub = np.hstack((self.b, other.ub, -other.lb)),
+                      bounds = (None, None))
         return res.success
     
     # intersection check with zonotope
@@ -669,7 +668,7 @@ class HPolyhedron(ConvexSet):
 
         Args:
             other (Union[ConvexSet, np.ndarray]): Summand.
-            mode (str, optional): Approximation of the evaluation: 'inner', 'exact', 'outer'. Defaults to 'outer'.
+            mode (str, optional): Approximation of the evaluation: 'inner', 'exact', 'outer'. Defaults to 'exact'.
 
         Returns:
             HPolyhedron: Result of the Minkowski sum.
@@ -726,11 +725,11 @@ class HPolyhedron(ConvexSet):
         if isinstance(other, np.ndarray):
             return self - other
 
-        b_new = self.b
+        b_new = self.b.copy()
         for i in range(self.number_constraints()):
             b_new[i] -= other.support_function(self.A[i])[0]
 
-        return HPolyhedron(A = self.A, b = b_new)
+        return HPolyhedron(A = self.A.copy(), b = b_new)
     
     # number of constraints
     def number_constraints(self) -> int:
@@ -772,13 +771,65 @@ class HPolyhedron(ConvexSet):
 
         if set_class == 'HPolyhedron':
             return True
+
+        # all bounded 1D sets can be represented by every set representation exactly
+        if self.dimension == 1:
+            return self.bounded()
         
+        # vpolytopes can only represent bounded polyhedra
         if set_class == 'VPolytope':
             return self.bounded()
         
-        # Interval: minimal representation only axis-aligned constraints (all dims!)
-        # Zonotope: raise NotImplementedError
+        if set_class == 'Interval':
+            return self._represents_interval(rtol = rtol, atol = atol)
+        
+        # todo Zonotope...
         raise NotImplementedError
+    
+    def _represents_interval(self, *, rtol: float = 1e-5, atol: float = 1e-8):
+        """Check if an HPolyhedron HP can also be equivalently represented by an Interval.
+
+        Args:
+            rtol (float, optional): Relative tolerance. Defaults to 1e-5.
+            atol (float, optional): Absolut tolerance. Defaults to 1e-8.
+
+        Returns:
+            _type_: Representation possible.
+        """
+        # todo: what to do with empty?
+
+        # must have at least 2n constraints
+        if self.number_constraints() < 2*self.dimension:
+            return False
+        
+        # keep indices for redundancy and for which dimensions are bounded
+        index_keep_for_i = np.full((self.number_constraints(),), True)
+        bounded_dimensions_plus = np.full((self.dimension,), False)
+        bounded_dimensions_minus = np.full((self.dimension,), False)
+
+        # loop over constraints, if not axis-aligned -> must be redundant
+        for i in range(self.number_constraints()):
+            # axis-aligned constraint may only have a single non-zero entry
+            non_zero_entry = np.invert(np.isclose(self.A[i], 0., rtol = rtol, atol = atol))
+
+            if np.sum(non_zero_entry) > 1:
+                # check if constraint is redundant
+                index_keep_for_i[i] = False
+                polyhedron_i = HPolyhedron(A = self.A[index_keep_for_i], b = self.b[index_keep_for_i])
+                value = polyhedron_i.support_function(self.A[i])[0]
+                if value > self.b[i] + atol:
+                    return False
+                # note: we do not have to reset index_keep_for_i, as thee ith constraint is redundant
+
+            else:
+                # append this dimension to the respective list of bounded dimensions
+                if self.A[i][non_zero_entry] > 0:
+                    bounded_dimensions_plus = np.logical_or(bounded_dimensions_plus, non_zero_entry)
+                else:
+                    bounded_dimensions_minus = np.logical_or(bounded_dimensions_minus, non_zero_entry)
+
+        # currently, all dimensions must be bounded
+        return np.all(bounded_dimensions_plus) and np.all(bounded_dimensions_minus)
     
     # support function evaluation
     def support_function(self, direction: np.ndarray) -> tuple[float, np.ndarray]:
