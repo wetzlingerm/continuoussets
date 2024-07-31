@@ -541,6 +541,7 @@ class TestHPolyhedron(unittest.TestCase):
                           b = np.array([3., 2., 1., 30.]))
         HP5 = HPolyhedron(A = np.array([[1., 0.], [0., 2.], [0., -4], [1., 1.]]),
                           b = np.array([3., 2., 1., 0.]))
+        HP6 = _init_from_vector(np.array([2., 1.]))
         
         assert HP1.represents('HPolyhedron')
         assert HP1.represents('VPolytope')
@@ -550,6 +551,8 @@ class TestHPolyhedron(unittest.TestCase):
         assert HP3.represents('Interval')
         assert not HP4.represents('Interval')
         assert not HP5.represents('Interval')
+        assert not HP5.represents('Point')
+        assert HP6.represents('Point')
 
         with self.assertRaises(NotImplementedError):
             HP1.represents('Zonotope')

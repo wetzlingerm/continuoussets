@@ -152,7 +152,7 @@ class ConvexSet(ABC):
         """Check function for choosing another subclass in ConvexSet.
 
         Args:
-            set_class (str): Name of a subclass in ConvexSet.
+            set_class (str): Name of a subclass in ConvexSet or 'Point'.
 
         Raises:
             ValueError: Chosen class not a subclass of ConvexSet.
@@ -160,6 +160,7 @@ class ConvexSet(ABC):
         # ensure that 'set_class' argument is the class name of a subclass of ConvexSet
         if self.validate:
             admissible_classes = [cls.__name__ for cls in ConvexSet.__subclasses__()]
+            admissible_classes.append('Point')
             if set_class not in admissible_classes:
                 raise ValueError(f'{self.__class__.__name__}.{inspect.stack()[1].function}: ',
                                  f'Keyword argument set_class must be in {str(admissible_classes)}')
