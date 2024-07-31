@@ -6,11 +6,13 @@ from itertools import product
 import numpy as np
 from scipy.optimize import linprog
 from scipy.spatial import ConvexHull
+from scipy.linalg import svd
 from pypoman import compute_polytope_halfspaces
 
 from continuoussets.convexsets.convexset import ConvexSet
 from continuoussets.utils import comparison
 from continuoussets.utils.exceptions import OtherFunctionError, ExactEvaluationImpossibleError
+from continuoussets.utils.auxiliary import halfspace_representation_from_vector
 
 if __name__ == '__main__':
     print('This is the VPolytope class.')
@@ -368,10 +370,39 @@ class VPolytope(ConvexSet):
         """
         self._checkMode(mode)
 
-        if self.degenerate():
-            raise NotImplementedError
+        n = self.dimension
+        if self.number_vertices() == 1:
+            A, b = halfspace_representation_from_vector(np.reshape(self.V, (n, )))
+            return {'A': A, 'b': b}
+        
+        #if not self.degenerate():
+        #    A, b = compute_polytope_halfspaces(self.V)
+        #    return {'A': A, 'b': b}
+        
+        # shift vertices by mean
+        center = np.mean(self.V, axis = 0)
+        V = self.V - center
 
-        A, b = compute_polytope_halfspaces(self.V)
+        # if polytope is degenerate, we need projection to affine hull and back
+        U_, S_, V_ = svd(V.T)
+        subspace_dimension = n - np.sum(np.isclose(S_, 0.))
+        if subspace_dimension < n:
+            # project vertices onto basis and filter out the subspace
+            V = np.matmul(U_.T, V.T)
+            V = V[0:subspace_dimension].T
+
+        A, b = compute_polytope_halfspaces(V)
+
+        if subspace_dimension < n:
+            # project back to original dimension
+            h = A.shape[0]
+            A = np.vstack((np.hstack((A, np.zeros((h, (n-subspace_dimension))))),
+                           np.hstack((np.zeros((2*(n-subspace_dimension), subspace_dimension)),
+                                      np.vstack((np.eye(n-subspace_dimension), -np.eye(n-subspace_dimension)))))))
+            b = np.hstack((b, np.zeros(2*(n - subspace_dimension))))
+            A = np.matmul(A, U_.T)
+        b += np.matmul(A, center)
+        
         return {'A': A, 'b': b}
     
     # intersection check

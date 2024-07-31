@@ -163,8 +163,11 @@ class Zonotope(ConvexSet):
         if ((isinstance(other, ConvexSet) and self.dimension != other.dimension)
                 or (isinstance(other, np.ndarray) and self.dimension != other.shape[0])):
             return False
+        
         elif isinstance(other, np.ndarray):
-            return (self.number_generators() == 0) and np.allclose(self.c, other, rtol = rtol, atol = atol)
+            return (np.allclose(self.c, other, rtol = rtol, atol = atol)
+                and self.represents('Point', rtol = rtol, atol = atol))
+        
         elif isinstance(other, Zonotope):
             # check center
             if not np.allclose(self.c, other.c, rtol = rtol, atol = atol):
@@ -172,9 +175,12 @@ class Zonotope(ConvexSet):
             # compact both and compare generator matrices
             return comparison.compare_matrices(self.compact().G, other.compact().G,
                                                rtol = rtol, atol = atol, remove_zeros = True, check_negation = True)
-        elif isinstance(other, ConvexSet):
-            return other.represents('Zonotope', rtol = rtol, atol = atol) and \
-                self.__eq__(Zonotope(**other.zonotope(mode = 'exact'), validate = False), rtol = rtol, atol = atol)
+        
+        elif type(other).__name__ == 'Interval':
+            return self.__eq__(Zonotope(**other.zonotope(mode = 'exact'), validate = False), rtol = rtol, atol = atol)
+        
+        elif type(other).__name__ in ['VPolytope', 'HPolyhedron']:
+            return other.__eq__(self, rtol = rtol, atol = atol)
 
     # unary minus
     def __neg__(self) -> Zonotope:
