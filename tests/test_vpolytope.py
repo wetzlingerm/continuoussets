@@ -510,16 +510,18 @@ class TestVPolytope(unittest.TestCase):
         VP_1 = VPolytope(V = np.array([2., 1.]))
         VP_2 = VPolytope(V = np.array([[-1., 0.], [2., 0.], [2., 1.], [-1., 1.]]))
 
-        assert VP_1.represents(set_class = 'VPolytope')
-        assert VP_1.represents(set_class = 'HPolyhedron')
-        assert VP_1.represents(set_class = 'Interval')
-        assert VP_1.represents(set_class = 'Zonotope')
+        assert VP_1.represents('VPolytope')
+        assert VP_1.represents('HPolyhedron')
+        assert VP_1.represents('Interval')
+        assert VP_1.represents('Zonotope')
+        assert VP_1.represents('Point')
 
-        assert VP_2.represents(set_class = 'VPolytope')
-        assert VP_2.represents(set_class = 'HPolyhedron')
-        assert VP_2.represents(set_class = 'Interval')
+        assert VP_2.represents('VPolytope')
+        assert VP_2.represents('HPolyhedron')
+        assert VP_2.represents('Interval')
+        assert not VP_2.represents('Point')
         with self.assertRaises(NotImplementedError):
-            VP_2.represents(set_class = 'Zonotope')
+            VP_2.represents('Zonotope')
 
     def test_support_function(self):
         ''' Test for support function evaluation '''

@@ -1639,9 +1639,11 @@ class TestInterval(unittest.TestCase):
         assert I1.represents('Interval')
         assert I1.represents('Zonotope')
         assert I2.represents('Zonotope')
+        assert not I2.represents('Point')
         assert I3.represents('Zonotope')
         assert I3.represents('VPolytope')
         assert I3.represents('HPolyhedron')
+        assert I3.represents('Point')
 
     def test_sin(self):
         ''' Test for sine '''

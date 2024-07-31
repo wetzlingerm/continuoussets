@@ -660,7 +660,7 @@ class Zonotope(ConvexSet):
         """Check if a Zonotope Z can also be equivalently represented using another ConvexSet class.
 
         Args:
-            set_class (str): Name of another ConvexSet class.
+            set_class (str): Name of another ConvexSet class or 'Point'.
             rtol (float, optional): Relative tolerance. Defaults to 1e-5.
             atol (float, optional): Absolute tolerance. Defaults to 1e-8.
 
@@ -669,9 +669,18 @@ class Zonotope(ConvexSet):
         """
         self._checkSetClass(set_class)
 
+        if set_class == 'Point':
+            if self.number_generators() == 0:
+                return True
+            # compute size of box around generators
+            interval_dict = self.interval(mode = 'outer')
+            lower_bound, upper_bound = interval_dict['lb'], interval_dict['ub']
+            return np.allclose(upper_bound - lower_bound, 0., rtol = rtol, atol = atol)
+        
         if self.dimension == 1:
             return True
-        elif set_class == 'Interval':
+        
+        if set_class == 'Interval':
             if self.number_generators() == 0:
                 return True
             G_abs = np.abs(self.G)

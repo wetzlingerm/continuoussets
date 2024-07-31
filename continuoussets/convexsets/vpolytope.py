@@ -635,7 +635,7 @@ class VPolytope(ConvexSet):
         """Check if a VPolytope VP can also be equivalently represented using another ConvexSet class.
 
         Args:
-            set_class (str): Name of another ConvexSet class.
+            set_class (str): Name of another ConvexSet class or 'Point'.
             rtol (float, optional): Relative tolerance. Defaults to 1e-5.
             atol (float, optional): Absolute tolerance. Defaults to 1e-8.
 
@@ -646,6 +646,11 @@ class VPolytope(ConvexSet):
             bool: Representation possible.
         """
         self._checkSetClass(set_class)
+
+        if set_class == 'Point':
+            if self.number_vertices() == 1:
+                return True
+            return np.allclose(self.V - self.V[0], 0., rtol = rtol, atol = atol)
 
         # 1D or single vertex always true
         if self.dimension == 1 or self.number_vertices() <= 1:

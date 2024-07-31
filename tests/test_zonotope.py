@@ -831,7 +831,9 @@ class TestZonotope(unittest.TestCase):
 
         # check representation
         assert Z1.represents('Interval')
+        assert Z1.represents('Point')
         assert Z2.represents('Interval')
+        assert not Z3.represents('Point')
         assert not Z3.represents('Interval')
         assert Z1.represents('Zonotope')
         assert Z3.represents('VPolytope')

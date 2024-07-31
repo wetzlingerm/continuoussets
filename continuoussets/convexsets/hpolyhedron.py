@@ -760,7 +760,7 @@ class HPolyhedron(ConvexSet):
         """Check if an HPolyhedron HP can also be equivalently represented using another ConvexSet class.
 
         Args:
-            set_class (str): Name of another ConvexSet class.
+            set_class (str): Name of another ConvexSet class or 'Point'.
             rtol (float, optional): Relative tolerance. Defaults to 1e-5.
             atol (float, optional): Absolute tolerance. Defaults to 1e-8.
 
@@ -768,6 +768,14 @@ class HPolyhedron(ConvexSet):
             bool: Representation possible.
         """
         self._checkSetClass(set_class)
+
+        if set_class == 'Point':
+            try:
+                c = self.center()
+            except (UnboundedSetError, EmptySetError):
+                return False
+            # center must fulfill all inequalities with equality
+            return np.allclose(np.matmul(self.A, c), self.b, rtol = rtol, atol = atol)
 
         if set_class == 'HPolyhedron':
             return True

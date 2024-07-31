@@ -995,7 +995,7 @@ class Interval(ConvexSet):
         """Check if an interval I can also be equivalently represented using another ConvexSet class.
 
         Args:
-            set_class (str): Name of another ConvexSet class.
+            set_class (str): Name of another ConvexSet class or 'Point'.
             rtol (float, optional): Relative tolerance. Defaults to 1e-5.
             atol (float, optional): Absolute tolerance. Defaults to 1e-8.
 
@@ -1003,6 +1003,9 @@ class Interval(ConvexSet):
             bool: Representation possible.
         """
         self._checkSetClass(set_class)
+
+        if set_class == 'Point':
+            return np.allclose(self.diameter(), 0., rtol = rtol, atol = atol)
 
         return True
 
