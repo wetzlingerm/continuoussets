@@ -1,9 +1,9 @@
 import unittest
 import numpy as np
 #import matplotlib.pyplot as plt
-from continuoussets.utils import comparison, exceptions
+from continuoussets.utils import comparison, exceptions, auxiliary
 from continuoussets.convexsets.vpolytope import VPolytope
-from continuoussets.convexsets.hpolyhedron import HPolyhedron, _init_from_vector
+from continuoussets.convexsets.hpolyhedron import HPolyhedron
 from continuoussets.convexsets.interval import Interval
 from continuoussets.convexsets.zonotope import Zonotope
 
@@ -335,27 +335,30 @@ class TestVPolytope(unittest.TestCase):
         # - single vertex
         # - degenerate
         # - non-degenerate
+        # - 1D
         V_singlevertex = np.array([1., 0.])
         VP_1 = VPolytope(V = V_singlevertex)
         VP_2 = VPolytope(V = np.array([[1., 0.], [0., 1.]]))
-        VP_3 = VPolytope(V = np.array([[1., 0.], [0., 1.], [-1., -1.]]))
+        VP_3 = VPolytope(V = np.array([[1., 0.], [0., 1.], [-2., -2.]]))
+        VP_4 = VPolytope(V = np.array([[1.], [2.]]))
 
-        #HP_1 = HPolyhedron(**VP_1.hpolyhedron()) # todo implement
-        #HP_2 = HPolyhedron(**VP_2.hpolyhedron()) # todo implement
+        HP_1 = HPolyhedron(**VP_1.hpolyhedron())
+        HP_2 = HPolyhedron(**VP_2.hpolyhedron())
         HP_3 = HPolyhedron(**VP_3.hpolyhedron())
+        HP_4 = HPolyhedron(**VP_4.hpolyhedron())
 
-        true_result1 = _init_from_vector(V_singlevertex)
+        A1, b1 = auxiliary.halfspace_representation_from_vector(V_singlevertex)
+        true_result1 = HPolyhedron(A = A1, b = b1)
         true_result2 = HPolyhedron(A = np.array([[1., 0.], [0., 1.], [1., 1.], [-1., -1.]]),
                                    b = np.array([1., 1., 1., -1.]))
-        true_result3 = HPolyhedron(A = np.array([[1., -2.], [1., 1.], [-2., 1.]]),
+        true_result3 = HPolyhedron(A = np.array([[1., -1.5], [1., 1.], [-1.5, 1.]]),
                                    b = np.array([1., 1., 1.]))
+        true_result4 = HPolyhedron(A = np.array([[1.], [-1.]]), b = np.array([2., -1.]))
 
-        #assert HP_1 == true_result1
-        #assert HP_2 == true_result2
+        assert HP_1 == true_result1
+        assert HP_2 == true_result2
         assert HP_3 == true_result3
-
-        with self.assertRaises(NotImplementedError):
-            HP_1 = HPolyhedron(**VP_1.hpolyhedron())
+        assert HP_4 == true_result4
     
     def test_intersects(self):
         ''' Test for intersection check '''
@@ -402,7 +405,8 @@ class TestVPolytope(unittest.TestCase):
         VP_3 = VPolytope(V = np.array([[-1., 0.], [0., -1.], [2., 1.]]))
 
         result_1 = Interval(**VP_1.interval())
-        result_2 = Interval(**VP_2.interval(mode = 'outer')) # should work with mode='exact'
+        result_2 = Interval(**VP_2.interval(mode = 'outer'))  # should work with mode='exact'
+        result_2 = Interval(**VP_2.interval())
         result_3 = Interval(**VP_3.interval(mode = 'outer'))
 
         I_1 = Interval(lb = [1., 1.], ub = [1., 1.])

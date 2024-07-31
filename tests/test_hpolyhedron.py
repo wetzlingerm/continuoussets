@@ -1,8 +1,8 @@
 import unittest
 import numpy as np
 #import matplotlib.pyplot as plt
-from continuoussets.utils import comparison, exceptions
-from continuoussets.convexsets.hpolyhedron import HPolyhedron, _init_from_vector
+from continuoussets.utils import comparison, exceptions, auxiliary
+from continuoussets.convexsets.hpolyhedron import HPolyhedron
 from continuoussets.convexsets.vpolytope import VPolytope
 from continuoussets.convexsets.interval import Interval
 from continuoussets.convexsets.zonotope import Zonotope
@@ -60,26 +60,6 @@ class TestHPolyhedron(unittest.TestCase):
         with self.assertRaises(ValueError):
             # number of constraints do not match
             HPolyhedron(A = np.array([[1., 0.], [0., 1.]]), b = np.array([2., 1., 1.]))
-
-    def test_init_from_vector(self):
-        ''' Test for initialization from vector (note: only called internally) '''
-        # cases:
-        # - 1D
-        # - 2D
-        # - 5D
-        v_1D = np.array([2.])
-        v_2D = np.array([-1., 2.])
-        v_5D = np.array([5., 3., -2., 1., 0.])
-        HP_1D = _init_from_vector(v_1D)
-        HP_2D = _init_from_vector(v_2D)
-        HP_5D = _init_from_vector(v_5D)
-
-        assert HP_1D.contains(v_1D)
-        assert HP_1D.degenerate()
-        assert HP_2D.contains(v_2D)
-        assert HP_2D.degenerate()
-        assert HP_5D.contains(v_5D)
-        assert HP_5D.degenerate()
 
     def test_repr(self):
         ''' Test for display on the command window '''
@@ -541,7 +521,8 @@ class TestHPolyhedron(unittest.TestCase):
                           b = np.array([3., 2., 1., 30.]))
         HP5 = HPolyhedron(A = np.array([[1., 0.], [0., 2.], [0., -4], [1., 1.]]),
                           b = np.array([3., 2., 1., 0.]))
-        HP6 = _init_from_vector(np.array([2., 1.]))
+        A6, b6 = auxiliary.halfspace_representation_from_vector(np.array([2., 1.]))
+        HP6 = HPolyhedron(A = A6, b = b6)
         
         assert HP1.represents('HPolyhedron')
         assert HP1.represents('VPolytope')
@@ -579,17 +560,26 @@ class TestHPolyhedron(unittest.TestCase):
     def test_vertices(self):
         ''' Test for vertex enumeration '''
         # cases:
-        # - empty
         # - bounded
-        HP1 = HPolyhedron(A = np.array([[1., 0.], [0., -1.], [1., 1.], [-1., 0.]]),
-                          b = np.array([-1., 0., -2., 1.]))
-        HP2 = HPolyhedron(A = np.array([[1., 0.], [-1., 1.], [-1., -1.]]),
+        # - degenerate  # todo
+        # - empty
+        HP1 = HPolyhedron(A = np.array([[1., 0.], [-1., 1.], [-1., -1.]]),
                           b = np.array([1., 1., 1.]))
+        HP2 = HPolyhedron(A = np.array([[1., 0.], [0., 1.], [1., 1.], [-1., -1.]]),
+                          b = np.array([1., 1., 1., -1.]))
+        HP3 = HPolyhedron(A = np.array([[1., 0.], [0., -1.], [1., 1.], [-1., 0.]]),
+                          b = np.array([-1., 0., -2., 1.]))
         
-        with self.assertRaises(exceptions.EmptySetError):
-            HP1.vertices()
+        V1 = HP1.vertices()
+        
+        true_result1 = np.array([[-1., 0.], [1., -2.], [1., 2.]])
+
+        assert comparison.compare_matrices(V1, true_result1)
+        
         with self.assertRaises(NotImplementedError):
             HP2.vertices()
+        with self.assertRaises(exceptions.EmptySetError):
+            HP3.vertices()
 
     def test_volume(self):
         ''' Test for volume computation '''
@@ -613,9 +603,12 @@ class TestHPolyhedron(unittest.TestCase):
         # - bounded
         HP1 = HPolyhedron(A = np.array([[1., 0.], [-1., 1.], [-1., -1.]]),
                           b = np.array([1., 1., 1.]))
+        
+        VP1 = VPolytope(**HP1.vpolytope())
 
-        with self.assertRaises(NotImplementedError):
-            HP1.vpolytope()
+        true_result1 = VPolytope(V = np.array([[-1., 0.], [1., -2.], [1., 2.]]))
+
+        assert VP1 == true_result1
 
     def test_zonotope(self):
         ''' Test for zonotope conversion '''

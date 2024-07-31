@@ -4,11 +4,12 @@ from typing import Union
 
 import numpy as np
 from scipy.optimize import linprog
-# from pypoman import compute_polytope_vertices, compute_polytope_halfspaces, project_polytope
+from pypoman import compute_polytope_vertices  #, project_polytope
 from continuoussets.convexsets.convexset import ConvexSet
 # from continuoussets.utils import comparison
 from continuoussets.utils.exceptions import OtherFunctionError, ExactEvaluationImpossibleError, \
     EmptySetError, UnboundedSetError
+from continuoussets.utils.auxiliary import halfspace_representation_from_vector
 
 if __name__ == '__main__':
     print('This is the HPolyhedron class.')
@@ -134,7 +135,8 @@ class HPolyhedron(ConvexSet):
         if isinstance(other, np.ndarray):
             if not self.contains(other, rtol = rtol, atol = atol):
                 return False
-            other = _init_from_vector(other)
+            A_other, b_other = halfspace_representation_from_vector(other)
+            other = HPolyhedron(A = A_other, b = b_other)
             return other.contains(self, rtol = rtol, atol = atol)
         
         # convert everything to a HPolyhedron
@@ -142,7 +144,9 @@ class HPolyhedron(ConvexSet):
             other = HPolyhedron(**other.hpolyhedron(mode = 'exact'))
 
         # slow containment method
-        return self.contains(other, rtol = rtol, atol = atol) and other.contains(self, rtol = rtol, atol = atol)
+        a = self.contains(other, rtol = rtol, atol = atol)
+        b = other.contains(self, rtol = rtol, atol = atol)
+        return a and b
     
     # unary minus
     def __neg__(self) -> HPolyhedron:
@@ -240,7 +244,8 @@ class HPolyhedron(ConvexSet):
 
         # convert other sets to Hpolyhedron
         if isinstance(other, np.ndarray):
-            other = _init_from_vector(other)
+            A_other, b_other = halfspace_representation_from_vector(other)
+            other = HPolyhedron(A = A_other, b = b_other)
         
         if not isinstance(other, HPolyhedron):
             other = HPolyhedron(**other.hpolyhedron(mode = 'exact'))
@@ -378,7 +383,8 @@ class HPolyhedron(ConvexSet):
         self._checkMode(mode)
 
         if isinstance(other, np.ndarray):
-            other = _init_from_vector(other)
+            A_other, b_other = halfspace_representation_from_vector(other)
+            other = HPolyhedron(A = A_other, b = b_other)
         
         if mode in ['inner', 'exact']:
             raise NotImplementedError
@@ -478,8 +484,8 @@ class HPolyhedron(ConvexSet):
         self._checkMode(mode)
 
         if isinstance(other, np.ndarray):
-            other = _init_from_vector(other)
-            return self.intersection(other)
+            A_other, b_other = halfspace_representation_from_vector(other)
+            return self.intersection(HPolyhedron(A = A_other, b = b_other))
             
         # convert all other sets to HPolyhedron
         if not isinstance(other, HPolyhedron):
@@ -876,9 +882,13 @@ class HPolyhedron(ConvexSet):
 
         if self.empty():
             raise EmptySetError
+        elif self.degenerate():
+            # todo: implement...
+            raise NotImplementedError
 
-        # todo: use pypoman
-        raise NotImplementedError
+        # non-degenerate case
+        V = compute_polytope_vertices(self.A, self.b)
+        return np.reshape(V, (len(V), self.dimension))
 
     # volume
     def volume(self) -> float:
@@ -924,20 +934,3 @@ class HPolyhedron(ConvexSet):
         # call conversion to interval and convert interval to zonotope
         raise NotImplementedError
         # return {'c': ..., 'G': ...}
-
-
-# initialize HPolyhedron from vector
-def _init_from_vector(v: np.ndarray) -> HPolyhedron:
-    """Initialization of an HPolyhedron as a single given vector.
-
-    Args:
-        v (np.ndarray): Vector.
-
-    Returns:
-        HPolyhedron: Hpolyhedron containing only one point.
-    """
-    n = v.size
-    A = np.vstack((-np.ones(n), np.eye(n)))
-    b = np.matmul(A, v)
-
-    return HPolyhedron(A = A, b = b, validate = False)

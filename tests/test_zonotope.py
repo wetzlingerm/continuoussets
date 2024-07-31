@@ -82,9 +82,9 @@ class TestZonotope(unittest.TestCase):
         # cases:
         # - zonotope + vector
         # - zonotope + zonotope
-        # todo zonotope + interval (error)
-        # todo zonotope + vpolytope (error)
-        # todo zonotope + hpolyhedron (error)
+        # - zonotope + interval (error)
+        # - zonotope + vpolytope (error)
+        # - zonotope + hpolyhedron (error)
 
         # init zonotope and vector
         center = np.array([1., 0.])
@@ -101,10 +101,15 @@ class TestZonotope(unittest.TestCase):
         # check results
         assert result1 == true_result1
 
-        # check exceptions
+        # call minkowski_sum instead of __add__
         with self.assertRaises(exceptions.OtherFunctionError):
-            # call minkowski_sum instead of __add__
             Z1 + Z1
+        with self.assertRaises(exceptions.OtherFunctionError):
+            Z1 + Interval(lb = np.array([1., 0.]), ub = np.array([2., 4.]))
+        with self.assertRaises(exceptions.OtherFunctionError):
+            Z1 + VPolytope(V = np.array([[1., 0.], [0., 1.]]))
+        with self.assertRaises(exceptions.OtherFunctionError):
+            Z1 + HPolyhedron(A = np.array([[1., 0.]]), b = np.array([1.]))
 
     def test_radd(self):
         ''' Test for positive translation '''
@@ -156,7 +161,11 @@ class TestZonotope(unittest.TestCase):
         Z7 = Zonotope(c = center + np.array([1., 0.]))
         Z8 = Zonotope(c = center, G = genreators_aligned1)
         Z9 = Zonotope(c = center, G = genreators_aligned2)
+        # init interval, vpolytope, hpolyhedron
         I = Interval(lb = center, ub = center)
+        VP = VPolytope(V = np.array([[-1., -3.], [3., -3.], [5., 1.], [3., 3.], [-1., 3.], [-3., -1.]]))
+        HP = HPolyhedron(A = np.array([[2./9., -1./9.], [0., -1./3.], [1./6., 1./6.], [-0.4, 0.2], [0., 1./3.], [-1./4., -1./4.]]),
+                         b = np.array([1., 1., 1., 1., 1., 1.]))
 
         # check set equality
         assert Z1 == center
@@ -168,6 +177,8 @@ class TestZonotope(unittest.TestCase):
         assert not Z1 == Z7
         assert Z8 == Z9
         assert Z1 == I
+        assert Z3 == VP
+        # assert Z3 == HP  # todo implement zono->hpoly
 
     def test_neg(self):
         ''' Test for unary minus '''
