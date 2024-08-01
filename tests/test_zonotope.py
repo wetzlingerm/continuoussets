@@ -140,8 +140,8 @@ class TestZonotope(unittest.TestCase):
         # - center and -1*generators
         # - center and aligned generators
         # - zonotope x interval
-        # todo zonotope x vpolytope
-        # todo zonotope x hpolyhedron
+        # - zonotope x vpolytope
+        # - zonotope x hpolyhedron
 
         # init zonotopes
         center = np.array([1., 0.])
@@ -150,8 +150,8 @@ class TestZonotope(unittest.TestCase):
         generators = np.array([[1., 2.], [2., 0.], [-1., 1.]])
         generators_reordered = np.array([[2., 0.], [1., 2.], [-1., 1.]])
         generators_neg = np.array([[2., 0.], [1., 2.], [1., -1.]])
-        genreators_aligned1 = np.array([[1., -1.], [2., 0.], [-1., 1.], [0., 1.], [2., 1.], [3., 1.5], [1., 0.]])
-        genreators_aligned2 = np.array([[-3., 0.], [0., 0.5], [0., -0.5], [2., -2.], [4., 2.], [-1., -0.5]])
+        generators_aligned1 = np.array([[1., -1.], [2., 0.], [-1., 1.], [0., 1.], [2., 1.], [3., 1.5], [1., 0.]])
+        generators_aligned2 = np.array([[-3., 0.], [0., 0.5], [0., -0.5], [2., -2.], [4., 2.], [-1., -0.5]])
         Z1 = Zonotope(c = center)
         Z2 = Zonotope(c = center, G = generators_allzero)
         Z3 = Zonotope(c = center, G = generators)
@@ -159,8 +159,8 @@ class TestZonotope(unittest.TestCase):
         Z5 = Zonotope(c = center, G = generators_neg)
         Z6 = Zonotope(c = center_3D)
         Z7 = Zonotope(c = center + np.array([1., 0.]))
-        Z8 = Zonotope(c = center, G = genreators_aligned1)
-        Z9 = Zonotope(c = center, G = genreators_aligned2)
+        Z8 = Zonotope(c = center, G = generators_aligned1)
+        Z9 = Zonotope(c = center, G = generators_aligned2)
         # init interval, vpolytope, hpolyhedron
         I = Interval(lb = center, ub = center)
         VP = VPolytope(V = np.array([[-1., -3.], [3., -3.], [5., 1.], [3., 3.], [-1., 3.], [-3., -1.]]))
@@ -178,7 +178,7 @@ class TestZonotope(unittest.TestCase):
         assert Z8 == Z9
         assert Z1 == I
         assert Z3 == VP
-        # assert Z3 == HP  # todo implement zono->hpoly
+        assert Z3 == HP
 
     def test_neg(self):
         ''' Test for unary minus '''
@@ -229,9 +229,9 @@ class TestZonotope(unittest.TestCase):
         # cases:
         # - zonotope - vector
         # - zonotope - zonotope
-        # todo zonotope - interval (error)
-        # todo zonotope - vpolytope (error)
-        # todo zonotope - hpolyhedron (error)
+        # - zonotope - interval (error)
+        # - zonotope - vpolytope (error)
+        # - zonotope - hpolyhedron (error)
 
         # init zonotope and vector
         center = np.array([1., 0.])
@@ -248,10 +248,15 @@ class TestZonotope(unittest.TestCase):
         # check results
         assert result1 == true_result1
 
-        # check exceptions
+        # call minkowski_difference insetead of __sub__ with two ConvexSet objects
         with self.assertRaises(exceptions.OtherFunctionError):
-            # call minkowski_difference insetead of __sub__ with two ConvexSet objects
             Z1 - Z1
+        with self.assertRaises(exceptions.OtherFunctionError):
+            Z1 - Interval(lb = np.array([0., 1.]), ub = np.array([2., 4.]))
+        with self.assertRaises(exceptions.OtherFunctionError):
+            Z1 - VPolytope(V = np.array([[1., 0.], [0., 1.]]))
+        with self.assertRaises(exceptions.OtherFunctionError):
+            Z1 - HPolyhedron(A = np.array([[1., 0.], [-1., 1.], [-1., -1.]]), b = np.ones(3))
 
     def test_rsub(self):
         ''' Test for negative translation '''
@@ -277,22 +282,30 @@ class TestZonotope(unittest.TestCase):
         ''' Test for computation of boundary points '''
         # cases:
         # - full zonotope
-        # todo assert errors
+        # - only center
+        # - degenerate
 
         # init zonotope
         center = np.array([1., 0.])
         generators = np.array([[1., -1.], [-2., 1.], [2., 0.], [0., 1.]])
-        Z = Zonotope(c = center, G = generators)
+        generators_deg = np.array([[1., -1.]])
+        Z1 = Zonotope(c = center, G = generators)
+        Z2 = Zonotope(c = center)
+        Z3 = Zonotope(c = center, G = generators_deg)
 
         # compute boundary point
         direction = np.array([5., 3.])
-        result1 = Z.boundary_point(direction)
+        result1 = Z1.boundary_point(direction)
+        result2 = Z2.boundary_point(direction)
+        result3 = Z3.boundary_point(direction)
 
         # manual computation
         true_result1 = np.array([25/11., 15/11.]) + center
 
         # check results
-        assert np.all(np.isclose(result1, true_result1))
+        assert np.allclose(result1, true_result1)
+        assert np.allclose(result2, center)
+        assert np.allclose(result3, center)
 
     def test_bounded(self):
         ''' Test for boundedness '''
@@ -425,15 +438,24 @@ class TestZonotope(unittest.TestCase):
         # - full-dimensional x point (boundary)
         # - full-dimensional x point (outside)
         # - zonotope x zonotope (only center)
-        # todo zonotope x interval
-        # todo zonotope x vpolytope
-        # todo zonotope x hpolyhedron
+        # - zonotope x interval
+        # - zonotope x vpolytope
+        # - zonotope x hpolyhedron
 
         # init zonotopes
         center = np.array([1., 0.])
         generators = np.array([[1., -1.], [-2., 1.], [2., 0.], [0., 1.]])
         Z1 = Zonotope(c = center)
         Z2 = Zonotope(c = center, G = generators)
+        # init intervals
+        I1 = Interval(lb = np.array([1., -2.]), ub = np.array([3., 1.]))
+        I2 = Interval(lb = np.array([-1., -2.]), ub = np.array([3., 1.]))
+        # init vpolytopes
+        VP1 = VPolytope(V = np.array([[1., -1.], [4., 0.], [-2., 2.]]))
+        VP2 = VPolytope(V = np.array([[1., -1.], [4., 0.], [-2., 2.], [-4., -1.]]))
+        # init hpolyhedra
+        HP1 = HPolyhedron(A = np.array([[1., 0.], [-1., 1.], [-1., -1.]]), b = np.array([1., 1., 1.]))
+        HP2 = HPolyhedron(A = np.array([[1., 0.], [-5., 1.], [-5., -1.]]), b = np.array([1., 1., 1.]))
 
         # check containment
         assert Z1.contains(center)
@@ -442,6 +464,12 @@ class TestZonotope(unittest.TestCase):
         assert Z2.contains(np.array([3., 1.]))
         assert Z2.contains(np.array([4., 1.]))
         assert Z2.contains(Z1)
+        #assert Z2.contains(I1)
+        #assert not Z2.contains(I2)
+        #assert Z2.contains(VP1)
+        #assert not Z2.contains(VP2)
+        #assert Z2.contains(HP1)
+        #assert not Z2.contains(HP2)
 
         # check exceptions
         with self.assertRaises(NotImplementedError):
@@ -533,16 +561,34 @@ class TestZonotope(unittest.TestCase):
         ''' Test for conversion to HPolyhedron '''
         # cases:
         # - only center
-        # - center and generators
-        center = np.array([1., 0.])
-        generators = np.array([[1., 0.], [-1., 1.], [2., 1.]])
-        Z1 = Zonotope(c = center)
-        Z2 = Zonotope(c = center, G = generators)
+        # - center and generators (2D)
+        # - center and generators (3D)
+        # - degenerate  # todo
+        Z1 = Zonotope(c = np.array([1., 0.]))
+        Z2 = Zonotope(c = np.array([1., 0.]), G = np.array([[1., 0.], [-1., 1.], [2., 1.]]))
+        Z3 = Zonotope(c = np.array([1., -1., 2.]),
+                      G = np.array([[1., 1., 0.], [1., 2., -1.], [-2., 0., 1.], [-1., -1., 1.]]))
+        Z4 = Zonotope(c = np.array([1., 0.]), G = np.array([[1., -2.]]))
+
+        HP1 = HPolyhedron(**Z1.hpolyhedron())
+        HP2 = HPolyhedron(**Z2.hpolyhedron())
+        HP3 = HPolyhedron(**Z3.hpolyhedron())
+
+        true_result1 = HPolyhedron(A = np.array([[1., 0.], [0., 1.], [-1., -1.]]),
+                                   b = np.array([1., 0., -1.]))
+        true_result2 = HPolyhedron(A = np.array([[0., -0.5], [0.2, 0.2], [0.2, -0.4], [0., 0.5], [-1./3., -1./3.], [-1./3., 2./3.]]),
+                                   b = np.array([1., 1., 1., 1., 1., 1.]))
+        true_result3 = HPolyhedron(A = np.array([[-1., 0., -1.], [-1., 1., 0.], [-0.25, 0.25, 0.25], [-0.4, -0.2, -0.8],
+                                                 [-1., -1., -2.], [-1., 1., -2.], [1./11., -1./11., 2./11.], [1./7., 1./7., 2./7.],
+                                                 [2./13., 1./13., 4./13.], [0.25, -0.25, -0.25], [0.2, -0.2, 0.], [0.2, 0., 0.2]]),
+                                   b = np.array([-1., 1., 1., -1., -1., -1., 1., 1., 1., 1., 1., 1.]))
+        
+        assert HP1 == true_result1
+        assert HP2 == true_result2
+        assert HP3 == true_result3
 
         with self.assertRaises(NotImplementedError):
-            Z1.hpolyhedron()
-        with self.assertRaises(NotImplementedError):
-            Z2.hpolyhedron()
+            Z4.hpolyhedron()
 
     def test_intersects(self):
         ''' Test for intersection check '''
@@ -557,8 +603,8 @@ class TestZonotope(unittest.TestCase):
         # - zonotope x zonotope (no generators)
         # - zonotope (no generators) x zonotope
         # - zonotope x vpolytope (single point)
-        # todo zonotope x vpolytope (full)
-        # todo zonotope x hpolyhedron
+        # - zonotope x vpolytope (full)
+        # - zonotope x hpolyhedron
 
         # init sets
         center1 = np.array([1., 0.])
@@ -573,7 +619,11 @@ class TestZonotope(unittest.TestCase):
         Z2 = Z1 + np.array([3., -2.])
         Z3 = Z1 + np.array([5., 5.])
         Z4 = Zonotope(c = center1)
-        VP = VPolytope(V = center1)
+        VP1 = VPolytope(V = center1)
+        VP2 = VPolytope(V = np.array([[-3., -2.], [2., 0.], [-1., 3.]]))
+        VP3 = VPolytope(V = np.array([[-4., -5.], [-2., -4.], [-6., 0.]]))
+        HP1 = HPolyhedron(A = np.array([[1., 0.], [-1., 1.], [-1., -1.]]), b = np.array([-2., 4., 4.]))
+        HP2 = HPolyhedron(A = np.array([[1., 0.], [-1., 1.], [-1., -1.]]), b = np.array([-2., 10., -2.]))
 
         # check results
         assert Z1.intersects(center1)
@@ -585,7 +635,11 @@ class TestZonotope(unittest.TestCase):
         assert not Z1.intersects(Z3)
         assert Z1.intersects(Z4)
         assert Z4.intersects(Z1)
-        assert Z1.intersects(VP)
+        assert Z1.intersects(VP1)
+        assert Z1.intersects(VP2)
+        assert not Z1.intersects(VP3)
+        assert Z1.intersects(HP1)
+        assert not Z1.intersects(HP2)
 
     def test_interval(self):
         ''' Test for conversion from zonotope to interval '''
@@ -672,8 +726,8 @@ class TestZonotope(unittest.TestCase):
         # - zonotope + zonotope
         # - zonotope + vector
         # - zonotope + interval
-        # todo zonotope + vpolytope
-        # todo zonotope + hpolyhedron
+        # - zonotope + vpolytope
+        # - zonotope + hpolyhedron
 
         # init zonotopes
         center1 = np.array([1., 0.])
@@ -684,13 +738,19 @@ class TestZonotope(unittest.TestCase):
         Z2 = Zonotope(c = center2, G = generators2)
         v = np.array([-2., 0.])
         Z3 = Zonotope(c = v)
+        # init interval, vpolytope, hpolyhedron
         I = Interval(lb = v, ub = v)
+        VP = VPolytope(V = np.array([[1., 0.], [0., 1.], [-1., -1.]]))
+        HP = HPolyhedron(A = np.array([[1., 0.], [-1., 1.], [-1., -1.]]),
+                         b = np.array([1., 1., 1.]))
 
         # compute Minkowski sums
         result1 = Z1.minkowski_sum(Z2)
         result2 = Z1.minkowski_sum(v)
         result3 = Z1.minkowski_sum(I)
         result4 = Z3.minkowski_sum(Z1)
+        #result5 = Z1.minkowski_sum(VP)  # todo
+        #result6 = Z1.minkowski_sum(HP)  # todo
 
         # manual computation
         true_result1 = Zonotope(c = np.array([0., 1.]),\
@@ -698,20 +758,32 @@ class TestZonotope(unittest.TestCase):
         true_result2 = Zonotope(c = np.array([-1., 0.]), G = generators1)
         true_result3 = true_result2
         true_result4 = true_result2
+        true_result5 = HPolyhedron(A = np.array([[1./6., 1./3.], [1./7., 1./7.], [0., 1./3.], [0., -1./3.],
+                                                 [1./11., -2./11.], [1./13., -2./13.], [-2./15., 1./15.],
+                                                 [-0.2, -0.4], [1./23., -2./23.], [-2./23., 1./23.], [-2./11., 1./11.],
+                                                 [-0.25, -0.25], [0.2, 0.2]]),
+                                   b = np.ones(13))
+        true_result6 = HPolyhedron(A = np.array([[-1./9., 1./9.], [-0.2, -0.2], [-1./15, 1./15.], [-1./7., 1./7.],
+                                                 [1./7., 1./7.], [1./9., 2./9.], [0., 0.25], [1./7., 0.],
+                                                 [1./9., 0.], [0., -0.25], [1./11., 0.], [-0.2, -0.4], [-1./3., -1./3.]]),
+                                   b = np.ones(13))
 
         # check results
         assert result1 == true_result1
         assert result2 == true_result2
         assert result3 == true_result3
         assert result4 == true_result4
+        #assert result5 == true_result5
+        #assert result6 == true_result6
 
     def test_minkowski_difference(self):
         ''' Test for Minkowski difference '''
         # cases:
         # - zonotope - vector
         # - zonotope - zonotope
-        # todo zonotope - vpolytope
-        # todo zonotope - hpolyhedron
+        # - zonotope - interval
+        # - zonotope - vpolytope
+        # - zonotope - hpolyhedron
         
         # init zonotope
         center = np.array([1., 0.])
@@ -727,10 +799,16 @@ class TestZonotope(unittest.TestCase):
         # check results
         assert result1 == true_result1
 
-        # check exceptions
+        # Minkowski difference between sets not implemented
         with self.assertRaises(NotImplementedError):
-            # Minkowski difference between zonotopes not implemented
             Z.minkowski_difference(Z)
+        with self.assertRaises(NotImplementedError):
+            Z.minkowski_difference(Interval(lb = np.array([0., 0.]), ub = np.array([1., 2.])))
+        with self.assertRaises(NotImplementedError):
+            Z.minkowski_difference(VPolytope(V = np.array([[1., 0.], [0., 1.]])))
+        with self.assertRaises(NotImplementedError):
+            Z.minkowski_difference(HPolyhedron(A = np.array([[1., 0.], [-1., 1.], [-1., -1.]]),
+                                               b = np.array([1., 1., 1.])))
 
     def test_plot(self):
         ''' Test for plotting '''
@@ -1043,3 +1121,4 @@ class TestZonotope(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+    

@@ -12,7 +12,7 @@ from pypoman import compute_polytope_halfspaces
 from continuoussets.convexsets.convexset import ConvexSet
 from continuoussets.utils import comparison
 from continuoussets.utils.exceptions import OtherFunctionError, ExactEvaluationImpossibleError
-from continuoussets.utils.auxiliary import halfspace_representation_from_vector
+from continuoussets.utils.auxiliary import halfspace_representation_from_vector, remove_duplicate_points
 
 if __name__ == '__main__':
     print('This is the VPolytope class.')
@@ -375,10 +375,6 @@ class VPolytope(ConvexSet):
             A, b = halfspace_representation_from_vector(np.reshape(self.V, (n, )))
             return {'A': A, 'b': b}
         
-        #if not self.degenerate():
-        #    A, b = compute_polytope_halfspaces(self.V)
-        #    return {'A': A, 'b': b}
-        
         # shift vertices by mean
         center = np.mean(self.V, axis = 0)
         V = self.V - center
@@ -694,11 +690,11 @@ class VPolytope(ConvexSet):
             # todo: check if there is another way to do this...
             return self._represents_interval(rtol = rtol, atol = atol)
         
-        # todo: Zonotope
-        raise NotImplementedError
+        if set_class == 'Zonotope':
+            return self._represents_zonotope(rtol = rtol, atol = atol)
     
     # representation as an interval
-    def _represents_interval(self, *, rtol: float = 1e-5, atol: float = 1e-8):
+    def _represents_interval(self, *, rtol: float = 1e-5, atol: float = 1e-8) -> bool:
         """Check if a VPolytope VP can also be equivalently represented as an Interval.
 
         Args:
@@ -706,7 +702,7 @@ class VPolytope(ConvexSet):
             atol (float, optional): Absolute tolerance. Defaults to 1e-8.
 
         Returns:
-            _type_: Representation possible.
+            bool: Representation possible.
         """
         # check whether all 2^n vertices of the interval outer approximation is contained in self
         interval_dict = self.interval(mode = 'outer')
@@ -723,6 +719,33 @@ class VPolytope(ConvexSet):
         V = np.vstack([np.array(x) for x in all_combinations])
         # check for equality
         return self.__eq__(VPolytope(V = V, validate = False), rtol = rtol, atol = atol)
+
+    def _represents_zonotope(self, *, rtol: float = 1e-5, atol: float = 1e-8) -> bool:
+        """Check if a VPolytope VP can also be equivalently represented as a Zonotope.
+
+        Args:
+            rtol (float, optional): Relative tolerance. Defaults to 1e-5.
+            atol (float, optional): Absolute tolerance. Defaults to 1e-8.
+
+        Returns:
+            bool: Representation possible.
+        """
+        # remove all vertices up to the given tolerance from the list of vertices
+        self = self.compact()
+        V_ = VPolytope(V = remove_duplicate_points(self.V, rtol = rtol, atol = atol), validate = False)
+
+        # due to symmetry, zonotopes always have an even number of vertices
+        m = V_.number_vertices()
+        if m % 2 != 0:
+            return False
+
+        # idea: for each vertex, there must be another vertex across the center
+        # 1. subtract the center from the list of vertices
+        V = V_.V - V_.center()
+        # 2. sort the list of vertices
+        V = np.sort(V, axis = 0)
+        # 3. compare top to bottom (must add up to 0)
+        return np.allclose(V[0:int(m/2)] + V[-1:int(m/2)-1:-1], 0., rtol = rtol, atol = atol)
 
     # support function evaluation
     def support_function(self, direction: np.ndarray) -> tuple[float, np.ndarray]:
