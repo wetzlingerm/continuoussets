@@ -4,12 +4,14 @@ from itertools import combinations
 from typing import Union
 
 import numpy as np
+from math import comb
 from scipy.optimize import linprog
 from scipy.spatial import ConvexHull
 
 from continuoussets.convexsets.convexset import ConvexSet
 from continuoussets.utils import comparison
 from continuoussets.utils.exceptions import OtherFunctionError, ExactEvaluationImpossibleError
+from continuoussets.utils.auxiliary import halfspace_representation_from_vector, n_dim_cross_product
 
 if __name__ == '__main__':
     print('This is the Zonotope class.')
@@ -166,7 +168,7 @@ class Zonotope(ConvexSet):
         
         elif isinstance(other, np.ndarray):
             return (np.allclose(self.c, other, rtol = rtol, atol = atol)
-                and self.represents('Point', rtol = rtol, atol = atol))
+                    and self.represents('Point', rtol = rtol, atol = atol))
         
         elif isinstance(other, Zonotope):
             # check center
@@ -237,7 +239,10 @@ class Zonotope(ConvexSet):
 
         # shift zonotope to origin
         Z = self - self.c
-        return direction / Z.zonotope_norm(direction) + self.c
+        norm = Z.zonotope_norm(direction)
+        if norm is None:
+            return self.c
+        return direction / norm + self.c
     
     # boundedness
     def bounded(self) -> bool:
@@ -357,7 +362,7 @@ class Zonotope(ConvexSet):
             norm = (self - self.c).zonotope_norm(other.c - self.c)
             return norm <= 1 or np.isclose(norm, 1., rtol = rtol, atol = atol)
         else:
-            # TODO: convert self to Hpolyhedron and use its contains function
+            # todo convert self to hpolyhedron and check containment
             raise NotImplementedError
 
     # convex hull
@@ -440,8 +445,34 @@ class Zonotope(ConvexSet):
         """
         self._checkMode(mode)
 
-        raise NotImplementedError
-        # return {'A': A, 'b': b}
+        # special instantiation if zonotope is a single point
+        if self.represents('Point'):
+            A, b = halfspace_representation_from_vector(self.center())
+            return {'A': A, 'b': b}
+
+        # conversion requires linearly independent generators
+        self = self.compact()
+
+        # todo: degenerate case
+        if self.degenerate():
+            raise NotImplementedError
+        
+        # pre-allocate constraint matrix and constraint offset
+        n, m = self.dimension, self.number_generators()
+        h = comb(m, n-1)
+        A, b = np.zeros((2*h, n)), np.zeros(2*h)
+
+        # we compute the n-dimensional cross product of all combinations of n-1 generators
+        all_combinations = combinations(range(m), r = n-1)
+        for row, combination in enumerate(all_combinations):
+            cross_product = n_dim_cross_product(self.G[list(combination)].T)
+            A[row] = cross_product / np.linalg.norm(cross_product, ord = 2)
+            A[row+h] = -A[row]
+            delta = np.sum(np.abs(np.matmul(A[row], self.G.T)))
+            b[row] = np.matmul(A[row], self.c) + delta
+            b[row+h] = -np.matmul(A[row], self.c) + delta
+
+        return {'A': A, 'b': b}
 
     # intersection check
     def intersects(self, other: Union[ConvexSet, np.ndarray], *, rtol: float = 1e-5, atol: float = 1e-8) -> bool:

@@ -405,7 +405,6 @@ class TestVPolytope(unittest.TestCase):
         VP_3 = VPolytope(V = np.array([[-1., 0.], [0., -1.], [2., 1.]]))
 
         result_1 = Interval(**VP_1.interval())
-        result_2 = Interval(**VP_2.interval(mode = 'outer'))  # should work with mode='exact'
         result_2 = Interval(**VP_2.interval())
         result_3 = Interval(**VP_3.interval(mode = 'outer'))
 
@@ -510,22 +509,32 @@ class TestVPolytope(unittest.TestCase):
         ''' Test for representation check '''
         # cases:
         # - single vertex
-        # - multiple vertices
+        # - multiple vertices (interval)
+        # - multiple vertices (zonotope)
         VP_1 = VPolytope(V = np.array([2., 1.]))
         VP_2 = VPolytope(V = np.array([[-1., 0.], [2., 0.], [2., 1.], [-1., 1.]]))
+        VP_3 = VPolytope(V = np.array([[4., -1., 1.], [2., -3., 1.], [6., 3., -1.], [4., 1., -1.],
+                                       [-2., -3., 3.], [2., 3., 1.], [0., 1., 1.], [2., -3., 3.],
+                                       [0., -5., 3.], [4., 1., 1.], [-2., -3., 5.], [-4., -5., 5.],
+                                       [0., 1., 3.], [-2., -1., 3.]]))
 
-        assert VP_1.represents('VPolytope')
-        assert VP_1.represents('HPolyhedron')
+        assert VP_1.represents('Point')
         assert VP_1.represents('Interval')
         assert VP_1.represents('Zonotope')
-        assert VP_1.represents('Point')
+        assert VP_1.represents('VPolytope')
+        assert VP_1.represents('HPolyhedron')        
 
+        assert not VP_2.represents('Point')
+        assert VP_2.represents('Interval')
+        assert VP_2.represents('Zonotope')
         assert VP_2.represents('VPolytope')
         assert VP_2.represents('HPolyhedron')
-        assert VP_2.represents('Interval')
-        assert not VP_2.represents('Point')
-        with self.assertRaises(NotImplementedError):
-            VP_2.represents('Zonotope')
+
+        assert not VP_3.represents('Point')
+        assert not VP_3.represents('Interval')
+        assert VP_3.represents('Zonotope')
+        assert VP_3.represents('VPolytope')
+        assert VP_3.represents('HPolyhedron')
 
     def test_support_function(self):
         ''' Test for support function evaluation '''

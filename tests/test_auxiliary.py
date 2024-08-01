@@ -28,5 +28,42 @@ class TestAuxiliary(unittest.TestCase):
         assert HP_5D.contains(v_5D)
         assert HP_5D.degenerate()
 
+    def test_n_dim_cross_product(self):
+        ''' Test for n-dimensional cross product '''
+        # cases:
+        # - 2D
+        # - 3D
+        M1 = np.array([[5.], [-2.]])
+        M2 = np.array([[1., 2.], [3., 4.], [5., 6.]])
+
+        result1 = auxiliary.n_dim_cross_product(M1)
+        result2 = auxiliary.n_dim_cross_product(M2)
+
+        true_result1 = np.array([-2., -5.])
+        true_result2 = np.array([-2., 4., -2.])
+
+        assert np.allclose(result1, true_result1)
+        assert np.allclose(result2, true_result2)
+
+    def test_remove_duplicate_points(self):
+        ''' Test for removal of duplicate points in a list '''
+        # cases:
+        # - no duplicates
+        # - duplicates
+        # - duplicates up to tolerance
+        M1 = np.array([[1., 0.], [-1., 1.], [1., 1.], [2., 1.]])
+        M2 = np.array([[1., 0.], [-1., 1.], [1., 1.], [1., 0.], [2., 1.]])
+        M3 = np.array([[1., 0.], [-1., 1.], [1., 1.], [1.001, 0.], [2., 1.]])
+
+        result1 = auxiliary.remove_duplicate_points(M1)
+        result2 = auxiliary.remove_duplicate_points(M2)
+        result3 = auxiliary.remove_duplicate_points(M3)
+        result4 = auxiliary.remove_duplicate_points(M3, atol = 0.01)
+
+        assert np.array_equal(result1, M1)
+        assert np.array_equal(result2, M1)
+        assert np.array_equal(result3, M3)
+        assert np.array_equal(result4, M1)
+
 if __name__ == '__main__':
     unittest.main()

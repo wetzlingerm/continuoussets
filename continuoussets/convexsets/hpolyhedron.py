@@ -4,7 +4,7 @@ from typing import Union
 
 import numpy as np
 from scipy.optimize import linprog
-from pypoman import compute_polytope_vertices  #, project_polytope
+from pypoman import compute_polytope_vertices  # project_polytope
 from continuoussets.convexsets.convexset import ConvexSet
 # from continuoussets.utils import comparison
 from continuoussets.utils.exceptions import OtherFunctionError, ExactEvaluationImpossibleError, \
@@ -565,13 +565,14 @@ class HPolyhedron(ConvexSet):
         Returns:
             bool: Result of the intersection check.
         """
-        # linear program: min 0  s.t.  Ax <= b, c + Gbeta == x, beta <= 1
+        # linear program: min 0  s.t.  Ax <= b, c + Gbeta == x, ||beta||_oo <= 1
         n, m = self.dimension, other.number_generators()
 
         c = np.zeros(n + m)
         A_ub = np.vstack((np.hstack((self.A, np.zeros((self.number_constraints(), m)))),
-                          np.hstack((np.zeros((m, n)), -np.eye(m)))))
-        b_ub = np.hstack((self.b, np.ones(m)))
+                          np.hstack((np.zeros((2*m, n)),
+                                     np.vstack((np.eye(m), -np.eye(m)))))))
+        b_ub = np.hstack((self.b, np.ones(2*m)))
         A_eq = np.hstack((-np.eye(n), other.G.T))
         b_eq = -other.c
 
