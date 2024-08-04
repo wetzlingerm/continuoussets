@@ -9,6 +9,8 @@ from scipy.optimize import linprog
 from scipy.spatial import ConvexHull
 
 from continuoussets.convexsets.convexset import ConvexSet
+from continuoussets.convexsets.hpolyhedron import HPolyhedron as HP
+# note: the above line means that the HPolyhedron module cannot import Zonotope module!
 from continuoussets.utils import comparison
 from continuoussets.utils.exceptions import OtherFunctionError, ExactEvaluationImpossibleError
 from continuoussets.utils.auxiliary import halfspace_representation_from_vector, n_dim_cross_product
@@ -342,9 +344,6 @@ class Zonotope(ConvexSet):
             rtol (float, optional): Relative tolerance. Defaults to 1e-5.
             atol (float, optional): Absolute tolerance. Defaults to 1e-8.
 
-        Raises:
-            NotImplementedError: Zonotope-in-zonotope not supported.
-
         Returns:
             bool: Containment status.
         """
@@ -362,8 +361,9 @@ class Zonotope(ConvexSet):
             norm = (self - self.c).zonotope_norm(other.c - self.c)
             return norm <= 1 or np.isclose(norm, 1., rtol = rtol, atol = atol)
         else:
-            # todo convert self to hpolyhedron and check containment
-            raise NotImplementedError
+            # all cases: convert outer body to HPolyhedron
+            self_as_hpolyhedron = HP(**self.hpolyhedron())
+            return self_as_hpolyhedron.contains(other, rtol = rtol, atol = atol)
 
     # convex hull
     def convex_hull(self, other: Union[ConvexSet, np.ndarray], *, mode: str = 'exact') -> Zonotope:
@@ -514,7 +514,7 @@ class Zonotope(ConvexSet):
 
         Raises:
             NotImplementedError: Mode 'inner' only supported if the zonotope represents an interval.
-            NotImplementedError: Mode 'exact' only supported if the zonotope represents an interval.
+            ExactEvaluationImpossibleError: Mode 'exact' only supported if the zonotope represents an interval.
 
         Returns:
             dict: Keyword arguments for instantiation of an Interval object.

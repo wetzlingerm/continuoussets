@@ -464,16 +464,13 @@ class TestZonotope(unittest.TestCase):
         assert Z2.contains(np.array([3., 1.]))
         assert Z2.contains(np.array([4., 1.]))
         assert Z2.contains(Z1)
-        #assert Z2.contains(I1)
-        #assert not Z2.contains(I2)
-        #assert Z2.contains(VP1)
-        #assert not Z2.contains(VP2)
-        #assert Z2.contains(HP1)
-        #assert not Z2.contains(HP2)
-
-        # check exceptions
-        with self.assertRaises(NotImplementedError):
-            Z2.contains(Z2)
+        assert Z2.contains(Z2)
+        assert Z2.contains(I1)
+        assert not Z2.contains(I2)
+        assert Z2.contains(VP1)
+        assert not Z2.contains(VP2)
+        assert Z2.contains(HP1)
+        assert not Z2.contains(HP2)
 
     def test_convex_hull(self):
         ''' Test for convex hull '''

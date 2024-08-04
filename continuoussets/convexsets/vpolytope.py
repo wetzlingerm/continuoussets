@@ -66,6 +66,7 @@ class VPolytope(ConvexSet):
         # post-check: no higher than 2D
         if self.validate and validate:
             if V.ndim > 2:
+
                 raise ValueError('VPolytope:__init__',
                                  'Vertices array must be 1D or 2D.')
 
@@ -829,8 +830,8 @@ class VPolytope(ConvexSet):
         lower_bound, upper_bound = interval_dict['lb'], interval_dict['ub']
 
         # convert interval to zonotope (note: we cannot call Interval methods here)
-        center = (upper_bound + lower_bound) / 2
-        generators = np.diag((upper_bound - lower_bound) / 2)
-        generators = 0.5*generators[~np.all(generators == 0, axis=1), :]
+        center = (upper_bound + lower_bound) / 2.
+        generators = np.diag((upper_bound - lower_bound) / 2.)
+        generators = generators[~np.all(generators == 0, axis=1), :]
         
         return {'c': center, 'G': generators}
