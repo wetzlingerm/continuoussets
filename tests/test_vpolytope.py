@@ -574,15 +574,17 @@ class TestVPolytope(unittest.TestCase):
         ''' Test for volume computation '''
         # cases:
         # - single vertex
-        # - non-degenerate set
-        V1 = np.array([[2., 3., -1.]])
-        VP_1 = VPolytope(V = V1)
-        V2 = np.array([[2., 1.], [-1., 2.], [0., -4.]])
-        VP_2 = VPolytope(V = V2)
+        # - degenerate set
+        # - non-degenerate set (error)
+        VP_1 = VPolytope(V = np.array([[2., 3., -1.]]))
+        VP_2 = VPolytope(V = np.array([[1., 0.], [0., 1.], [-1., 2.]]))
+        VP_3 = VPolytope(V = np.array([[2., 1.], [-1., 2.], [0., -4.]]))
 
         assert VP_1.volume() == 0
+        assert VP_2.volume() == 0
+
         with self.assertRaises(NotImplementedError):
-            VP_2.volume()
+            VP_3.volume()
 
     def test_vpolytope(self):
         ''' Test for overloaded conversion to vpolytope '''

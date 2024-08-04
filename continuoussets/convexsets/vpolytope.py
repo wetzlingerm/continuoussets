@@ -787,10 +787,10 @@ class VPolytope(ConvexSet):
             float: Volume.
         """
         # degenerate polytopes have volume 0
-        if self.number_vertices() <= 1:
+        if self.number_vertices() <= 1 or self.degenerate():
             return 0
-        # todo: check other degenerate cases
-
+        
+        # computation for non-degenerate sets is not supported
         raise NotImplementedError
     
     # conversion to vpolytope

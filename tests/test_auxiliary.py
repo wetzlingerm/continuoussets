@@ -1,6 +1,7 @@
 import unittest
 import numpy as np
 from continuoussets.utils import auxiliary
+from continuoussets.utils import comparison
 from continuoussets.convexsets.hpolyhedron import HPolyhedron
 
 class TestAuxiliary(unittest.TestCase):
@@ -64,6 +65,50 @@ class TestAuxiliary(unittest.TestCase):
         assert np.array_equal(result2, M1)
         assert np.array_equal(result3, M3)
         assert np.array_equal(result4, M1)
+
+    def test_fourier_motzkin_elimination(self):
+        ''' Test for Fourier-Motzkin elimination '''
+        # cases:
+        # - 4D -> 3D
+        A = np.array([[1., 2., 0., -1.], [1., -1., -1., 0.], [0., 1., 2., 2.],
+                      [-2., -1., 0., 0.], [-1., 1., 1., 0.], [0., 0., 1., 2.],
+                      [0., -3., 2., 1.], [1., 0., 0., -1.], [3., -1., -2., -1.]])
+        b = np.array([1., 1., 1., 1., 1., 1., 1., 1., 1.])
+
+        A_proj1, b_proj1 = auxiliary.fourier_motzkin_elimination(A, b, 0)
+        A_proj2, b_proj2 = auxiliary.fourier_motzkin_elimination(A, b, 1)
+        A_proj3, b_proj3 = auxiliary.fourier_motzkin_elimination(A, b, 2)
+        A_proj4, b_proj4 = auxiliary.fourier_motzkin_elimination(A, b, 3)
+
+        true_result_A_proj1 = np.array([[1., 2., 2.], [0., 1., 2.], [-3., 2., 1.], [3., 0., -2.],
+                                        [-3., -2., 0.], [-1., 0., -2.], [-5., -4., -2.],
+                                        [3., 1., -1.], [0., 0., 0.], [1., 1., -1.], [2., 1., -1.]])
+        true_result_b_proj1 = np.array([1., 1., 1., 3., 3., 3., 5., 2., 2., 2., 4.])
+        true_result_A_proj2 = np.array([[0., 1., 2.], [1., 0., -1.], [3., -2., -1.], [1., 1., 2.],
+                                        [0., 0., 0.], [-3., 0., -1.], [-2., 2., 2.], [-3., 1., 0.],
+                                        [3., 4., -1.], [0., 8., 7.], [-3., 5., 1.], [7., -4., -3.],
+                                        [3., 0., 1.], [2., -1., -1.]])
+        true_result_b_proj2 = np.array([1., 1., 3., 2., 2., 3., 2., 2., 5., 4., 4., 3., 2., 2.])
+        true_result_A_proj3 = np.array([[1., 2., -1.], [-2., -1., 0.], [1., 0., -1.], [2., -1., 2.],
+                                        [0., 0., 0.], [1., -1., 2.], [2., -5., 1.], [6., 0., 2.],
+                                        [1., 1., -1.], [3., -1., 3.], [6., -8., 0.]])
+        true_result_b_proj3 = np.array([1., 1., 1., 3., 2., 2., 3., 4., 3., 3., 4.])
+        true_result_A_proj4 = np.array([[1., -1., -1.], [-2., -1., 0.], [-1., 1., 1.], [2., 5., 2.],
+                                        [2., 4., 1.], [1., -1., 2.], [2., 1., 2.], [2., 0., 1.],
+                                        [1., -3., 2.], [6., -1., -2.], [6., -2., -3.], [3., -4., 0.]])
+        true_result_b_proj4 = np.array([1., 1., 1., 3., 3., 2., 3., 3., 2., 3., 3., 2.])
+
+        assert comparison.compare_matrices(b_proj1, true_result_b_proj1)
+        assert comparison.compare_matrices(A_proj1, true_result_A_proj1)
+        assert comparison.compare_matrices(A_proj2, true_result_A_proj2)
+        assert comparison.compare_matrices(b_proj2, true_result_b_proj2)
+        assert comparison.compare_matrices(A_proj3, true_result_A_proj3)
+        assert comparison.compare_matrices(b_proj3, true_result_b_proj3)
+        assert comparison.compare_matrices(A_proj4, true_result_A_proj4)
+        assert comparison.compare_matrices(b_proj4, true_result_b_proj4)
+
+
+
 
 if __name__ == '__main__':
     unittest.main()
