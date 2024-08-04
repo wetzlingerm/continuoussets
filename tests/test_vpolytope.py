@@ -511,18 +511,20 @@ class TestVPolytope(unittest.TestCase):
         # - single vertex
         # - multiple vertices (interval)
         # - multiple vertices (zonotope)
+        # - uneven number of vertices (cannot be a zonotope or an interval)
         VP_1 = VPolytope(V = np.array([2., 1.]))
         VP_2 = VPolytope(V = np.array([[-1., 0.], [2., 0.], [2., 1.], [-1., 1.]]))
         VP_3 = VPolytope(V = np.array([[4., -1., 1.], [2., -3., 1.], [6., 3., -1.], [4., 1., -1.],
                                        [-2., -3., 3.], [2., 3., 1.], [0., 1., 1.], [2., -3., 3.],
                                        [0., -5., 3.], [4., 1., 1.], [-2., -3., 5.], [-4., -5., 5.],
                                        [0., 1., 3.], [-2., -1., 3.]]))
+        VP_4 = VPolytope(V = np.array([[2., 1.], [0., 2.], [-1., -2.]]))
 
         assert VP_1.represents('Point')
         assert VP_1.represents('Interval')
         assert VP_1.represents('Zonotope')
         assert VP_1.represents('VPolytope')
-        assert VP_1.represents('HPolyhedron')        
+        assert VP_1.represents('HPolyhedron')
 
         assert not VP_2.represents('Point')
         assert VP_2.represents('Interval')
@@ -535,6 +537,9 @@ class TestVPolytope(unittest.TestCase):
         assert VP_3.represents('Zonotope')
         assert VP_3.represents('VPolytope')
         assert VP_3.represents('HPolyhedron')
+
+        assert not VP_4.represents('Interval')
+        assert not VP_4.represents('Zonotope')
 
     def test_support_function(self):
         ''' Test for support function evaluation '''
@@ -611,8 +616,7 @@ class TestVPolytope(unittest.TestCase):
         true_result_1 = Zonotope(c = V1.flatten())
 
         assert result_1 == true_result_1
-        with self.assertRaises(NotImplementedError):
-            assert result_2.contains(VP_2)
+        assert result_2.contains(VP_2)
 
         # unsupported conversions
         with self.assertRaises(NotImplementedError):
