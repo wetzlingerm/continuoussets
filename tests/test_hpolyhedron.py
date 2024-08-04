@@ -443,15 +443,32 @@ class TestHPolyhedron(unittest.TestCase):
     def test_matmul(self):
         ''' Test for linear map '''
         # cases:
-        # - hpolyhedron x identity
-        # - hpolyhedron x square invertible
+        # - hpolyhedron x identity matrix
+        # - hpolyhedron x square invertible matrix
+        # - hpolyhedron x injective matrix
         HP1 = HPolyhedron(A = np.array([[1., 0.], [-1., 1.], [-1., -1.]]),
                           b = np.array([1., 1., 1.]))
+        HP2 = HPolyhedron(A = np.array([[1., 0., 0.], [0., 1., 0.], [0., 0., 1.], [-1., -1., -1.]]),
+                          b = np.ones(4))
         M1 = np.eye(2)
         M2 = np.array([[2., 1.], [-1., -1.]])
+        M3 = np.array([[1., -1.]])
+        M4 = np.array([[1., 2., -1.], [0., -1., 1.]])
 
-        with self.assertRaises(NotImplementedError):
-            HP1.matmul(M2)
+        result1 = HP1.matmul(M1)
+        result2 = HP1.matmul(M2)
+        result3 = HP1.matmul(M3)
+        result4 = HP2.matmul(M4)
+
+        true_result2 = HPolyhedron(A = np.array([[1., 1.], [-2., -3.], [0., 1.]]), b = np.ones(3))
+        true_result3 = HPolyhedron(A = np.array([[1.], [-1.]]), b = np.array([3., 1.]))
+        true_result4 = HPolyhedron(A = np.array([[-0.5, -0.5], [0.5, 1.], [-0.5, -1.], [0.5, 0.5]]),
+                                   b = np.ones(4))
+
+        assert result1 == HP1
+        assert result2 == true_result2
+        assert result3 == true_result3
+        assert result4 == true_result4
 
     def test_minkowski_difference(self):
         ''' Test for Minkowski difference '''
@@ -486,8 +503,10 @@ class TestHPolyhedron(unittest.TestCase):
         I = Interval(lb = np.array([-1., 0.]), ub = np.array([3., 1.]))
 
         result1 = HP1.minkowski_sum(v)
+        result2 = HP1.minkowski_sum(HP1)
         result3 = HP1.minkowski_sum(HP1, mode = 'outer')
-        result4 = HP1.minkowski_sum(I, mode = 'outer')
+        result4 = HP1.minkowski_sum(I)
+        result5 = HP1.minkowski_sum(I, mode = 'outer')
 
         true_result1 = HPolyhedron(A = np.array([[1., 0.], [-1., 1.], [-1., -1.]]),
                                    b = np.array([3., -2., 0.]))
@@ -497,13 +516,22 @@ class TestHPolyhedron(unittest.TestCase):
                                    b = np.array([3., 2., 4., 2., 2.121320343559643, np.sqrt(2)]))
         
         assert result1 == true_result1
+        assert result2 == true_result2
         assert result3.contains(true_result2)
-        assert result4.contains(true_result4)
+        assert result4 == true_result4
+        assert result5.contains(true_result4)
 
-        with self.assertRaises(NotImplementedError):
-            result2 = HP1.minkowski_sum(HP1)
-        with self.assertRaises(NotImplementedError):
-            result2 = HP1.minkowski_sum(I)
+    def test_project(self):
+        ''' Test for projection '''
+        # cases:
+        # - 2D -> 1D
+        HP1 = HPolyhedron(A = np.array([[1., 0.], [-1., 1.], [-1., -1.]]), b = np.ones(3))
+
+        result1 = HP1.project(axis = (0,))
+
+        true_result1 = HPolyhedron(A = np.array([[1.], [-1.]]), b = np.array([1., 1.]))
+
+        assert result1 == true_result1
 
     def test_represents(self):
         ''' Test for representation equivalence '''

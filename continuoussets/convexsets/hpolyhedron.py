@@ -9,7 +9,7 @@ from continuoussets.convexsets.convexset import ConvexSet
 # from continuoussets.utils import comparison
 from continuoussets.utils.exceptions import OtherFunctionError, ExactEvaluationImpossibleError, \
     EmptySetError, UnboundedSetError
-from continuoussets.utils.auxiliary import halfspace_representation_from_vector
+from continuoussets.utils.auxiliary import halfspace_representation_from_vector, fourier_motzkin_elimination
 
 if __name__ == '__main__':
     print('This is the HPolyhedron class.')
@@ -665,8 +665,29 @@ class HPolyhedron(ConvexSet):
         """
         self._checkMatrix(matrix)
 
-        # case differentiation between square invertible matrices and projections
-        raise NotImplementedError
+        m, n = matrix.shape
+        if m == n and np.linalg.matrix_rank(matrix) == n:
+            # simple formula for square and invertible matrices
+            return HPolyhedron(A = np.matmul(self.A, np.linalg.inv(matrix)), b = self.b, validate = False)
+        elif m > n:
+            # projections to higher-dimensional space not supported
+            raise NotImplementedError
+        
+        # general formula including projection:
+        # 1. compute SVD and number of non-zero singular values
+        U, S, V = np.linalg.svd(matrix)
+        r = S.size - np.count_nonzero(np.isclose(S, 0., atol = 1e-8))
+        # 2. compute diagonal matrix with 1/s
+        D_inv = np.diag(1. / S)
+        # 3. init polytope before projection
+        A_new = np.matmul(np.matmul(self.A, V.T),
+                      np.block([[D_inv, np.zeros((r,n-r))], [np.zeros((n-r,r)), np.eye(n-r)]]))
+        # 4. project onto first r dimensions
+        P = HPolyhedron(A = A_new, b = self.b.copy())
+        P = P.project(axis = tuple(np.arange(r)))
+        # 5. multiply with orthogonal matrix
+        P = P.matmul(U)
+        return P
 
     # Minkowski sum
     def minkowski_sum(self, other: Union[ConvexSet, np.ndarray], *, mode: str = 'exact') -> HPolyhedron:
@@ -759,8 +780,14 @@ class HPolyhedron(ConvexSet):
         """
         self._checkSubspace(axis)
 
-        # todo: use pypoman
-        raise NotImplementedError
+        A_new, b_new = self.A.copy(), self.b.copy()
+        count = 0
+        for i in range(self.dimension):
+            if i not in axis:
+                A_new, b_new = fourier_motzkin_elimination(A_new, b_new, i-count)
+                count += 1
+
+        return HPolyhedron(A = A_new, b = b_new, validate = False)
 
     # representation by other set representation
     def represents(self, set_class: str, *, rtol: float = 1e-5, atol: float = 1e-8) -> bool:

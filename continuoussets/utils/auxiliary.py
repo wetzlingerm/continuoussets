@@ -1,4 +1,5 @@
 import numpy as np
+from itertools import product
 
 if __name__ == '__main__':
     "This is a utilities file for auxiliary computations"
@@ -70,3 +71,46 @@ def remove_duplicate_points(M: np.ndarray, *, rtol: float = 1e-5, atol: float = 
                 indices_keep = np.logical_and(indices_keep, np.invert(same))
 
     return M[indices_keep]
+
+# Fourier-Motzkin elimination
+def fourier_motzkin_elimination(A: np.ndarray, b: np.ndarray, i: int) -> tuple:
+    """Fourier-Motzkin elimination: projects a set of inequality Ax <= b onto dimension i.
+
+    Args:
+        A (np.ndarray): Constraint matrix p x n.
+        b (np.ndarray): Constraint offset p x 1.
+        i (int): Dimension.
+
+    Returns:
+        tuple: Projected matrix p x (n-1) and offset p x 1.
+    """
+    # for stability, set all values closer than a given tolerance to exactly 0
+    atol = 1e-8
+    A_proj = A.copy()
+    A_proj[abs(A_proj) < atol] = 0.
+
+    # divide the i-th column into positive, zero, and negative entries
+    Z, = np.nonzero(A_proj[:,i] == 0)
+    P, = np.nonzero(A_proj[:,i] > 0)
+    N, = np.nonzero(A_proj[:,i] < 0)
+
+    # Cartesian product N x P
+    p = product(N, P)
+
+    # init projection matrix
+    U = np.zeros((Z.size + P.size*N.size, b.size))
+    # deal with Z
+    for j, dim_i in enumerate(Z):
+        U[j, dim_i] = 1
+
+    # deal with N x P
+    for j, pair in enumerate(p):
+        U[Z.size + j, pair[0]] =  A_proj[pair[1], i]
+        U[Z.size + j, pair[1]] = -A_proj[pair[0], i]
+
+    # projection
+    A_proj = np.matmul(U, A_proj)
+    A_proj = np.delete(A_proj, i, 1)
+    b_proj = np.matmul(U, b)
+
+    return (A_proj, b_proj)
