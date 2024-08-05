@@ -820,10 +820,17 @@ class VPolytope(ConvexSet):
         self._checkMode(mode)
 
         if self.number_vertices() == 1:
-            return {'c': self.V[0].flatten(), 'G': None}
+            return {'c': self.V[0].flatten()}
 
-        if mode in ['inner', 'exact']:
-            raise NotImplementedError
+        if mode == 'inner':
+            if not self.represents('Interval'):
+                raise NotImplementedError
+            # else: use method below
+        elif mode == 'exact':
+            if not self.represents('Zonotope'):
+                raise ExactEvaluationImpossibleError
+            # else: use method below
+            # todo: method below computes interval outer approximation
 
         # convert to interval (outer approximation)
         interval_dict = self.interval(mode = 'outer')

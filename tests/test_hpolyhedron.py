@@ -540,6 +540,8 @@ class TestHPolyhedron(unittest.TestCase):
         # - 1D
         # - interval-like
         # - interval-like, but unbounded
+        # - zonotope-like
+        # - zonotope-like, but unbounded
         HP1 = HPolyhedron(A = np.array([[1., 0.], [-1., 1.], [-1., -1.]]),
                           b = np.array([1., 1., 1.]))
         HP2 = HPolyhedron(A = np.array([[1.], [-1.]]), b = np.array([4., -3.]))
@@ -551,10 +553,14 @@ class TestHPolyhedron(unittest.TestCase):
                           b = np.array([3., 2., 1., 0.]))
         A6, b6 = auxiliary.halfspace_representation_from_vector(np.array([2., 1.]))
         HP6 = HPolyhedron(A = A6, b = b6)
+        HP7 = HPolyhedron(A = np.array([[-0.5, -0.5], [0., -1/3.], [1./np.sqrt(2.), 1./np.sqrt(2.)], [0., 1.]]),
+                          b = np.array([1., 1., 0., -1.]))
+        HP8 = HPolyhedron(A = np.array([[1., 0.], [-1., 0.]]), b = np.ones(2))
         
         assert HP1.represents('HPolyhedron')
         assert HP1.represents('VPolytope')
         assert not HP1.represents('Interval')
+        assert not HP1.represents('Zonotope')
         assert HP2.represents('Interval')
         assert HP2.represents('Zonotope')
         assert HP3.represents('Interval')
@@ -562,9 +568,9 @@ class TestHPolyhedron(unittest.TestCase):
         assert not HP5.represents('Interval')
         assert not HP5.represents('Point')
         assert HP6.represents('Point')
-
-        with self.assertRaises(NotImplementedError):
-            HP1.represents('Zonotope')
+        assert HP7.represents('Zonotope')
+        assert not HP7.represents('Interval')
+        assert not HP8.represents('Zonotope')
 
     def test_support_function(self):
         ''' Test for support function evaluation '''
@@ -644,8 +650,12 @@ class TestHPolyhedron(unittest.TestCase):
         # - bounded
         HP1 = HPolyhedron(A = np.array([[1., 0.], [-1., 1.], [-1., -1.]]),
                           b = np.array([1., 1., 1.]))
+        
+        result1 = Zonotope(**HP1.zonotope(mode = 'outer'))
 
-        with self.assertRaises(NotImplementedError):
+        assert result1.contains(HP1)
+
+        with self.assertRaises(exceptions.ExactEvaluationImpossibleError):
             HP1.zonotope()
 
 if __name__ == '__main__':

@@ -278,6 +278,22 @@ class TestZonotope(unittest.TestCase):
         # check results
         assert result1 == true_result1
 
+    def test_basis_affine_hull(self):
+        ''' Test for computation of basis of the affine hull '''
+        # cases:
+        # - non-degenerate
+        # - degenerate
+        Z1 = Zonotope(c = np.array([1., 0.]), G = np.array([[1., 1.], [-1., 0.], [2., 1.]]))
+        Z2 = Zonotope(c = np.array([3., 2., -1.]),
+                      G = np.array([[1., 2., 1.], [-1., 1., 2.], [0., 3., 3.]]))
+
+        result1 = Z1.basis_affine_hull()
+        result2 = Z2.basis_affine_hull()
+
+        # check whether multiplication with basis yields lower-dimensional rank of generator matrix
+        assert np.all(np.all(np.isclose(np.matmul(result1.T, Z1.G.T), 0.), axis=1) == np.full((2,), False))
+        assert np.all(np.all(np.isclose(np.matmul(result2.T, Z2.G.T), 0.), axis = 1) == np.array([False, False, True]))
+
     def test_boundary_point(self):
         ''' Test for computation of boundary points '''
         # cases:
@@ -339,7 +355,10 @@ class TestZonotope(unittest.TestCase):
         Z2_onlycenter = Zonotope(c = center2)
         Z3 = Zonotope(c = center1, G = generators1)
         Z4 = Zonotope(c = center2, G = generators2)
+        # init interval, vpolytope, hpolyhedron
         I = Interval(lb = np.array([-1.]), ub = np.array([7.]))
+        VP = VPolytope(V = np.array([[1., 0.], [0., 1.], [-1., -2.]]))
+        HP = HPolyhedron(A = np.array([[1., 0.], [-1., 1.], [-1., -1.]]), b = np.ones(3))
 
         # compute Cartesian product
         result1 = Z1_onlycenter.cartesian_product(Z2_onlycenter)
@@ -349,6 +368,8 @@ class TestZonotope(unittest.TestCase):
         result5 = Z3.cartesian_product(Z2_onlycenter)
         result6 = Z3.cartesian_product(Z4)
         result7 = Z1_onlycenter.cartesian_product(I)
+        result8 = Z3.cartesian_product(VP, mode = 'outer')
+        #result9 = Z3.cartesian_product(HP, mode = 'outer')  # todo requires HP->Z outer
         
         # manual computation
         centers_stacked = np.array([-1., 0., 3.])
@@ -362,6 +383,22 @@ class TestZonotope(unittest.TestCase):
         true_result5 = Zonotope(c = centers_stacked, G = generators1_zero)
         true_result6 = Zonotope(c = centers_stacked, G = generators1_generators2)
         true_result7 = Zonotope(c = centers_stacked, G = zero_generators2)
+        true_result8 = HPolyhedron(A = np.array([[2./3., 1./3., 0., 0.],
+                                                 [-2./7., -1./7., 0., 0.],
+                                                 [-1., 2., 0., 0.],
+                                                 [1., -2., 0., 0.],
+                                                 [0., 0., 1., -1.],
+                                                 [0., 0., 1., 1.],
+                                                 [0., 0., -3., 1.]]),
+                                   b = np.array([1., 1., 1., -1., 1., 1., 1.]))
+        true_result9 = HPolyhedron(A = np.array([[2./3., 1./3., 0., 0.],
+                                                 [-2./7., -1./7., 0., 0.],
+                                                 [-1., 2., 0., 0.],
+                                                 [1., -2., 0., 0.],
+                                                 [0., 0., 1., 0.],
+                                                 [0., 0., -1., -1.],
+                                                 [0., 0., -1., 1.]]),
+                                   b = np.array([1., 1., 1., -1., 1., 1., 1.]))
 
         # check results
         assert result1 == true_result1
@@ -371,6 +408,13 @@ class TestZonotope(unittest.TestCase):
         assert result5 == true_result5
         assert result6 == true_result6
         assert result7 == true_result7
+        assert result8.contains(true_result8)
+        #assert result9.contains(true_result9)
+
+        with self.assertRaises(exceptions.ExactEvaluationImpossibleError):
+            Z3.cartesian_product(VP)
+        with self.assertRaises(exceptions.ExactEvaluationImpossibleError):
+            Z3.cartesian_product(HP)
 
     def test_center(self):
         ''' Test for computation of center '''
@@ -560,16 +604,21 @@ class TestZonotope(unittest.TestCase):
         # - only center
         # - center and generators (2D)
         # - center and generators (3D)
-        # - degenerate  # todo
+        # - degenerate (1D in 2D)
+        # - degenerate (2D in 3D)
         Z1 = Zonotope(c = np.array([1., 0.]))
         Z2 = Zonotope(c = np.array([1., 0.]), G = np.array([[1., 0.], [-1., 1.], [2., 1.]]))
         Z3 = Zonotope(c = np.array([1., -1., 2.]),
                       G = np.array([[1., 1., 0.], [1., 2., -1.], [-2., 0., 1.], [-1., -1., 1.]]))
         Z4 = Zonotope(c = np.array([1., 0.]), G = np.array([[1., -2.]]))
+        Z5 = Zonotope(c = np.array([2., -1., 1.]),
+                      G = np.array([[1., 2., 1.], [-1., 1., 2.], [0., 3., 3.,], [4., 2., -2.], [-1., 4., 5.]]))
 
         HP1 = HPolyhedron(**Z1.hpolyhedron())
         HP2 = HPolyhedron(**Z2.hpolyhedron())
         HP3 = HPolyhedron(**Z3.hpolyhedron())
+        HP4 = HPolyhedron(**Z4.hpolyhedron())
+        HP5 = HPolyhedron(**Z5.hpolyhedron())
 
         true_result1 = HPolyhedron(A = np.array([[1., 0.], [0., 1.], [-1., -1.]]),
                                    b = np.array([1., 0., -1.]))
@@ -579,13 +628,31 @@ class TestZonotope(unittest.TestCase):
                                                  [-1., -1., -2.], [-1., 1., -2.], [1./11., -1./11., 2./11.], [1./7., 1./7., 2./7.],
                                                  [2./13., 1./13., 4./13.], [0.25, -0.25, -0.25], [0.2, -0.2, 0.], [0.2, 0., 0.2]]),
                                    b = np.array([-1., 1., 1., -1., -1., -1., 1., 1., 1., 1., 1., 1.]))
-        
+        true_result4 = HPolyhedron(A = np.array([[1./np.sqrt(5.), -2./np.sqrt(5.)],
+                                                 [-1./np.sqrt(5.), 2./np.sqrt(5.)],
+                                                 [2./np.sqrt(5.), 1./np.sqrt(5.)],
+                                                 [-2./np.sqrt(5.), -1./np.sqrt(5.)]]),
+                                   b = np.array([6./np.sqrt(5.), 4./np.sqrt(5.), 2./np.sqrt(5.), -2./np.sqrt(5.)]))
+        true_result5 = HPolyhedron(A = np.array([[-1./np.sqrt(2.), 0., 1./np.sqrt(2.)],
+                                                 [-1./np.sqrt(2.), -1./np.sqrt(2.), 0.],
+                                                 [-0.81650, -0.40825, 0.40825],
+                                                 [0, 1./np.sqrt(2.), 1./np.sqrt(2.)],
+                                                 [-0.80178, -0.53452, 0.26726],
+                                                 [1./np.sqrt(2.), 0., -1./np.sqrt(2.)],
+                                                 [1./np.sqrt(2.), 1./np.sqrt(2.), 0.],
+                                                 [0.81650, 0.40825, -0.40825],
+                                                 [0, -1./np.sqrt(2.), -1./np.sqrt(2.)],
+                                                 [0.80178, 0.53452, -0.26726],
+                                                 [-0.57735, 0.57735, -0.57735],
+                                                 [0.57735, -0.57735, 0.57735]]),
+                                   b = np.array([12.02082, 9.89949, 7.75672, 14.84924, 7.21605, 13.43503,
+                                                 11.31371, 9.38971, 14.84924, 8.81962, -2.30940, 2.30940]))
+
         assert HP1 == true_result1
         assert HP2 == true_result2
         assert HP3 == true_result3
-
-        with self.assertRaises(NotImplementedError):
-            Z4.hpolyhedron()
+        assert HP4 == true_result4
+        assert HP5.__eq__(true_result5, rtol = 1e-5)
 
     def test_intersects(self):
         ''' Test for intersection check '''
@@ -855,6 +922,31 @@ class TestZonotope(unittest.TestCase):
         
         assert result1 == true_result1
         assert result2 == true_result2
+
+    def test_project_affine_hull(self):
+        ''' Test for projection on affine hull '''
+        # cases:
+        # - non-degenerate
+        # - 3D degenerate (2D)
+        # - 3D degenerate (1D)
+        Z1 = Zonotope(c = np.array([1., 2.]), G = np.array([[1., -1.], [1., 0.]]))
+        Z2 = Zonotope(c = np.array([3., 2., -1.]),
+                      G = np.array([[1., 2., 1.], [-1., 1., 2.], [0., 3., 3.]]))
+        Z3 = Zonotope(c = np.array([1., 0., 0.]), G = np.array([[-1., 2., 1.]]))
+
+        result1 = Z1.project_affine_hull()[0]
+        result2 = Z2.project_affine_hull()[0]
+        result3 = Z3.project_affine_hull()[0]
+
+        true_result2 = Zonotope(c = np.array([-0.707106781186548, 3.674234614174767]),
+                                G = np.array([[-2.121320343559642, 1.224744871391589],
+                                              [-2.121320343559643, -1.224744871391589],
+                                              [-4.242640687119286, 0.]]))
+        true_result3 = Zonotope(c = np.array([-0.408248290463863]), G = np.array([[2.449489742783179]]))
+
+        assert result1 == Z1
+        assert result2 == true_result2
+        assert result3 == true_result3
 
     def test_reduce(self):
         ''' Test for zonotope order reduction '''
