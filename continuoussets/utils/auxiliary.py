@@ -43,6 +43,7 @@ def n_dim_cross_product(M: np.ndarray) -> np.ndarray:
 
     return result
 
+
 # remove duplicate vectors in a matrix
 def remove_duplicate_points(M: np.ndarray, *, rtol: float = 1e-5, atol: float = 1e-8) -> np.ndarray:
     """Removes duplicate points from a list of points up to a given relative and absolute tolerance.
@@ -72,6 +73,7 @@ def remove_duplicate_points(M: np.ndarray, *, rtol: float = 1e-5, atol: float = 
 
     return M[indices_keep]
 
+
 # Fourier-Motzkin elimination
 def fourier_motzkin_elimination(A: np.ndarray, b: np.ndarray, i: int) -> tuple:
     """Fourier-Motzkin elimination: projects a set of inequality Ax <= b onto dimension i.
@@ -90,9 +92,9 @@ def fourier_motzkin_elimination(A: np.ndarray, b: np.ndarray, i: int) -> tuple:
     A_proj[abs(A_proj) < atol] = 0.
 
     # divide the i-th column into positive, zero, and negative entries
-    Z, = np.nonzero(A_proj[:,i] == 0)
-    P, = np.nonzero(A_proj[:,i] > 0)
-    N, = np.nonzero(A_proj[:,i] < 0)
+    Z, = np.nonzero(A_proj[:, i] == 0)
+    P, = np.nonzero(A_proj[:, i] > 0)
+    N, = np.nonzero(A_proj[:, i] < 0)
 
     # Cartesian product N x P
     p = product(N, P)
@@ -105,7 +107,7 @@ def fourier_motzkin_elimination(A: np.ndarray, b: np.ndarray, i: int) -> tuple:
 
     # deal with N x P
     for j, pair in enumerate(p):
-        U[Z.size + j, pair[0]] =  A_proj[pair[1], i]
+        U[Z.size + j, pair[0]] = A_proj[pair[1], i]
         U[Z.size + j, pair[1]] = -A_proj[pair[0], i]
 
     # projection

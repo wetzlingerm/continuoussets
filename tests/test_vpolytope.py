@@ -606,22 +606,23 @@ class TestVPolytope(unittest.TestCase):
         ''' Test for zonotope conversion '''
         # cases:
         # - single vertex
-        # - multiple vertices
+        # - multiple vertices (not a zonotope)
+        # - multiple vertices (is a zonotope)  # todo
         V1 = np.array([[2., 3., -1.]])
         VP_1 = VPolytope(V = V1)
-        V2 = np.array([[2., 1.], [-1., 2.], [0., -4.]])
-        VP_2 = VPolytope(V = V2)
+        VP_2 = VPolytope(V = np.array([[2., 1.], [-1., 2.], [0., -4.]]))
+        VP_3 = VPolytope(V = np.array([[1., -6.], [3., -2.], [3., 0.], [1., 2.], [-1., -2.], [-1., -4.]]))
 
         result_1 = Zonotope(**VP_1.zonotope())
         result_2 = Zonotope(**VP_2.zonotope(mode = 'outer'))
+        #result_3 = Zonotope(**VP_3.zonotope())
 
-        true_result_1 = Zonotope(c = V1.flatten())
-
-        assert result_1 == true_result_1
+        assert result_1 == VP_1
         assert result_2.contains(VP_2)
+        #assert result_3 == VP_3
 
         # unsupported conversions
-        with self.assertRaises(NotImplementedError):
+        with self.assertRaises(exceptions.ExactEvaluationImpossibleError):
             VP_2.zonotope(mode = 'exact')
 
 if __name__ == '__main__':

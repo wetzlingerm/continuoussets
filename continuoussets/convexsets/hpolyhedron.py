@@ -681,7 +681,7 @@ class HPolyhedron(ConvexSet):
         D_inv = np.diag(1. / S)
         # 3. init polytope before projection
         A_new = np.matmul(np.matmul(self.A, V.T),
-                      np.block([[D_inv, np.zeros((r,n-r))], [np.zeros((n-r,r)), np.eye(n-r)]]))
+                          np.block([[D_inv, np.zeros((r, n-r))], [np.zeros((n-r, r)), np.eye(n-r)]]))
         # 4. project onto first r dimensions
         P = HPolyhedron(A = A_new, b = self.b.copy())
         P = P.project(axis = tuple(np.arange(r)))
@@ -825,10 +825,10 @@ class HPolyhedron(ConvexSet):
         if set_class == 'Interval':
             return self._represents_interval(rtol = rtol, atol = atol)
         
-        # todo Zonotope...
-        raise NotImplementedError
+        if set_class == 'Zonotope':
+            return self._represents_zonotope(rtol = rtol, atol = atol)
     
-    def _represents_interval(self, *, rtol: float = 1e-5, atol: float = 1e-8):
+    def _represents_interval(self, *, rtol: float = 1e-5, atol: float = 1e-8) -> bool:
         """Check if an HPolyhedron HP can also be equivalently represented by an Interval.
 
         Args:
@@ -836,28 +836,31 @@ class HPolyhedron(ConvexSet):
             atol (float, optional): Absolut tolerance. Defaults to 1e-8.
 
         Returns:
-            _type_: Representation possible.
+            bool: Representation possible.
         """
         # todo: what to do with empty?
 
-        # must have at least 2n constraints
-        if self.number_constraints() < 2*self.dimension:
+        # minimal representation must have at least 2n constraints
+        self = self.compact(rtol = rtol)
+        n, h = self.dimension, self.number_constraints()
+        if h < 2*n:
             return False
         
         # keep indices for redundancy and for which dimensions are bounded
-        index_keep_for_i = np.full((self.number_constraints(),), True)
-        bounded_dimensions_plus = np.full((self.dimension,), False)
-        bounded_dimensions_minus = np.full((self.dimension,), False)
+        index_keep_for_i = np.full((h,), True)
+        bounded_dimensions_plus = np.full((n,), False)
+        bounded_dimensions_minus = np.full((n,), False)
 
         # loop over constraints, if not axis-aligned -> must be redundant
-        for i in range(self.number_constraints()):
+        for i in range(h):
             # axis-aligned constraint may only have a single non-zero entry
             non_zero_entry = np.invert(np.isclose(self.A[i], 0., rtol = rtol, atol = atol))
 
             if np.sum(non_zero_entry) > 1:
                 # check if constraint is redundant
                 index_keep_for_i[i] = False
-                polyhedron_i = HPolyhedron(A = self.A[index_keep_for_i], b = self.b[index_keep_for_i])
+                polyhedron_i = HPolyhedron(A = self.A[index_keep_for_i],
+                                           b = self.b[index_keep_for_i])
                 value = polyhedron_i.support_function(self.A[i])[0]
                 if value > self.b[i] + atol:
                     return False
@@ -873,6 +876,32 @@ class HPolyhedron(ConvexSet):
         # currently, all dimensions must be bounded
         return np.all(bounded_dimensions_plus) and np.all(bounded_dimensions_minus)
     
+    def _represents_zonotope(self, *, rtol: float = 1e-5, atol: float = 1e-8) -> bool:
+        """Check if an HPolyhedron HP can also be equivalently represented by a Zonotope.
+
+        Args:
+            rtol (float, optional): Relative tolerance. Defaults to 1e-5.
+            atol (float, optional): Absolute tolerance. Defaults to 1e-8.
+
+        Returns:
+            bool: Representation possible.
+        """
+        # current idea:
+        # - must be bounded (for reasons below, this means at least 2n constraints)
+        # - minimal representation must have an even number of constraints
+        # - for each constraint, there must be another with factor -1
+
+        self = self.compact(rtol = rtol)
+        n, h = self.dimension, self.number_constraints()
+        if h < 2*n or h % 2 != 0 or not self.bounded():
+            return False
+
+        # normalize the constraints
+        A_sorted = self.A / np.reshape(np.linalg.norm(self.A, ord = 2, axis = 1), (h, 1))
+        # sort normalized constraints
+        A_sorted = np.sort(A_sorted, axis = 0)
+        return np.allclose(A_sorted[0:int(h/2)] + A_sorted[-1:int(h/2)-1:-1], 0., rtol = rtol, atol = atol)
+
     # support function evaluation
     def support_function(self, direction: np.ndarray) -> tuple[float, np.ndarray]:
         """Support function evaluation of a HPolyhedron HP in a direction d.
@@ -959,6 +988,21 @@ class HPolyhedron(ConvexSet):
         """
         self._checkMode(mode)
 
-        # call conversion to interval and convert interval to zonotope
-        raise NotImplementedError
-        # return {'c': ..., 'G': ...}
+        if mode == 'inner':
+            if not self.represents('Zonotope'):
+                raise NotImplementedError
+        elif mode == 'exact':
+            if not self.represents('Zonotope'):
+                raise ExactEvaluationImpossibleError
+            # todo: find generator representation from halfspace representation
+
+        # convert to interval (outer approximation)
+        interval_dict = self.interval(mode = 'outer')
+        lower_bound, upper_bound = interval_dict['lb'], interval_dict['ub']
+
+        # convert interval to zonotope (note: we cannot call Interval methods here)
+        center = (upper_bound + lower_bound) / 2.
+        generators = np.diag((upper_bound - lower_bound) / 2.)
+        generators = generators[~np.all(generators == 0, axis=1), :]
+        
+        return {'c': center, 'G': generators}

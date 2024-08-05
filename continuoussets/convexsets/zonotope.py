@@ -10,7 +10,7 @@ from scipy.spatial import ConvexHull
 
 from continuoussets.convexsets.convexset import ConvexSet
 from continuoussets.convexsets.hpolyhedron import HPolyhedron as HP
-# note: the above line means that the HPolyhedron module cannot import Zonotope module!
+# note: the above line means that the HPolyhedron module cannot import the Zonotope module!
 from continuoussets.utils import comparison
 from continuoussets.utils.exceptions import OtherFunctionError, ExactEvaluationImpossibleError
 from continuoussets.utils.auxiliary import halfspace_representation_from_vector, n_dim_cross_product
@@ -227,6 +227,18 @@ class Zonotope(ConvexSet):
         elif isinstance(other, ConvexSet):
             raise OtherFunctionError((self, other), 'minkowski_difference')
 
+    # basis of the affine hull (for degenerate sets)
+    def basis_affine_hull(self) -> np.ndarray:
+        """Computes a basis of the affine hull of a Zonotope Z.
+
+        Returns:
+            np.ndarray: Matrix with basis vectors.
+        """
+        # use singular value decomposition
+        # todo: use QR decomposition instead? (faster)
+        matrix, S, V = np.linalg.svd(np.matmul(self.G.T, self.G))
+        return matrix
+
     # point on boundary along a given direction
     def boundary_point(self, direction: np.ndarray) -> np.ndarray:
         """Computation of the point on the boundary of a Zonotope Z in a given direction starting from the zonotope center.
@@ -269,8 +281,7 @@ class Zonotope(ConvexSet):
         """
         self._checkMode(mode)
 
-        n1 = self.dimension
-        m1 = self.number_generators()
+        n1, m1 = self.dimension, self.number_generators()
 
         if isinstance(other, np.ndarray):
             if m1 == 0:
@@ -291,8 +302,12 @@ class Zonotope(ConvexSet):
 
             return Zonotope(c = center, G = generators, validate = False)
 
+        elif other.represents('Point'):
+            # exact evaluation possible
+            return self.cartesian_product(other.center())
+        
         else:
-            # convert to zonotope and compute Cartesian product
+            # may throw an ExactEvaluationImpossibleError unless other is 1D or an Interval
             return self.cartesian_product(Zonotope(**other.zonotope(mode = mode), validate = False))
 
     # center
@@ -451,26 +466,42 @@ class Zonotope(ConvexSet):
             return {'A': A, 'b': b}
 
         # conversion requires linearly independent generators
-        self = self.compact()
+        Z = self.compact()
+        # ...and full-rank generator matrix
+        is_degenerate = self.degenerate()
 
-        # todo: degenerate case
-        if self.degenerate():
-            raise NotImplementedError
+        if is_degenerate:
+            # shift by center and project onto affine hull
+            n_orig = Z.dimension
+            c = Z.c
+            (Z, M_proj) = Z.project_affine_hull()
         
         # pre-allocate constraint matrix and constraint offset
-        n, m = self.dimension, self.number_generators()
+        n, m = Z.dimension, Z.number_generators()
         h = comb(m, n-1)
         A, b = np.zeros((2*h, n)), np.zeros(2*h)
 
         # we compute the n-dimensional cross product of all combinations of n-1 generators
         all_combinations = combinations(range(m), r = n-1)
         for row, combination in enumerate(all_combinations):
-            cross_product = n_dim_cross_product(self.G[list(combination)].T)
+            cross_product = n_dim_cross_product(Z.G[list(combination)].T)
             A[row] = cross_product / np.linalg.norm(cross_product, ord = 2)
             A[row+h] = -A[row]
-            delta = np.sum(np.abs(np.matmul(A[row], self.G.T)))
-            b[row] = np.matmul(A[row], self.c) + delta
-            b[row+h] = -np.matmul(A[row], self.c) + delta
+            delta = np.sum(np.abs(np.matmul(A[row], Z.G.T)))
+            b[row] = np.matmul(A[row], Z.c) + delta
+            b[row+h] = -np.matmul(A[row], Z.c) + delta
+
+        # back-projection
+        if is_degenerate:
+            # additional constraints flattening other dimensions to 0
+            A = np.block([[A, np.zeros((2*h, n_orig-n))],
+                          [np.zeros((n_orig-n, n)), np.eye(n_orig-n)],
+                          [np.zeros((n_orig-n, n)), -np.eye(n_orig-n)]])
+            # map constraint matrix of polytope: M*{x | Ax <= b} = {x | A*M^-1 x <= b}, with M^-1 = M^T in this case
+            A = np.matmul(A, M_proj.T)
+            # incorporate effect of shifted center into constraint offset
+            shift = np.dot(M_proj.T, c)
+            b = np.hstack((b, np.repeat(shift[n:], n_orig-n), np.repeat(-shift[n:], n_orig-n)))
 
         return {'A': A, 'b': b}
 
@@ -554,14 +585,9 @@ class Zonotope(ConvexSet):
         """
         self._checkMatrix(matrix)
 
-        # linear transformation of center
+        # linear transformation of center and generator matrix
         center = np.dot(matrix, self.c)
-        if self.number_generators() == 0:
-            return Zonotope(c = center, G = self.G, validate = False)
-
-        # linear transformation of generator matrix
         generators = np.matmul(self.G, matrix.T)
-
         return Zonotope(c = center, G = generators, validate = False)
 
     # Minkowski sum
@@ -641,6 +667,27 @@ class Zonotope(ConvexSet):
         center = self.c[list(axis)]
         generators = self.G[:, list(axis)] if self.G is not None else None
         return Zonotope(c = center, G = generators, validate = False)
+    
+    # projection onto its own affine hull
+    def project_affine_hull(self) -> tuple:
+        """Projects a zonotope onto its own affine hull.
+        For degenerate zonotopes, the resulting zonotope is of lower dimension, but non-degenerate.
+
+        Returns:
+            tuple: Projected zonotope, projection matrix.
+        """
+        if not self.degenerate():
+            return (self, np.eye(self.dimension))
+
+        # compute basis of the affine hull and project zonotope onto it
+        M_proj = self.basis_affine_hull()
+        Z_proj = self.matmul(M_proj.T)
+        # remove flat dimensions
+        # todo: check if one can also use center... (not zero everywhere...)
+        non_flat = np.invert(np.all(np.isclose(Z_proj.G, 0.), axis = 0))
+        Z_proj = Z_proj.project(axis = tuple(np.nonzero(non_flat)[0]))
+
+        return (Z_proj, M_proj)
 
     # zonotope order reduction (only Girard's method)
     def reduce(self, order: int) -> Zonotope:
