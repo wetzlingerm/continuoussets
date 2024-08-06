@@ -649,6 +649,17 @@ class Interval(ConvexSet):
     # SET OPERATIONS
     # ----------
 
+    # basis of the affine hull (for degenerate sets)
+    def basis_affine_hull(self) -> np.ndarray:
+        """Computes a basis of the affine hull of an Interval I.
+
+        Returns:
+            np.ndarray: Matrix with basis vectors.
+        """
+        # use diameter to find out which dimensions are flat
+        non_flat_dimensions = np.invert(np.isclose(self.diameter(), 0., atol = 1e-12))
+        return np.eye(self.dimension)[non_flat_dimensions, :]
+
     # point on boundary along a given direction
     def boundary_point(self, direction: np.ndarray) -> np.ndarray:
         """Computation of the point on the boundary of an Interval I in a given direction.
@@ -980,6 +991,17 @@ class Interval(ConvexSet):
 
         # convert tuples to lists for indexing
         return Interval(lb = self.lb[list(axis)], ub = self.ub[list(axis)], validate=False)
+
+    # projection onto its own affine hull
+    def project_affine_hull(self) -> tuple:
+        """Projects an Interval onto its own affine hull.
+        For degenerate intervals, the resulting intervals is of lower dimension, but non-degenerate.
+
+        Returns:
+            tuple: Projected interval, projection matrix, center of the new coordinate system in the old coordinate system.
+        """
+        M_proj = self.basis_affine_hull()
+        return (self.matmul(M_proj), M_proj, np.zeros(self.dimension))
 
     # reduction (implement for overloading)
     def reduce(self) -> Interval:

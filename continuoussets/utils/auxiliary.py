@@ -116,3 +116,36 @@ def fourier_motzkin_elimination(A: np.ndarray, b: np.ndarray, i: int) -> tuple:
     b_proj = np.matmul(U, b)
 
     return (A_proj, b_proj)
+
+
+# number of singular values
+def number_singular_values(S: np.ndarray, *, rtol: float = 1e-10, atol: float = 1e-12) -> int:
+    """Returns the number of non-zero singular values, up to a given absolute tolerance.
+
+    Args:
+        S (np.ndarray): Matrix with singular values, resulting from U,S,V = np.linalg.svd(M)
+        rtol (float, optional): Relative tolerance. Defaults to 1e-10.
+        atol (float, optional): Absolute tolerance. Defaults to 1e-12.
+
+    Returns:
+        int: Number of non-zero singular values.
+    """
+    return np.nonzero(np.invert(np.isclose(S, 0., rtol = rtol, atol = atol)))[0].size
+
+
+# check if any inequality is active for a given point
+def active_inequality(A: np.ndarray, b: np.ndarray, x: np.ndarray, *, rtol: float = 1e-10, atol: float = 1e-12) -> bool:
+    """Checks if there is an active inequality in set Ax <= b for a given vector x.
+    Note: This function does not check whether x is contained in {x | Ax <= b}.
+
+    Args:
+        A (np.ndarray): Constraint matrix (2D).
+        b (np.ndarray): Constraint offset (1D).
+        x (np.ndarray): Vector (1D).
+        rtol (float, optional): Relative tolerance. Defaults to 1e-10.
+        atol (float, optional): Absolute tolerance. Defaults to 1e-12.
+
+    Returns:
+        bool: Status of active inequalities.
+    """
+    return np.any(np.isclose(b - np.matmul(A, x), 0., rtol = rtol, atol = atol))

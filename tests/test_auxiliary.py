@@ -107,7 +107,35 @@ class TestAuxiliary(unittest.TestCase):
         assert comparison.compare_matrices(A_proj4, true_result_A_proj4)
         assert comparison.compare_matrices(b_proj4, true_result_b_proj4)
 
+    def test_number_singular_values(self):
+        ''' Test for number of singular values '''
+        # cases:
+        # - all values non-zero
+        # - some values exactly zero
+        # - some values near zero
+        S1 = np.array([2., 1., 0.1])
+        S2 = np.array([2., 1., 0.1, 0.])
+        S3 = np.array([2., 1., 0.1, 0.00001])
 
+        assert 3 == auxiliary.number_singular_values(S1)
+        assert 3 == auxiliary.number_singular_values(S2)
+        assert 4 == auxiliary.number_singular_values(S3, atol = 0., rtol = 0.)
+        assert 3 == auxiliary.number_singular_values(S3, atol = 0.0001)
+
+    def test_active_inequality(self):
+        ''' Test for check of active inequalities '''
+        # cases:
+        # - no active
+        # - active, non-degenerate
+        # - active because degenerate
+        A_nondeg = np.array([[1., 0.], [-1., 1.], [-1., -1.]])
+        b_nondeg = np.array([1., 1., 1.])
+        A_deg = np.array([[1., 1.], [-1., 1.], [-1., -1.], [1., -1.]])
+        b_deg = np.array([1., 0., 1., 0.])
+
+        assert not auxiliary.active_inequality(A_nondeg, b_nondeg, np.array([0., 0.]))
+        assert auxiliary.active_inequality(A_nondeg, b_nondeg, np.array([1., 1.]))
+        assert auxiliary.active_inequality(A_deg, b_deg, np.array([0.5, 0.5]))
 
 
 if __name__ == '__main__':

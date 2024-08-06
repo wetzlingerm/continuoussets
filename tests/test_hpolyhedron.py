@@ -155,14 +155,54 @@ class TestHPolyhedron(unittest.TestCase):
         with self.assertRaises(exceptions.OtherFunctionError):
             HP1 - HP1
 
+    def test_basis_affine_hull(self):
+        ''' Test for basis of affine hull '''
+        # cases:
+        # - non-degenerate
+        # - degenerate (1D in 2D)
+        # todo degenerate unbounded
+        HP1 = HPolyhedron(A = np.array([[1., 0.], [-1., 1.], [-1., -1.]]),
+                          b = np.array([1., 1., 1.]))
+        HP2 = HPolyhedron(A = np.array([[1., 1.], [-1., 1.], [-1., -1.], [1., -1]]),
+                          b = np.array([1., 0., 1., 0.]))
+        
+        result1 = HP1.basis_affine_hull()
+        result2 = HP2.basis_affine_hull()
+
+        true_result2 = np.array([[-1./np.sqrt(2.), -1./np.sqrt(2.)], [-1./np.sqrt(2.), 1./np.sqrt(2.)]])
+
+        assert np.array_equal(result1, np.eye(2))
+        assert comparison.compare_matrices(result2, true_result2)
+
     def test_boundary_point(self):
         ''' Test for boundary point computation '''
         # cases:
+        # - not containing the origin
         # - bounded
-        HP1 = HPolyhedron(A = np.array([[1., 0.], [-1., 1.], [-1., 1.]]), b = np.ones(3))
+        # - unbounded
+        HP_noorigin = HPolyhedron(A = np.array([[1., 0.], [-1., 1.], [-1., -1.]]), b = np.array([-0.5, 1., 1.]))
+        HP_2D = HPolyhedron(A = np.array([[1., 0.], [-1., 1.], [-1., -1.]]), b = np.ones(3))
+        HP_unbounded = HPolyhedron(A = np.array([[1., 0., 0.]]), b = np.array([2.]))
+
+        result1 = HP_2D.boundary_point(np.array([1., -1.]))
+        result2 = HP_2D.boundary_point(np.array([-1., 1.]))
+        result3 = HP_2D.boundary_point(np.array([0., -1.]))
+        result4 = HP_unbounded.boundary_point(np.array([1., 0., 0.]))
+
+        true_result1 = np.array([1., -1.])
+        true_result2 = np.array([-0.5, 0.5])
+        true_result3 = np.array([0., -1.])
+        true_result4 = np.array([2., 0., 0.])
+
+        assert np.allclose(result1, true_result1)
+        assert np.allclose(result2, true_result2)
+        assert np.allclose(result3, true_result3)
+        assert np.allclose(result4, true_result4)
 
         with self.assertRaises(NotImplementedError):
-            HP1.boundary_point(np.array([1., 1.]))
+            HP_noorigin.boundary_point(np.array([1., 0.]))
+        with self.assertRaises(exceptions.UnboundedSetError):
+            HP_unbounded.boundary_point(np.array([-1., 0., 1.]))
 
     def test_bounded(self):
         ''' Test for boundedness check '''
@@ -307,20 +347,21 @@ class TestHPolyhedron(unittest.TestCase):
         # - non-degenerate
         # - degenerate
         # - unbounded non-degenerate
-        # todo: unbounded degenerate
+        # - unbounded degenerate
         HP1 = HPolyhedron(A = np.array([[1., 0.], [0., -1.], [1., 1.], [-1., 0.]]),
                           b = np.array([-1., 0., -2., 1.]))
         HP2 = HPolyhedron(A = np.array([[1., 0.], [-1., 1.], [-1., -1.]]),
                           b = np.array([1., 1., 1.]))
         HP3 = HPolyhedron(A = np.array([[1., 0.], [0., 1.], [-1., 0.], [0., -1.]]),
                           b = np.array([0., 1., 0., 1.]))
-        HP4 = HPolyhedron(A = np.array([1., 0., 0.]), b = np.array([2.]))
+        HP4 = HPolyhedron(A = np.array([[1., 0., 0.]]), b = np.array([2.]))
+        HP5 = HPolyhedron(A = np.array([[1., 0., 0.], [0., 1., 0.], [-1., -1., 0.]]), b = np.zeros(3))
 
         assert HP1.degenerate()
         assert not HP2.degenerate()
         assert HP3.degenerate()
-        with self.assertRaises(NotImplementedError):
-            HP4.degenerate()
+        assert not HP4.degenerate()
+        assert HP5.degenerate()
 
     def test_empty(self):
         ''' Test for emptiness check '''
@@ -419,17 +460,22 @@ class TestHPolyhedron(unittest.TestCase):
         # - bounded
         # - empty
         # - unbounded
+        # - 1D
         HP1 = HPolyhedron(A = np.array([[1., 0.], [-1., 1.], [-1., -1.]]),
                           b = np.array([1., 1., 1.]))
         HP2 = HPolyhedron(A = np.array([[1., 0.], [0., -1.], [1., 1.], [-1., 0.]]),
                           b = np.array([-1., 0., -2., 1.]))
         HP3 = HPolyhedron(A = np.array([[1., 0.], [-1., 1.]]), b = np.array([1., 0.]))
+        HP4 = HPolyhedron(A = np.array([[1.], [-1.], [1.]]), b = np.array([4., -2., 7.]))
 
         result1 = Interval(**HP1.interval(mode = 'outer'))
+        result4 = Interval(**HP4.interval())
 
         true_result1 = Interval(lb = np.array([-1., -2.]), ub = np.array([1., 2.]))
+        true_result4 = Interval(lb = np.array([2.]), ub = np.array([4.]))
 
         assert result1 == true_result1
+        assert result4 == true_result4
 
         with self.assertRaises(exceptions.ExactEvaluationImpossibleError):
             HP1.interval()
@@ -597,23 +643,31 @@ class TestHPolyhedron(unittest.TestCase):
         # - bounded
         # - degenerate  # todo
         # - empty
+        # - unbounded
         HP1 = HPolyhedron(A = np.array([[1., 0.], [-1., 1.], [-1., -1.]]),
                           b = np.array([1., 1., 1.]))
         HP2 = HPolyhedron(A = np.array([[1., 0.], [0., 1.], [1., 1.], [-1., -1.]]),
                           b = np.array([1., 1., 1., -1.]))
         HP3 = HPolyhedron(A = np.array([[1., 0.], [0., -1.], [1., 1.], [-1., 0.]]),
                           b = np.array([-1., 0., -2., 1.]))
+        HP4 = HPolyhedron(A = np.array([[1., 0.], [1., 1.], [0., -1.]]),
+                          b = np.array([1., 1., 1.]))
         
         V1 = HP1.vertices()
+        # V2 = HP2.vertices()
         
         true_result1 = np.array([[-1., 0.], [1., -2.], [1., 2.]])
+        true_result2 = np.array([[1., 0.], [0., 1.]])
 
         assert comparison.compare_matrices(V1, true_result1)
+        # assert comparison.compare_matrices(V2, true_result2)
         
-        with self.assertRaises(NotImplementedError):
-            HP2.vertices()
+        # with self.assertRaises(NotImplementedError):
+        #     HP2.vertices()
         with self.assertRaises(exceptions.EmptySetError):
             HP3.vertices()
+        with self.assertRaises(exceptions.UnboundedSetError):
+            V4 = HP4.vertices()
 
     def test_volume(self):
         ''' Test for volume computation '''
@@ -635,25 +689,49 @@ class TestHPolyhedron(unittest.TestCase):
         ''' Test for vpolytope conversion '''
         # cases:
         # - bounded
+        # - 1D
+        # - degenerate  # todo
+        # - unbounded
         HP1 = HPolyhedron(A = np.array([[1., 0.], [-1., 1.], [-1., -1.]]),
                           b = np.array([1., 1., 1.]))
+        HP2 = HPolyhedron(A = np.array([[1.], [-1.], [1.]]),
+                          b = np.array([4., -2., 7.]))
+        HP3 = HPolyhedron(A = np.array([[1., 0.], [0., 1.], [1., 1.], [-1., -1.]]),
+                          b = np.array([1., 1., 1., -1.]))
+        HP4 = HPolyhedron(A = np.array([[1., 0., 0.]]),
+                          b = np.array([1.]))
         
         VP1 = VPolytope(**HP1.vpolytope())
+        VP2 = VPolytope(**HP2.vpolytope())
+        # VP3 = VPolytope(**HP3.vpolytope())
 
         true_result1 = VPolytope(V = np.array([[-1., 0.], [1., -2.], [1., 2.]]))
+        true_result2 = VPolytope(V = np.array([[2.], [4.]]))
+        true_result3 = VPolytope(V = np.array([[1., 0.], [0., 1.]]))
 
         assert VP1 == true_result1
+        assert VP2 == true_result2
+        # assert VP3 == true_result3
+
+        with self.assertRaises(exceptions.UnboundedSetError):
+            VPolytope(**HP4.vpolytope())
 
     def test_zonotope(self):
         ''' Test for zonotope conversion '''
         # cases:
         # - bounded
+        # - 1D
         HP1 = HPolyhedron(A = np.array([[1., 0.], [-1., 1.], [-1., -1.]]),
                           b = np.array([1., 1., 1.]))
+        HP2 = HPolyhedron(A = np.array([[1.], [-1.], [1.]]), b = np.array([4., -2., 7.]))
         
         result1 = Zonotope(**HP1.zonotope(mode = 'outer'))
+        result2 = Zonotope(**HP2.zonotope())
+
+        true_result2 = Zonotope(c = np.array([3.]), G = np.array([[1.]]))
 
         assert result1.contains(HP1)
+        assert result2 == true_result2
 
         with self.assertRaises(exceptions.ExactEvaluationImpossibleError):
             HP1.zonotope()

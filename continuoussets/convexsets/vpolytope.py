@@ -12,7 +12,9 @@ from pypoman import compute_polytope_halfspaces
 from continuoussets.convexsets.convexset import ConvexSet
 from continuoussets.utils import comparison
 from continuoussets.utils.exceptions import OtherFunctionError, ExactEvaluationImpossibleError
-from continuoussets.utils.auxiliary import halfspace_representation_from_vector, remove_duplicate_points
+from continuoussets.utils.auxiliary import halfspace_representation_from_vector, \
+                                           remove_duplicate_points, \
+                                           number_singular_values
 
 if __name__ == '__main__':
     print('This is the VPolytope class.')
@@ -166,6 +168,22 @@ class VPolytope(ConvexSet):
 
         elif isinstance(other, ConvexSet):
             raise OtherFunctionError((self, other), 'minkowski_difference')
+        
+    # basis of the affine hull (for degenerate sets)
+    def basis_affine_hull(self) -> np.ndarray:
+        """Computes a basis of the affine hull of a VPolytope VP.
+
+        Returns:
+            np.ndarray: Matrix with basis vectors.
+        """
+        # ensure that the origin is contained
+        V_shifted = self.V - self.center()
+        # compute singular value decomposition
+        matrix, S, _ = np.linalg.svd(V_shifted.T)
+        # check number of singular values (with built-in tolerance)
+        if number_singular_values(S) == self.dimension:
+            return np.eye(self.dimension)
+        return matrix
 
     # point on boundary along a given direction
     def boundary_point(self, direction: np.ndarray) -> np.ndarray:
@@ -175,15 +193,43 @@ class VPolytope(ConvexSet):
             direction (np.ndarray): Direction along which to find the boundary point.
 
         Raises:
-            NotImplementedError: Currently not supported.
+            NotImplementedError: VPolytope must contain the origin.
+            NotImplementedError: VPolytope must be non-degenerate.
 
         Returns:
             np.ndarray: Boundary point.
         """
         self._checkOtherOperand(direction)
 
-        # todo
-        raise NotImplementedError
+        if self.degenerate():
+            raise NotImplementedError
+        elif not self.contains(np.zeros(self.dimension)):
+            raise NotImplementedError
+
+        # LP formulation for boundary point computation
+        # min_{beta,x,l}    -l
+        # s.t.              V * beta - x = 0
+        #                   - x + l*dir = 0
+        #                   sum beta = 1
+        #                   -beta <= 0
+
+        # retreive information
+        n, m = self.dimension, self.number_vertices()
+
+        # objective function
+        c = np.hstack((np.zeros(m+n), -1.))
+
+        # equality constraints
+        A_eq = np.block([[self.V.T, -np.eye(n), np.zeros((n, 1))],
+                         [np.zeros((n, m)), -np.eye(n), np.reshape(direction, (n, 1))],
+                         [np.ones((1, m)), np.zeros((1, n)), 0.]])
+        b_eq = np.hstack((np.zeros(2*n), 1.))
+        A_ub = np.hstack((-np.eye(m), np.zeros((m, n+1))))
+        b_ub = np.zeros(m)
+
+        # solve linear program
+        res = linprog(c, A_ub, b_ub, A_eq, b_eq, bounds = (None, None))
+        return -res.fun * direction
     
     # boundedness
     def bounded(self) -> bool:
@@ -657,6 +703,43 @@ class VPolytope(ConvexSet):
 
         # convert tuples to lists for indexing
         return VPolytope(V = self.V[:, list(axis)], validate = False)
+
+    # projection onto its own affine hull
+    def project_affine_hull(self) -> tuple:
+        """Projects a VPoltytope onto its own affine hull.
+        For degenerate vpolytopes, the resulting vpolytope is of lower dimension, but non-degenerate.
+
+        Returns:
+            tuple: Projected VPolytope, projection matrix, center of new coordinate system in old coordinate system.
+        """
+        # compute basis of affine hull
+        c = self.center()
+        VP_shifted = self - c
+        M_proj = VP_shifted.basis_affine_hull()
+        # early exit if basis of affine hull is n-dimensional identity
+        if np.array_equal(M_proj, np.eye(self.dimension)):
+            return (self, M_proj, np.zeros(self.dimension))
+
+        # map vertices onto lower dimensional space
+        V_proj = np.matmul(M_proj.T, VP_shifted.V.T)
+        V_proj = V_proj[np.invert(np.all(np.isclose(V_proj, 0.), axis = 1)), :]
+        VP_proj = VPolytope(V = V_proj.T)
+        return (VP_proj, M_proj, c)
+
+    # reduction of set representation size
+    def reduce(self, order: int) -> VPolytope:
+        """Reduction of the set representation size of a VPolytope VP.
+
+        Args:
+            order (int): Reduced number of vertices.
+
+        Raises:
+            NotImplementedError: Currently not supported.
+
+        Returns:
+            VPolytope: VPolytope with reduced set representation size.
+        """
+        raise NotImplementedError
 
     # representation by other set representation
     def represents(self, set_class: str, *, rtol: float = 1e-5, atol: float = 1e-8) -> bool:

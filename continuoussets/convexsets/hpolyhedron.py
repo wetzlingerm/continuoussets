@@ -9,7 +9,9 @@ from continuoussets.convexsets.convexset import ConvexSet
 # from continuoussets.utils import comparison
 from continuoussets.utils.exceptions import OtherFunctionError, ExactEvaluationImpossibleError, \
     EmptySetError, UnboundedSetError
-from continuoussets.utils.auxiliary import halfspace_representation_from_vector, fourier_motzkin_elimination
+from continuoussets.utils.auxiliary import halfspace_representation_from_vector, \
+                                           fourier_motzkin_elimination, \
+                                           active_inequality
 
 if __name__ == '__main__':
     print('This is the HPolyhedron class.')
@@ -188,6 +190,103 @@ class HPolyhedron(ConvexSet):
         elif isinstance(other, ConvexSet):
             raise OtherFunctionError((self, other), 'minkowski_difference')
 
+    # basis of the affine hull (for degenerate sets)
+    def basis_affine_hull(self) -> np.ndarray:
+        """Computes a basis of the affine hull of an HPolyhedron HP.
+
+        Returns:
+            np.ndarray: Matrix with basis vectors.
+        """
+        # check if degenerate at all via Chebyshev center
+        c = self.center()
+        if not active_inequality(self.A, self.b, c):
+            return np.eye(self.dimension)
+
+        # ensure polytope contains the origin
+        HP_shift = self
+        if not HP_shift.contains(np.zeros(self.dimension)):
+            HP_shift = self - c            
+
+        # threshold for norm of next basis vector
+        epsilon = 1e-5
+        basis = np.zeros((self.dimension, 0))
+
+        # loop over all dimensions
+        for r in range(self.dimension):
+            # compute next basis vector
+            x_iter = HP_shift._basis_affine_hull_helper(basis)
+            if x_iter is None or np.linalg.norm(x_iter) < epsilon:
+                break
+            basis = np.hstack((basis, np.reshape(x_iter / np.linalg.norm(x_iter, ord=2), (self.dimension, 1))))
+
+        # fill in remaining dimensions via QR decomposition
+        Q, _ = np.linalg.qr(np.hstack((basis, np.eye(self.dimension)[:,:r])))
+        return Q
+
+    # helper linear program for basis of affine hull
+    def _basis_affine_hull_helper(self, basis: np.ndarray) -> np.ndarray:
+        """Helper function for basis of affine hull.
+        This function is only to be called in basis_affine_hull.
+
+        Args:
+            basis (np.ndarray): Current basis of affine hull.
+
+        Returns:
+            np.ndarray: Potential additional basis vector of affine hull.
+        """
+        # LP to find next basis vector
+        
+        # init maximum value
+        max_value = 0.
+        max_vector = None
+
+        # loop over all n dimensions
+        direction = np.zeros(self.dimension)
+        for i in range(self.dimension):
+            # loop over plus and minus
+            for s in [1., -1.]:
+                direction[i] = s
+                (value, vector) = self._basis_affine_hull_helper_axis(basis, direction)
+                direction[i] = 0
+                if -value > max_value and not np.isclose(-value, 0., atol = 1e-10):
+                    max_value = -value
+                    max_vector = vector
+
+        return max_vector
+    
+    def _basis_affine_hull_helper_axis(self, basis: np.ndarray, direction: np.ndarray) -> tuple:
+        """Auxiliary linear program to find a potential additional basis vector of the affine hull.
+        This function is only to be called in _basis_affine_hull_helper.
+
+        Args:
+            basis (np.ndarray): Current basis of the affine hull.
+            direction (np.ndarray): Axis-aligned direction.
+
+        Returns:
+            tuple: Value and basis vector (potentially None).
+        """
+        # LP for given direction e
+        # max_{x in R^n, w in R^r} np.dot(e, x)
+        # s.t.  self.A (x + Bw) <= self.b  <=>  self.A * x + self.A*B * w <= self.b
+        #       i in {1,...,r}: np.dot(B[i], x) == 0
+
+        # dimension of current basis
+        r = basis.shape[1]
+
+        # objective function
+        c = np.hstack((-direction, np.zeros(r)))
+
+        # constraints
+        A_ub = np.hstack((self.A, np.matmul(self.A, basis)))
+        b_ub = self.b
+        A_eq = np.hstack((basis.T, np.zeros((r,r))))
+        b_eq = np.zeros(r)
+
+        # solve linear program
+        res = linprog(c, A_ub, b_ub, A_eq, b_eq, bounds = (None, None))
+
+        return (res.fun, res.x[:self.dimension])
+
     # point on boundary along a given direction
     def boundary_point(self, direction: np.ndarray) -> np.ndarray:
         """Computation of the point on the boundary of an HPolyhedron HP in a given direction.
@@ -196,14 +295,44 @@ class HPolyhedron(ConvexSet):
             direction (np.ndarray): Direction along which to find the boundary point.
 
         Raises:
-            NotImplementedError: Currently not supported.
+            NotImplementedError: HPolyhedron must contain the origin.
+            NotImplementedError: HPolyhedron must be non-degenerate.
+            UnboundedSetError: HPolyhedron is unbounded in the given direction.
 
         Returns:
             np.ndarray: Boundary point.
         """
         self._checkOtherOperand(direction)
 
-        raise NotImplementedError
+        if self.degenerate():
+            raise NotImplementedError
+        elif not self.contains(np.zeros(self.dimension)):
+            raise NotImplementedError
+
+        # LP formulation for boundary point computation
+        # min_{x,l} -l
+        # s.t.      A x <= b
+        #           - x + l*dir = 0
+
+        # read out dimension
+        n, h = self.dimension, self.number_constraints()
+
+        # objective function
+        c = np.hstack((np.zeros(n), -1.))
+
+        # constraints
+        A_ub = np.hstack((self.A, np.zeros((h, 1))))
+        b_ub = self.b
+        A_eq = np.hstack((-np.eye(n), np.reshape(direction, (n, 1))))
+        b_eq = np.zeros(n)
+
+        # solve linear program
+        res = linprog(c, A_ub, b_ub, A_eq, b_eq, bounds = (None, None))
+
+        if res.status == 3:
+            raise UnboundedSetError
+        
+        return -res.fun * direction
     
     # check for boundedness
     def bounded(self) -> bool:
@@ -427,10 +556,11 @@ class HPolyhedron(ConvexSet):
             # we consider empty sets to be degenerate
             return True
         except UnboundedSetError:
-            # todo: unbounded sets may be degenerate
-            raise NotImplementedError
+            # Chebyshev center has to be computable for degenerate case, because the radius
+            # of the associated ball cannot grow over 0 -> otherwise non-degenerate
+            return False
 
-        return np.any(np.isclose(self.b - np.matmul(self.A, c), 0., rtol = rtol, atol = atol))
+        return active_inequality(self.A, self.b, c, rtol = rtol, atol = atol)
     
     # emptiness
     def empty(self) -> bool:
@@ -789,6 +919,21 @@ class HPolyhedron(ConvexSet):
 
         return HPolyhedron(A = A_new, b = b_new, validate = False)
 
+    # reduction of set representation size
+    def reduce(self, order: int) -> HPolyhedron:
+        """Reduction of the set representation size of an HPolyhedron HP.
+
+        Args:
+            order (int): Reduced number of constraints.
+
+        Raises:
+            NotImplementedError: Currently not supported.
+
+        Returns:
+            HPolyhedron: HPolyhedron with reduced set representation size.
+        """
+        raise NotImplementedError
+
     # representation by other set representation
     def represents(self, set_class: str, *, rtol: float = 1e-5, atol: float = 1e-8) -> bool:
         """Check if an HPolyhedron HP can also be equivalently represented using another ConvexSet class.
@@ -939,12 +1084,19 @@ class HPolyhedron(ConvexSet):
 
         if self.empty():
             raise EmptySetError
-        elif self.degenerate():
-            # todo: implement...
+        
+        n_orig = self.dimension
+        if self.degenerate():
+            # todo: implement using basis of affine hull -> full-dimensional, then back-transformation
             raise NotImplementedError
 
         # non-degenerate case
-        V = compute_polytope_vertices(self.A, self.b)
+        try:
+            V = compute_polytope_vertices(self.A, self.b)
+        except (ValueError):
+            # ValueError occurs in unbounded cases (in pypoman/duality.py)
+            raise UnboundedSetError
+
         return np.reshape(V, (len(V), self.dimension))
 
     # volume
