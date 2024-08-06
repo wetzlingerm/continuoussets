@@ -775,6 +775,20 @@ class TestInterval(unittest.TestCase):
         # check results
         assert result1 == true_result1
 
+    def test_basis_affine_hull(self):
+        ''' Test for computation of the basis of the affine hull '''
+        # cases:
+        # - non-degenerate
+        # - degenerate
+        I1 = Interval(lb = np.array([-2., 0., 1., 2.]), ub = np.array([1., 1., 4., 5.]))
+        I2 = Interval(lb = np.array([-2., 0., 1., 2.]), ub = np.array([1., 0., 4., 2.]))
+
+        result1 = I1.basis_affine_hull()
+        result2 = I2.basis_affine_hull()
+
+        assert np.allclose(result1, np.eye(4))
+        assert np.allclose(result2, np.array([[1., 0., 0., 0.], [0., 0., 1., 0.]]))
+
     def test_boundary_point(self):
         ''' Test for computation of boundary points '''
         # cases:
@@ -1229,19 +1243,25 @@ class TestInterval(unittest.TestCase):
         # cases:
         # - degenerate
         # - non-degenerate
+        # - 1D
         I1 = Interval(lb = np.array([-1., 0.]), ub = np.array([-1., 2.]))
         I2 = Interval(lb = np.array([-1., 0.]), ub = np.array([3., 2.]))
+        I3 = Interval(lb = np.array([1.]), ub = np.array([4.]))
 
         HP1 = HPolyhedron(**I1.hpolyhedron())
         HP2 = HPolyhedron(**I2.hpolyhedron())
+        HP3 = HPolyhedron(**I3.hpolyhedron())
 
         true_result1 = HPolyhedron(A = np.array([[1., 0.], [0., 1.], [-1., 0.], [0., -1.]]),
                                    b = np.array([-1., 2., 1., 0.]))
         true_result2 = HPolyhedron(A = np.array([[1., 0.], [0., 1.], [-1., 0.], [0., -1.]]),
                                    b = np.array([3., 2., 1., 0.]))
+        true_result3 = HPolyhedron(A = np.array([[1.], [-1.]]),
+                                   b = np.array([4., -1.]))
         
         assert HP1 == true_result1
         assert HP2 == true_result2
+        assert HP3 == true_result3
 
     def test_intersects(self):
         ''' Test for intersection check '''
@@ -1603,6 +1623,24 @@ class TestInterval(unittest.TestCase):
         assert result2 == true_result2
         assert result3 == true_result3
 
+    def test_project_affine_hull(self):
+        ''' Test for projection onto the basis of the affine hull '''
+        # cases:
+        # - non-degenerate
+        # - degenerate
+        I1 = Interval(lb = np.array([-2., 0., 1., 2.]), ub = np.array([1., 1., 4., 5.]))
+        I2 = Interval(lb = np.array([-2., 0., 1., 2.]), ub = np.array([1., 0., 4., 2.]))
+
+        result1, _, c1 = I1.project_affine_hull()
+        result2, _, c2 = I2.project_affine_hull()
+        
+        true_result2 = Interval(lb = np.array([-2., 1.]), ub = np.array([1., 4.]))
+
+        assert result1 == I1
+        assert np.array_equal(c1, np.zeros(I1.dimension))
+        assert result2 == true_result2
+        assert np.array_equal(c2, np.zeros(I2.dimension))
+
     def test_reduce(self):
         ''' Test for representation size reduction '''
         # cases:
@@ -1869,6 +1907,7 @@ class TestInterval(unittest.TestCase):
         # - full-dimensional interval
         # - degenerate interval
         # - single point
+        # - 1D
 
         # init intervals
         lower = np.array([-2., -1.])
@@ -1877,21 +1916,25 @@ class TestInterval(unittest.TestCase):
         I1 = Interval(lb = lower, ub = upper)
         I2 = Interval(lb = lower, ub = upper_degenerate)
         I3 = Interval(lb = lower)
+        I4 = Interval(lb = np.array([1.]), ub = np.array([4.]))
 
         # compute vertices
         result1 = VPolytope(**I1.vpolytope())
         result2 = VPolytope(**I2.vpolytope())
         result3 = VPolytope(**I3.vpolytope())
+        result4 = VPolytope(**I4.vpolytope())
 
         # manual computation
         true_result1 = VPolytope(V = np.array([[-2., -1.], [-2., 4.], [3., -1.], [3., 4.]]))
         true_result2 = VPolytope(V = np.array([[-2., -1.],[-2., 4.]]))
         true_result3 = VPolytope(V = lower)
+        true_result4 = VPolytope(V = np.array([[1.], [4.]]))
 
         # check result
         assert result1 == true_result1
         assert result2 == true_result2
         assert result3 == true_result3
+        assert result4 == true_result4
 
     def test_zonotope(self):
         ''' Test for conversion from interval to zonotope '''
@@ -1899,6 +1942,7 @@ class TestInterval(unittest.TestCase):
         # - full-dimensional interval
         # - degenerate interval
         # - single point
+        # - 1D
 
         # init intervals
         lower = np.array([-2., -1.])
@@ -1907,21 +1951,25 @@ class TestInterval(unittest.TestCase):
         I1 = Interval(lb = lower, ub = upper)
         I2 = Interval(lb = lower, ub = upper_degenerate)
         I3 = Interval(lb = lower)
+        I4 = Interval(lb = np.array([1.]), ub = np.array([4.]))
 
         # convert to zonotope (dictionary for constructor)
         result1 = Zonotope(**I1.zonotope())
         result2 = Zonotope(**I2.zonotope())
         result3 = Zonotope(**I3.zonotope())
+        result4 = Zonotope(**I4.zonotope())
 
         # manual computation
         true_result1 = Zonotope(c = np.array([0.5, 1.5]), G = np.array([[2.5, 0.],[0., 2.5]]))
         true_result2 = Zonotope(c = np.array([-2., 1.5]), G = np.array([0., 2.5]))
         true_result3 = Zonotope(c = lower)
+        true_result4 = Zonotope(c = np.array([2.5]), G = np.array([[1.5]]))
 
         # check results
         assert result1 == true_result1
         assert result2 == true_result2
         assert result3 == true_result3
+        assert result4 == true_result4
 
     def test_array_ufunc(self):
         ''' Test for overloading of right-operations '''

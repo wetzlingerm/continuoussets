@@ -13,7 +13,9 @@ from continuoussets.convexsets.hpolyhedron import HPolyhedron as HP
 # note: the above line means that the HPolyhedron module cannot import the Zonotope module!
 from continuoussets.utils import comparison
 from continuoussets.utils.exceptions import OtherFunctionError, ExactEvaluationImpossibleError
-from continuoussets.utils.auxiliary import halfspace_representation_from_vector, n_dim_cross_product
+from continuoussets.utils.auxiliary import halfspace_representation_from_vector, \
+                                           n_dim_cross_product, \
+                                           number_singular_values
 
 if __name__ == '__main__':
     print('This is the Zonotope class.')
@@ -236,7 +238,9 @@ class Zonotope(ConvexSet):
         """
         # use singular value decomposition
         # todo: use QR decomposition instead? (faster)
-        matrix, S, V = np.linalg.svd(np.matmul(self.G.T, self.G))
+        matrix, S, _ = np.linalg.svd(np.matmul(self.G.T, self.G))
+        if number_singular_values(S) == self.dimension:
+            return np.eye(self.dimension)
         return matrix
 
     # point on boundary along a given direction
@@ -456,7 +460,7 @@ class Zonotope(ConvexSet):
             mode (str, optional): Approximation of conversion: 'inner', 'exact', 'outer'. Defaults to 'exact'.
 
         Returns:
-            dict: keyword arguments for instantiation of a HPolyhedron object
+            dict: Keyword arguments for instantiation of a HPolyhedron object.
         """
         self._checkMode(mode)
 
@@ -467,14 +471,11 @@ class Zonotope(ConvexSet):
 
         # conversion requires linearly independent generators
         Z = self.compact()
-        # ...and full-rank generator matrix
-        is_degenerate = self.degenerate()
+        n_orig = Z.dimension
 
-        if is_degenerate:
+        if self.degenerate():
             # shift by center and project onto affine hull
-            n_orig = Z.dimension
-            c = Z.c
-            (Z, M_proj) = Z.project_affine_hull()
+            (Z, M_proj, c) = Z.project_affine_hull()
         
         # pre-allocate constraint matrix and constraint offset
         n, m = Z.dimension, Z.number_generators()
@@ -492,7 +493,7 @@ class Zonotope(ConvexSet):
             b[row+h] = -np.matmul(A[row], Z.c) + delta
 
         # back-projection
-        if is_degenerate:
+        if n_orig > n:
             # additional constraints flattening other dimensions to 0
             A = np.block([[A, np.zeros((2*h, n_orig-n))],
                           [np.zeros((n_orig-n, n)), np.eye(n_orig-n)],
@@ -500,8 +501,7 @@ class Zonotope(ConvexSet):
             # map constraint matrix of polytope: M*{x | Ax <= b} = {x | A*M^-1 x <= b}, with M^-1 = M^T in this case
             A = np.matmul(A, M_proj.T)
             # incorporate effect of shifted center into constraint offset
-            shift = np.dot(M_proj.T, c)
-            b = np.hstack((b, np.repeat(shift[n:], n_orig-n), np.repeat(-shift[n:], n_orig-n)))
+            b = np.hstack((b, np.zeros(2*(n_orig-n)))) + np.matmul(A, c)
 
         return {'A': A, 'b': b}
 
@@ -674,20 +674,21 @@ class Zonotope(ConvexSet):
         For degenerate zonotopes, the resulting zonotope is of lower dimension, but non-degenerate.
 
         Returns:
-            tuple: Projected zonotope, projection matrix.
+            tuple: Projected zonotope, projection matrix, center of the new coordinate system in the old coordinate system.
         """
         if not self.degenerate():
-            return (self, np.eye(self.dimension))
+            return (self, np.eye(self.dimension), np.zeros(self.dimension))
 
         # compute basis of the affine hull and project zonotope onto it
-        M_proj = self.basis_affine_hull()
-        Z_proj = self.matmul(M_proj.T)
+        c = self.c
+        M_proj = (self - c).basis_affine_hull()
+        Z_proj = (self - c).matmul(M_proj.T)
         # remove flat dimensions
         # todo: check if one can also use center... (not zero everywhere...)
         non_flat = np.invert(np.all(np.isclose(Z_proj.G, 0.), axis = 0))
         Z_proj = Z_proj.project(axis = tuple(np.nonzero(non_flat)[0]))
 
-        return (Z_proj, M_proj)
+        return (Z_proj, M_proj, c)
 
     # zonotope order reduction (only Girard's method)
     def reduce(self, order: int) -> Zonotope:
@@ -695,7 +696,7 @@ class Zonotope(ConvexSet):
         Zonotope order reduction to an order greater or equal to 1.
 
         Args:
-            order (int): Reduced order.
+            order (int): Reduced zonotope order.
 
         Raises:
             ValueError: order must not be smaller than 1.
