@@ -177,12 +177,14 @@ class TestVPolytope(unittest.TestCase):
         VP2 = VPolytope(V = np.array([[4., -3., -3.], [2., -7., -5], [0., -5., -1.],
                                       [4., 3., 3.], [2., 5., 7.], [0., 1., 5.]]))
 
-        result1 = VP1.basis_affine_hull()
-        result2 = VP2.basis_affine_hull()
+        result1, r1 = VP1.basis_affine_hull()
+        result2, r2 = VP2.basis_affine_hull()
 
-        assert np.array_equal(result1, np.eye(2))
         # expression below checks if mapped vertices are equal in exactly one dimension
+        assert 0 == np.nonzero(np.all(np.isclose(np.diff(np.matmul(result1.T, VP1.V.T), axis=1), 0.), axis=1))[0].size
+        assert r1 == 2
         assert 1 == np.nonzero(np.all(np.isclose(np.diff(np.matmul(result2.T, VP2.V.T), axis=1), 0.), axis=1))[0].size
+        assert r2 == 2
 
     def test_boundary_point(self):
         ''' Test for boundary point computation '''

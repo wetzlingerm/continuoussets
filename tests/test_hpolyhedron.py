@@ -169,15 +169,18 @@ class TestHPolyhedron(unittest.TestCase):
         HP3 = HPolyhedron(A = np.array([[1., 1.], [-1., 1.], [-1., -1.], [1., -1]]),
                           b = np.array([7., -2., -5., 2.]))
         
-        result1 = HP1.basis_affine_hull()
-        result2 = HP2.basis_affine_hull()
-        result3 = HP3.basis_affine_hull()
+        result1, r1 = HP1.basis_affine_hull()
+        result2, r2 = HP2.basis_affine_hull()
+        result3, r3 = HP3.basis_affine_hull()
 
         true_result2 = np.array([[-1./np.sqrt(2.), -1./np.sqrt(2.)], [-1./np.sqrt(2.), 1./np.sqrt(2.)]])
 
         assert np.array_equal(result1, np.eye(2))
+        assert r1 == 2
         assert comparison.compare_matrices(result2, true_result2)
+        assert r2 == 1
         assert comparison.compare_matrices(result3, true_result2)
+        assert r3 == 1
 
     def test_boundary_point(self):
         ''' Test for boundary point computation '''
@@ -597,6 +600,31 @@ class TestHPolyhedron(unittest.TestCase):
 
         assert result1 == true_result1
 
+    def test_project_affine_hull(self):
+        ''' Test for projection onto the basis of the affine hull '''
+        # cases:
+        # - non-degenerate
+        # - degenerate
+        # - degenerate, different center
+        HP1 = HPolyhedron(A = np.array([[1., 0.], [-1., 1.], [-1., -1.]]),
+                          b = np.array([1., 1., 1.]))
+        HP2 = HPolyhedron(A = np.array([[1., 1.], [-1., 1.], [-1., -1.], [1., -1.]]),
+                          b = np.array([1., 0., 1., 0.]))
+        HP3 = HPolyhedron(A = np.array([[1., 1.], [-1., 1.], [-1., -1.], [1., -1.]]),
+                          b = np.array([5., -8., -3., 8.]))
+        # ...HP2 shifted by [6, -2]
+        
+        result1, M_proj1, c1 = HP1.project_affine_hull()
+        result2, M_proj2, c2 = HP2.project_affine_hull()
+        result3, M_proj3, c3 = HP3.project_affine_hull()
+
+        true_result2 = HPolyhedron(A = np.array([[1.], [-1.]]), b = np.array([0., np.sqrt(2.)]))
+
+        assert result1 == HP1
+        assert np.array_equal(c1, np.zeros(2))
+        assert result2 == true_result2
+        assert result3 == true_result2
+
     def test_reduce(self):
         ''' Test for reduction of the set representation size '''
         # cases:
@@ -672,29 +700,27 @@ class TestHPolyhedron(unittest.TestCase):
         ''' Test for vertex enumeration '''
         # cases:
         # - bounded
-        # - degenerate  # todo
+        # - degenerate (1D in 2D)
         # - empty
         # - unbounded
         HP1 = HPolyhedron(A = np.array([[1., 0.], [-1., 1.], [-1., -1.]]),
                           b = np.array([1., 1., 1.]))
-        HP2 = HPolyhedron(A = np.array([[1., 0.], [0., 1.], [1., 1.], [-1., -1.]]),
-                          b = np.array([1., 1., 1., -1.]))
+        HP2 = HPolyhedron(A = np.array([[1., 1.], [-1., 1.], [-1., -1.], [1., -1.]]),
+                          b = np.array([5., -8., -3., 8.]))
         HP3 = HPolyhedron(A = np.array([[1., 0.], [0., -1.], [1., 1.], [-1., 0.]]),
                           b = np.array([-1., 0., -2., 1.]))
         HP4 = HPolyhedron(A = np.array([[1., 0.], [1., 1.], [0., -1.]]),
                           b = np.array([1., 1., 1.]))
         
         V1 = HP1.vertices()
-        # V2 = HP2.vertices()
+        V2 = HP2.vertices()
         
         true_result1 = np.array([[-1., 0.], [1., -2.], [1., 2.]])
-        true_result2 = np.array([[1., 0.], [0., 1.]])
+        true_result2 = np.array([[5.5, -2.5], [6.5, -1.5]])
 
         assert comparison.compare_matrices(V1, true_result1)
-        # assert comparison.compare_matrices(V2, true_result2)
+        assert comparison.compare_matrices(V2, true_result2)
         
-        # with self.assertRaises(NotImplementedError):
-        #     HP2.vertices()
         with self.assertRaises(exceptions.EmptySetError):
             HP3.vertices()
         with self.assertRaises(exceptions.UnboundedSetError):

@@ -287,12 +287,14 @@ class TestZonotope(unittest.TestCase):
         Z2 = Zonotope(c = np.array([3., 2., -1.]),
                       G = np.array([[1., 2., 1.], [-1., 1., 2.], [0., 3., 3.]]))
 
-        result1 = Z1.basis_affine_hull()
-        result2 = Z2.basis_affine_hull()
+        result1, r1 = Z1.basis_affine_hull()
+        result2, r2 = Z2.basis_affine_hull()
 
         # check whether multiplication with basis yields lower-dimensional rank of generator matrix
         assert np.all(np.all(np.isclose(np.matmul(result1.T, Z1.G.T), 0.), axis = 1) == np.full((2,), False))
+        assert r1 == 2
         assert np.all(np.all(np.isclose(np.matmul(result2.T, Z2.G.T), 0.), axis = 1) == np.array([False, False, True]))
+        assert r2 == 2
 
     def test_boundary_point(self):
         ''' Test for computation of boundary points '''

@@ -783,11 +783,13 @@ class TestInterval(unittest.TestCase):
         I1 = Interval(lb = np.array([-2., 0., 1., 2.]), ub = np.array([1., 1., 4., 5.]))
         I2 = Interval(lb = np.array([-2., 0., 1., 2.]), ub = np.array([1., 0., 4., 2.]))
 
-        result1 = I1.basis_affine_hull()
-        result2 = I2.basis_affine_hull()
+        result1, r1 = I1.basis_affine_hull()
+        result2, r2 = I2.basis_affine_hull()
 
         assert np.allclose(result1, np.eye(4))
-        assert np.allclose(result2, np.array([[1., 0., 0., 0.], [0., 0., 1., 0.]]))
+        assert r1 == 4
+        assert np.allclose(result2, np.array([[1., 0., 0., 0.], [0., 0., 1., 0.], [0., 1., 0., 0.], [0., 0., 0., 1.]]))
+        assert r2 == 2
 
     def test_boundary_point(self):
         ''' Test for computation of boundary points '''
@@ -1639,7 +1641,7 @@ class TestInterval(unittest.TestCase):
         assert result1 == I1
         assert np.array_equal(c1, np.zeros(I1.dimension))
         assert result2 == true_result2
-        assert np.array_equal(c2, np.zeros(I2.dimension))
+        assert np.array_equal(c2, np.array([0., 0., 0., 2.]))
 
     def test_reduce(self):
         ''' Test for representation size reduction '''
