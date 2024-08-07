@@ -170,20 +170,19 @@ class VPolytope(ConvexSet):
             raise OtherFunctionError((self, other), 'minkowski_difference')
         
     # basis of the affine hull (for degenerate sets)
-    def basis_affine_hull(self) -> np.ndarray:
+    def basis_affine_hull(self) -> tuple:
         """Computes a basis of the affine hull of a VPolytope VP.
 
         Returns:
-            np.ndarray: Matrix with basis vectors.
+            tuple: Matrix with basis vectors, number of basis vectors.
         """
         # ensure that the origin is contained
         V_shifted = self.V - self.center()
         # compute singular value decomposition
         matrix, S, _ = np.linalg.svd(V_shifted.T)
         # check number of singular values (with built-in tolerance)
-        if number_singular_values(S) == self.dimension:
-            return np.eye(self.dimension)
-        return matrix
+        s = number_singular_values(S)
+        return (matrix, s)
 
     # point on boundary along a given direction
     def boundary_point(self, direction: np.ndarray) -> np.ndarray:
@@ -706,19 +705,19 @@ class VPolytope(ConvexSet):
 
     # projection onto its own affine hull
     def project_affine_hull(self) -> tuple:
-        """Projects a VPoltytope onto its own affine hull.
-        For degenerate vpolytopes, the resulting vpolytope is of lower dimension, but non-degenerate.
+        """Projects a VPolytope onto its own affine hull.
+        For a degenerate VPolytope, the resulting VPolytope is of lower dimension, but non-degenerate.
 
         Returns:
             tuple: Projected VPolytope, projection matrix, center of new coordinate system in old coordinate system.
         """
         # compute basis of affine hull
-        c = self.center()
+        n, c = self.dimension, self.center()
         VP_shifted = self - c
-        M_proj = VP_shifted.basis_affine_hull()
+        M_proj, r = VP_shifted.basis_affine_hull()
         # early exit if basis of affine hull is n-dimensional identity
-        if np.array_equal(M_proj, np.eye(self.dimension)):
-            return (self, M_proj, np.zeros(self.dimension))
+        if r == n:
+            return (self, np.eye(n), np.zeros(n))
 
         # map vertices onto lower dimensional space
         V_proj = np.matmul(M_proj.T, VP_shifted.V.T)

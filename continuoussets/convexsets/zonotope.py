@@ -219,7 +219,6 @@ class Zonotope(ConvexSet):
         Returns:
             Zonotope: Result of the translation.
         """
-        # TODO support int, float, list
         self._checkOtherOperand(other)
 
         if isinstance(other, np.ndarray):
@@ -230,18 +229,17 @@ class Zonotope(ConvexSet):
             raise OtherFunctionError((self, other), 'minkowski_difference')
 
     # basis of the affine hull (for degenerate sets)
-    def basis_affine_hull(self) -> np.ndarray:
+    def basis_affine_hull(self) -> tuple:
         """Computes a basis of the affine hull of a Zonotope Z.
 
         Returns:
-            np.ndarray: Matrix with basis vectors.
+            tuple: Matrix with basis vectors, number of basis vectors.
         """
         # use singular value decomposition
         # todo: use QR decomposition instead? (faster)
         matrix, S, _ = np.linalg.svd(np.matmul(self.G.T, self.G))
-        if number_singular_values(S) == self.dimension:
-            return np.eye(self.dimension)
-        return matrix
+        s = number_singular_values(S)
+        return (matrix, s)
 
     # point on boundary along a given direction
     def boundary_point(self, direction: np.ndarray) -> np.ndarray:
@@ -498,10 +496,11 @@ class Zonotope(ConvexSet):
             A = np.block([[A, np.zeros((2*h, n_orig-n))],
                           [np.zeros((n_orig-n, n)), np.eye(n_orig-n)],
                           [np.zeros((n_orig-n, n)), -np.eye(n_orig-n)]])
+            b = np.hstack((b, np.zeros(2*(n_orig-n))))
             # map constraint matrix of polytope: M*{x | Ax <= b} = {x | A*M^-1 x <= b}, with M^-1 = M^T in this case
             A = np.matmul(A, M_proj.T)
             # incorporate effect of shifted center into constraint offset
-            b = np.hstack((b, np.zeros(2*(n_orig-n)))) + np.matmul(A, c)
+            b += np.matmul(A, c)
 
         return {'A': A, 'b': b}
 
@@ -684,7 +683,7 @@ class Zonotope(ConvexSet):
 
         # compute basis of the affine hull and project zonotope onto it
         c = self.c
-        M_proj = (self - c).basis_affine_hull()
+        M_proj, r = (self - c).basis_affine_hull()
         Z_proj = (self - c).matmul(M_proj.T)
         # remove flat dimensions
         # todo: check if one can also use center... (not zero everywhere...)

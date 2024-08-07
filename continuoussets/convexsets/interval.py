@@ -652,15 +652,18 @@ class Interval(ConvexSet):
     # ----------
 
     # basis of the affine hull (for degenerate sets)
-    def basis_affine_hull(self) -> np.ndarray:
+    def basis_affine_hull(self) -> tuple:
         """Computes a basis of the affine hull of an Interval I.
 
         Returns:
-            np.ndarray: Matrix with basis vectors.
+            tuple: Matrix with basis vectors, number of non-redundant basis vectors.
         """
         # use diameter to find out which dimensions are flat
-        non_flat_dimensions = np.invert(np.isclose(self.diameter(), 0., atol = 1e-12))
-        return np.eye(self.dimension)[non_flat_dimensions, :]
+        flat_dimensions = np.isclose(self.diameter(), 0., atol = 1e-12)
+        n = self.dimension
+        r = n - np.count_nonzero(flat_dimensions)
+        basis = np.vstack((np.eye(n)[np.invert(flat_dimensions), :], np.eye(n)[flat_dimensions, :]))
+        return (basis, r)
 
     # point on boundary along a given direction
     def boundary_point(self, direction: np.ndarray) -> np.ndarray:
@@ -1003,8 +1006,16 @@ class Interval(ConvexSet):
         Returns:
             tuple: Projected interval, projection matrix, center of the new coordinate system in the old coordinate system.
         """
-        M_proj = self.basis_affine_hull()
-        return (self.matmul(M_proj), M_proj, np.zeros(self.dimension))
+        M_proj, r = self.basis_affine_hull()
+        n = self.dimension
+        if r == n:
+            I_proj = self
+            c = np.zeros(n)
+        else:
+            I_proj = self.matmul(M_proj).project(axis = tuple(np.arange(r)))
+            c = np.hstack((np.zeros(n-r), np.matmul(M_proj, self.center())[r:]))
+
+        return (I_proj, M_proj, c)
 
     # reduction (implement for overloading)
     def reduce(self) -> Interval:

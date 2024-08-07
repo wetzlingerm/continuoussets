@@ -191,16 +191,16 @@ class HPolyhedron(ConvexSet):
             raise OtherFunctionError((self, other), 'minkowski_difference')
 
     # basis of the affine hull (for degenerate sets)
-    def basis_affine_hull(self) -> np.ndarray:
+    def basis_affine_hull(self) -> tuple:
         """Computes a basis of the affine hull of an HPolyhedron HP.
 
         Returns:
-            np.ndarray: Matrix with basis vectors.
+            tuple: Matrix with basis vectors, number of required basis vectors.
         """
         # check if degenerate at all via Chebyshev center
         c = self.center()
         if not active_inequality(self.A, self.b, c):
-            return np.eye(self.dimension)
+            return (np.eye(self.dimension), self.dimension)
 
         # ensure polytope contains the origin
         HP_shift = self
@@ -221,7 +221,7 @@ class HPolyhedron(ConvexSet):
 
         # fill in remaining dimensions via QR decomposition
         Q, _ = np.linalg.qr(np.hstack((basis, np.eye(self.dimension)[:, :r])))
-        return Q
+        return (Q, r)
 
     # helper linear program for basis of affine hull
     def _basis_affine_hull_helper(self, basis: np.ndarray) -> np.ndarray:
@@ -917,6 +917,36 @@ class HPolyhedron(ConvexSet):
                 count += 1
 
         return HPolyhedron(A = A_new, b = b_new, validate = False)
+    
+    # projection onto its own affine hull
+    def project_affine_hull(self) -> tuple:
+        """Projects an HPolyhedron onto its own affine hull.
+        For a degenerate HPolyhedron, the resulting HPolyhedron is of lower dimension, but non-degenerate.
+
+        Returns:
+            tuple: Projected HPolyhedron, projection matrix, center of new coordinate system in old coordinate system.
+        """
+        # compute basis of affine hull
+        n, c = self.dimension, self.center()
+        HP_shifted = self - c
+        M_proj, r = HP_shifted.basis_affine_hull()
+        # early exit if basis of affine hull is n-dimensional identity
+        if r == n:
+            return (self, np.eye(n), np.zeros(n))
+
+        # map polyhedron onto lower dimensional space
+        HP_proj = HP_shifted.matmul(M_proj.T)
+        # remove dimensions from r to n
+        A_new = HP_proj.A[:, :r]
+        b_new = HP_proj.b
+        # remove potential all-zero constraints
+        non_flat = np.invert(np.all(np.isclose(A_new, 0.), axis = 1))
+        A_new = A_new[non_flat, :]
+        b_new = b_new[non_flat]
+        # init resulting polyhedron
+        HP_proj = HPolyhedron(A = A_new, b = b_new)
+
+        return (HP_proj, M_proj, c)
 
     # reduction of set representation size
     def reduce(self, *, order: int) -> HPolyhedron:
@@ -1079,24 +1109,34 @@ class HPolyhedron(ConvexSet):
             np.ndarray: 2D array containing vertices as rows.
         """
         # obtain minimal representation
-        # H = self.compact()
+        HP = self.compact()
 
         if self.empty():
             raise EmptySetError
         
-        # n_orig = self.dimension
-        if self.degenerate():
-            # todo: implement using basis of affine hull -> full-dimensional, then back-transformation
-            raise NotImplementedError  # !
+        n_orig = self.dimension
+        if HP.degenerate():
+            # map set into the basis of its affine hull where it is full-dimensional
+            (HP, M_proj, c) = HP.project_affine_hull()
 
         # non-degenerate case
+        n = HP.dimension
         try:
-            V = compute_polytope_vertices(self.A, self.b)
+            V = compute_polytope_vertices(HP.A, HP.b)
         except (ValueError):
             # ValueError occurs in unbounded cases (in pypoman/duality.py)
             raise UnboundedSetError
+        # format vertices correctly
+        V = np.reshape(V, (len(V), n))
 
-        return np.reshape(V, (len(V), self.dimension))
+        # map back to original higher-dimensional space
+        if n_orig > n:
+            # expand vertex matrix by zeros for all projected dimensions
+            V = np.hstack((V, np.zeros((V.shape[0], n_orig-n))))
+            # map by inversion (M_proj^-1 = M_proj.T) of previous mapping, incorporate effect of center
+            V = np.matmul(M_proj, V.T).T + c
+
+        return V
 
     # volume
     def volume(self) -> float:
