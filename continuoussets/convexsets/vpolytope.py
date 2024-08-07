@@ -727,7 +727,7 @@ class VPolytope(ConvexSet):
         return (VP_proj, M_proj, c)
 
     # reduction of set representation size
-    def reduce(self, order: int) -> VPolytope:
+    def reduce(self, *, order: int) -> VPolytope:
         """Reduction of the set representation size of a VPolytope VP.
 
         Args:
@@ -912,8 +912,9 @@ class VPolytope(ConvexSet):
         elif mode == 'exact':
             if not self.represents('Zonotope'):
                 raise ExactEvaluationImpossibleError
-            # else: use method below
-            # todo: method below computes interval outer approximation
+            # don't know how to do exact conversion (method below is exact for 1D, though)
+            if self.dimension != 1:
+                raise NotImplementedError
 
         # convert to interval (outer approximation)
         interval_dict = self.interval(mode = 'outer')

@@ -189,8 +189,10 @@ class TestVPolytope(unittest.TestCase):
         # cases:
         # - single vertex
         # - 2D
+        # - origin not contained
         VP_singlevertex = VPolytope(V = np.array([[4., -2.]]))
         VP_2D = VPolytope(V = np.array([[1., 0.], [0., 1.], [-1., -2.]]))
+        VP_far = VPolytope(V = np.array([[5., 3.], [3., 4.], [4., 1.]]))
         
         result1 = VP_2D.boundary_point(np.array([0., -1.]))
         result2 = VP_2D.boundary_point(np.array([1., 1.]))
@@ -204,9 +206,11 @@ class TestVPolytope(unittest.TestCase):
         assert np.allclose(result2, true_result2)
         assert np.allclose(result3, true_result3)
 
-        # polytope does not contain the origin
+        # vpolytope degenerate / does not contain the origin
         with self.assertRaises(NotImplementedError):
             VP_singlevertex.boundary_point(np.array([-1., 0.]))
+        with self.assertRaises(NotImplementedError):
+            VP_far.boundary_point(np.array([1., 0.]))
 
     def test_bounded(self):
         ''' Test for boundedness '''
@@ -563,6 +567,15 @@ class TestVPolytope(unittest.TestCase):
         assert result2 == true_result2
         assert np.allclose(c2, np.array([2., -1., 1.]))
 
+    def test_reduce(self):
+        ''' Test for reduction of set representation size '''
+        # cases:
+        # - non-degenerate
+        VP = VPolytope(V = np.array([[1., 0.], [0., 1.], [-1., -2.]]))
+        
+        with self.assertRaises(NotImplementedError):
+            VP.reduce(order = 2)
+
     def test_represents(self):
         ''' Test for representation check '''
         # cases:
@@ -665,7 +678,7 @@ class TestVPolytope(unittest.TestCase):
         # cases:
         # - single vertex
         # - multiple vertices (not a zonotope)
-        # - multiple vertices (is a zonotope)  # todo
+        # - multiple vertices (is a zonotope)
         # - 1D
         V1 = np.array([[2., 3., -1.]])
         VP_1 = VPolytope(V = V1)
@@ -675,17 +688,19 @@ class TestVPolytope(unittest.TestCase):
 
         result_1 = Zonotope(**VP_1.zonotope())
         result_2 = Zonotope(**VP_2.zonotope(mode = 'outer'))
-        #result_3 = Zonotope(**VP_3.zonotope())
         result_4 = Zonotope(**VP_4.zonotope())
 
         assert result_1 == VP_1
         assert result_2.contains(VP_2)
-        #assert result_3 == VP_3
         assert result_4 == VP_4
 
         # unsupported conversions
         with self.assertRaises(exceptions.ExactEvaluationImpossibleError):
             VP_2.zonotope(mode = 'exact')
+        with self.assertRaises(NotImplementedError):
+            VP_2.zonotope(mode = 'inner')
+        with self.assertRaises(NotImplementedError):
+            VP_3.zonotope()
 
 if __name__ == '__main__':
     unittest.main()
