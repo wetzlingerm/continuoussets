@@ -160,19 +160,24 @@ class TestHPolyhedron(unittest.TestCase):
         # cases:
         # - non-degenerate
         # - degenerate (1D in 2D)
+        # - degenerate (1D in 2D, not containing origin)
         # todo degenerate unbounded
         HP1 = HPolyhedron(A = np.array([[1., 0.], [-1., 1.], [-1., -1.]]),
                           b = np.array([1., 1., 1.]))
         HP2 = HPolyhedron(A = np.array([[1., 1.], [-1., 1.], [-1., -1.], [1., -1]]),
                           b = np.array([1., 0., 1., 0.]))
+        HP3 = HPolyhedron(A = np.array([[1., 1.], [-1., 1.], [-1., -1.], [1., -1]]),
+                          b = np.array([7., -2., -5., 2.]))
         
         result1 = HP1.basis_affine_hull()
         result2 = HP2.basis_affine_hull()
+        result3 = HP3.basis_affine_hull()
 
         true_result2 = np.array([[-1./np.sqrt(2.), -1./np.sqrt(2.)], [-1./np.sqrt(2.), 1./np.sqrt(2.)]])
 
         assert np.array_equal(result1, np.eye(2))
         assert comparison.compare_matrices(result2, true_result2)
+        assert comparison.compare_matrices(result3, true_result2)
 
     def test_boundary_point(self):
         ''' Test for boundary point computation '''
@@ -180,9 +185,12 @@ class TestHPolyhedron(unittest.TestCase):
         # - not containing the origin
         # - bounded
         # - unbounded
+        # - degenerate
         HP_noorigin = HPolyhedron(A = np.array([[1., 0.], [-1., 1.], [-1., -1.]]), b = np.array([-0.5, 1., 1.]))
         HP_2D = HPolyhedron(A = np.array([[1., 0.], [-1., 1.], [-1., -1.]]), b = np.ones(3))
         HP_unbounded = HPolyhedron(A = np.array([[1., 0., 0.]]), b = np.array([2.]))
+        HP_deg = HPolyhedron(A = np.array([[1., 1.], [-1., 1.], [-1., -1.], [1., -1.]]),
+                             b = np.array([1., 0., 1., 0.]))
 
         result1 = HP_2D.boundary_point(np.array([1., -1.]))
         result2 = HP_2D.boundary_point(np.array([-1., 1.]))
@@ -203,6 +211,8 @@ class TestHPolyhedron(unittest.TestCase):
             HP_noorigin.boundary_point(np.array([1., 0.]))
         with self.assertRaises(exceptions.UnboundedSetError):
             HP_unbounded.boundary_point(np.array([-1., 0., 1.]))
+        with self.assertRaises(NotImplementedError):
+            HP_deg.boundary_point(np.array([1., 0.]))
 
     def test_bounded(self):
         ''' Test for boundedness check '''
@@ -368,6 +378,7 @@ class TestHPolyhedron(unittest.TestCase):
         # cases:
         # - 1D: empty, bounded, unbounded
         # - 2D: empty, bounded, unbounded
+        # - 3D: single constraint
         HP_1D_bounded = HPolyhedron(A = np.array([[1.], [-1.]]), b = np.array([1., 3.]))
         HP_1D_empty = HPolyhedron(A = np.array([[1.], [-1.]]), b = np.array([1., -3.]))
         HP_1D_unbounded = HPolyhedron(A = np.array([[1.], [2.]]), b = np.array([1., 5.]))
@@ -376,6 +387,7 @@ class TestHPolyhedron(unittest.TestCase):
         HP_2D_unbounded = HPolyhedron(A = np.array([1., 0.]), b = np.array([1.]))
         HP_2D_bounded = HPolyhedron(A = np.array([[1., 0.], [-1., 1.], [-1., -1.]]),
                                     b = np.array([1., 1., 1.]))
+        HP_3D_unbounded = HPolyhedron(A = np.array([[1., 0., 0.]]), b = np.array([1.]))
 
         assert not HP_1D_bounded.empty()
         assert HP_1D_empty.empty()
@@ -383,6 +395,7 @@ class TestHPolyhedron(unittest.TestCase):
         assert HP_2D_empty.empty()
         assert not HP_2D_bounded.empty()
         assert not HP_2D_unbounded.empty()
+        assert not HP_3D_unbounded.empty()
 
     def test_hpolyhedron(self):
         ''' Test for overloaded conversion '''
@@ -492,6 +505,7 @@ class TestHPolyhedron(unittest.TestCase):
         # - hpolyhedron x identity matrix
         # - hpolyhedron x square invertible matrix
         # - hpolyhedron x injective matrix
+        # - hpolyhedron x surjective matrix
         HP1 = HPolyhedron(A = np.array([[1., 0.], [-1., 1.], [-1., -1.]]),
                           b = np.array([1., 1., 1.]))
         HP2 = HPolyhedron(A = np.array([[1., 0., 0.], [0., 1., 0.], [0., 0., 1.], [-1., -1., -1.]]),
@@ -500,6 +514,7 @@ class TestHPolyhedron(unittest.TestCase):
         M2 = np.array([[2., 1.], [-1., -1.]])
         M3 = np.array([[1., -1.]])
         M4 = np.array([[1., 2., -1.], [0., -1., 1.]])
+        M5 = np.array([[1., 0.], [1., 1.], [-1., 1.]])
 
         result1 = HP1.matmul(M1)
         result2 = HP1.matmul(M2)
@@ -515,6 +530,9 @@ class TestHPolyhedron(unittest.TestCase):
         assert result2 == true_result2
         assert result3 == true_result3
         assert result4 == true_result4
+
+        with self.assertRaises(NotImplementedError):
+            HP1.matmul(M5)
 
     def test_minkowski_difference(self):
         ''' Test for Minkowski difference '''
@@ -579,6 +597,15 @@ class TestHPolyhedron(unittest.TestCase):
 
         assert result1 == true_result1
 
+    def test_reduce(self):
+        ''' Test for reduction of the set representation size '''
+        # cases:
+        # - bounded, non-degenerate
+        HP1 = HPolyhedron(A = np.array([[1., 0.], [-1., 1.], [-1., -1.]]), b = np.ones(3))
+
+        with self.assertRaises(NotImplementedError):
+            HP1.reduce(order = 2)
+
     def test_represents(self):
         ''' Test for representation equivalence '''
         # cases:
@@ -602,6 +629,8 @@ class TestHPolyhedron(unittest.TestCase):
         HP7 = HPolyhedron(A = np.array([[-0.5, -0.5], [0., -1/3.], [1./np.sqrt(2.), 1./np.sqrt(2.)], [0., 1.]]),
                           b = np.array([1., 1., 0., -1.]))
         HP8 = HPolyhedron(A = np.array([[1., 0.], [-1., 0.]]), b = np.ones(2))
+        HP9 = HPolyhedron(A = np.array([[1., 0.], [0., 1.]]), b = np.ones(2))
+        HP10 = HPolyhedron(A = np.array([[1., 0.], [-1., 0.]]), b = np.zeros(2))
         
         assert HP1.represents('HPolyhedron')
         assert HP1.represents('VPolytope')
@@ -617,6 +646,8 @@ class TestHPolyhedron(unittest.TestCase):
         assert HP7.represents('Zonotope')
         assert not HP7.represents('Interval')
         assert not HP8.represents('Zonotope')
+        assert not HP9.represents('Point')
+        assert not HP10.represents('Point')
 
     def test_support_function(self):
         ''' Test for support function evaluation '''
@@ -625,7 +656,7 @@ class TestHPolyhedron(unittest.TestCase):
         # - unbounded
         # - empty
         HP1 = HPolyhedron(A = np.array([[1., 0.], [0., 1.], [-1., -1.]]), b = np.array([2., 1., 3.]))
-        HP2 = HPolyhedron(A = np.array([[-1., 0.],[0., -1.]]), b = np.array([2., 1.]))
+        HP2 = HPolyhedron(A = np.array([[-1., 0.], [0., -1.]]), b = np.array([2., 1.]))
         HP3 = HPolyhedron(A = np.array([[1., 0.], [-1., 0.]]), b = np.array([1., -2.]))
         
         (value1, vector1) = HP1.support_function(np.array([1., 1.]))
@@ -721,9 +752,12 @@ class TestHPolyhedron(unittest.TestCase):
         # cases:
         # - bounded
         # - 1D
+        # - zonotope-like
         HP1 = HPolyhedron(A = np.array([[1., 0.], [-1., 1.], [-1., -1.]]),
                           b = np.array([1., 1., 1.]))
         HP2 = HPolyhedron(A = np.array([[1.], [-1.], [1.]]), b = np.array([4., -2., 7.]))
+        HP3 = HPolyhedron(A = np.array([[0., -1.], [-1., -1.], [0.25, -0.5], [0., 1./3.], [1./7., 1./7.], [-0.25, 0.5]]),
+                          b = np.ones(6))
         
         result1 = Zonotope(**HP1.zonotope(mode = 'outer'))
         result2 = Zonotope(**HP2.zonotope())
@@ -735,6 +769,10 @@ class TestHPolyhedron(unittest.TestCase):
 
         with self.assertRaises(exceptions.ExactEvaluationImpossibleError):
             HP1.zonotope()
+        with self.assertRaises(NotImplementedError):
+            HP3.zonotope()
+        with self.assertRaises(NotImplementedError):
+            HP1.zonotope(mode = 'inner')
 
 if __name__ == '__main__':
     unittest.main()

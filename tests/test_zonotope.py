@@ -343,8 +343,8 @@ class TestZonotope(unittest.TestCase):
         # - zonotope x zonotope with only center
         # - zonotope x zonotope
         # - zonotope x interval
-        # todo zonotope x vpolytope
-        # todo zonotope x hpolyhedron
+        # - zonotope x vpolytope
+        # - zonotope x hpolyhedron
 
         # init zonotopes
         center1 = np.array([-1., 0.])
@@ -357,7 +357,8 @@ class TestZonotope(unittest.TestCase):
         Z4 = Zonotope(c = center2, G = generators2)
         # init interval, vpolytope, hpolyhedron
         I = Interval(lb = np.array([-1.]), ub = np.array([7.]))
-        VP = VPolytope(V = np.array([[1., 0.], [0., 1.], [-1., -2.]]))
+        VP1 = VPolytope(V = np.array([[1., 0.], [0., 1.], [-1., -2.]]))
+        VP2 = VPolytope(V = center2)
         HP = HPolyhedron(A = np.array([[1., 0.], [-1., 1.], [-1., -1.]]), b = np.ones(3))
 
         # compute Cartesian product
@@ -368,8 +369,9 @@ class TestZonotope(unittest.TestCase):
         result5 = Z3.cartesian_product(Z2_onlycenter)
         result6 = Z3.cartesian_product(Z4)
         result7 = Z1_onlycenter.cartesian_product(I)
-        result8 = Z3.cartesian_product(VP, mode = 'outer')
-        #result9 = Z3.cartesian_product(HP, mode = 'outer')  # todo requires HP->Z outer
+        result8 = Z3.cartesian_product(VP1, mode = 'outer')
+        result9 = Z3.cartesian_product(VP2)
+        result10 = Z3.cartesian_product(HP, mode = 'outer')
         
         # manual computation
         centers_stacked = np.array([-1., 0., 3.])
@@ -391,14 +393,15 @@ class TestZonotope(unittest.TestCase):
                                                  [0., 0., 1., 1.],
                                                  [0., 0., -3., 1.]]),
                                    b = np.array([1., 1., 1., -1., 1., 1., 1.]))
-        true_result9 = HPolyhedron(A = np.array([[2./3., 1./3., 0., 0.],
+        true_result9 = Zonotope(c = centers_stacked, G = generators1_zero)
+        true_result10 = HPolyhedron(A = np.array([[2./3., 1./3., 0., 0.],
                                                  [-2./7., -1./7., 0., 0.],
                                                  [-1., 2., 0., 0.],
                                                  [1., -2., 0., 0.],
                                                  [0., 0., 1., 0.],
                                                  [0., 0., -1., -1.],
                                                  [0., 0., -1., 1.]]),
-                                   b = np.array([1., 1., 1., -1., 1., 1., 1.]))
+                                    b = np.array([1., 1., 1., -1., 1., 1., 1.]))
 
         # check results
         assert result1 == true_result1
@@ -409,10 +412,11 @@ class TestZonotope(unittest.TestCase):
         assert result6 == true_result6
         assert result7 == true_result7
         assert result8.contains(true_result8)
-        #assert result9.contains(true_result9)
+        assert result9 == true_result9
+        assert result10.contains(true_result10)
 
         with self.assertRaises(exceptions.ExactEvaluationImpossibleError):
-            Z3.cartesian_product(VP)
+            Z3.cartesian_product(VP1)
         with self.assertRaises(exceptions.ExactEvaluationImpossibleError):
             Z3.cartesian_product(HP)
 
@@ -524,8 +528,8 @@ class TestZonotope(unittest.TestCase):
         # - center and generators x only center
         # - center and generators x center and generators
         # - zonotope x interval
-        # todo zonotope x vpolytope
-        # todo zonotope x hpolyhedron
+        # - zonotope x vpolytope
+        # - zonotope x hpolyhedron
 
         # init zonotopes
         center1 = np.array([1., 0.])
@@ -536,7 +540,10 @@ class TestZonotope(unittest.TestCase):
         Z2 = Zonotope(c = center2)
         Z3 = Zonotope(c = center1, G = generators1)
         Z4 = Zonotope(c = center2, G = generators2)
+        # init interval, vpolytope, hpolyhedron
         I = Interval(lb = center2, ub = center2)
+        VP = VPolytope(V = np.array([[-2., 2.], [-3., 3.], [-4., 0.]]))
+        HP = HPolyhedron(A = np.array([[1., 0.], [-1., 1.], [-1., -1.]]), b = np.array([-2., 5., 3.]))
 
         # compute linear combination
         result1 = Z1.convex_hull(Z2, mode = 'outer')  # also 'exact'
@@ -546,6 +553,8 @@ class TestZonotope(unittest.TestCase):
         result5 = Z3.convex_hull(Z4, mode = 'outer')
         result6 = Z4.convex_hull(Z3, mode = 'outer')
         result7 = Z1.convex_hull(I, mode = 'outer')
+        result8 = Z3.convex_hull(VP, mode = 'outer')
+        result9 = Z3.convex_hull(HP, mode = 'outer')
 
         # manual computation
         true_result1 = Zonotope(c = np.array([0., 1.]), G = np.array([[1., -1.]]))
@@ -556,6 +565,8 @@ class TestZonotope(unittest.TestCase):
                                 G = np.array([[0.5, 1.5], [2.5, 1.], [0.5, 0.5], [-1., 1.], [-1.5, 2.5], [-0.5, -1.], [-0.5, 0.5], [1., -1.], [3., 2.]]))
         true_result6 = true_result5
         true_result7 = true_result1
+        true_result8 = VPolytope(V = np.array([[-3., 3.], [-1., -3.], [1., -3.], [7., 1.], [3., 3.], [-5., -1.]]))
+        true_result9 = VPolytope(V = np.array([[-4., 1.], [-2., 3.], [-1., -3.], [1., -3.], [7., 1.], [3., 3.], [-5., -1.]]))
 
         # check results
         assert result1 == true_result1
@@ -565,12 +576,18 @@ class TestZonotope(unittest.TestCase):
         assert result5 == true_result5
         assert result6 == true_result6
         assert result7 == true_result7
+        assert result8.contains(true_result8)
+        assert result9.contains(true_result9)
 
         # check exceptions
         with self.assertRaises(NotImplementedError):
             Z1.convex_hull(Z2, mode = 'inner')  # should work
         with self.assertRaises(NotImplementedError):
             Z2.convex_hull(Z3, mode = 'exact')  # should work
+        with self.assertRaises(NotImplementedError):
+            Z2.convex_hull(VP)
+        with self.assertRaises(NotImplementedError):
+            Z2.convex_hull(HP)
 
     def test_degenerate(self):
         ''' Test for degeneracy '''
@@ -814,17 +831,20 @@ class TestZonotope(unittest.TestCase):
         Z3 = Zonotope(c = v)
         # init interval, vpolytope, hpolyhedron
         I = Interval(lb = v, ub = v)
-        VP = VPolytope(V = np.array([[1., 0.], [0., 1.], [-1., -1.]]))
-        HP = HPolyhedron(A = np.array([[1., 0.], [-1., 1.], [-1., -1.]]),
+        VP1 = VPolytope(V = np.array([[1., 0.], [0., 1.], [-1., -1.]]))
+        VP2 = VPolytope(V = np.array([[0., -1.], [2., -1.], [6., 1.], [4., 3.], [2., 3.], [-2., 1.]]))
+        HP1 = HPolyhedron(A = np.array([[1., 0.], [-1., 1.], [-1., -1.]]),
                          b = np.array([1., 1., 1.]))
+        HP2 = HPolyhedron(A = np.array([[0., -1.], [-1., -1.], [0.25, -0.5], [0., 1./3.], [1./7., 1./7.], [-0.25, 0.5]]),
+                          b = np.ones(6))
 
         # compute Minkowski sums
         result1 = Z1.minkowski_sum(Z2)
         result2 = Z1.minkowski_sum(v)
         result3 = Z1.minkowski_sum(I)
         result4 = Z3.minkowski_sum(Z1)
-        #result5 = Z1.minkowski_sum(VP)  # todo
-        #result6 = Z1.minkowski_sum(HP)  # todo
+        result5 = Z1.minkowski_sum(VP1, mode = 'outer')
+        result6 = Z1.minkowski_sum(HP1, mode = 'outer')
 
         # manual computation
         true_result1 = Zonotope(c = np.array([0., 1.]),\
@@ -847,8 +867,18 @@ class TestZonotope(unittest.TestCase):
         assert result2 == true_result2
         assert result3 == true_result3
         assert result4 == true_result4
-        #assert result5 == true_result5
-        #assert result6 == true_result6
+        assert result5.contains(true_result5)
+        assert result6.contains(true_result6)
+
+        # exact evaluations currently not implemented, sometimes impossible
+        with self.assertRaises(exceptions.ExactEvaluationImpossibleError):
+            Z1.minkowski_sum(VP1)
+        with self.assertRaises(NotImplementedError):
+            Z1.minkowski_sum(VP2)
+        with self.assertRaises(exceptions.ExactEvaluationImpossibleError):
+            Z1.minkowski_sum(HP1)
+        with self.assertRaises(NotImplementedError):
+            Z1.minkowski_sum(HP2)
 
     def test_minkowski_difference(self):
         ''' Test for Minkowski difference '''

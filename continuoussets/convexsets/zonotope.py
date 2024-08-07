@@ -599,6 +599,9 @@ class Zonotope(ConvexSet):
             other (Union[ConvexSet, np.ndarray]): Set or vector.
             mode (str, optional): Approximation of the evaluation: 'inner', 'exact', 'outer'. Defaults to 'exact'.
 
+        Raises:
+            ExactEvaluationImpossibleError: mode == 'exact' only supported in special cases.
+
         Returns:
             Zonotope: Result of the Minkowski sum.
         """

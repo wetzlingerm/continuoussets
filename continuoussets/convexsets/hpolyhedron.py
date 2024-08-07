@@ -205,7 +205,7 @@ class HPolyhedron(ConvexSet):
         # ensure polytope contains the origin
         HP_shift = self
         if not HP_shift.contains(np.zeros(self.dimension)):
-            HP_shift = self - c            
+            HP_shift = self - c
 
         # threshold for norm of next basis vector
         epsilon = 1e-5
@@ -220,7 +220,7 @@ class HPolyhedron(ConvexSet):
             basis = np.hstack((basis, np.reshape(x_iter / np.linalg.norm(x_iter, ord=2), (self.dimension, 1))))
 
         # fill in remaining dimensions via QR decomposition
-        Q, _ = np.linalg.qr(np.hstack((basis, np.eye(self.dimension)[:,:r])))
+        Q, _ = np.linalg.qr(np.hstack((basis, np.eye(self.dimension)[:, :r])))
         return Q
 
     # helper linear program for basis of affine hull
@@ -279,7 +279,7 @@ class HPolyhedron(ConvexSet):
         # constraints
         A_ub = np.hstack((self.A, np.matmul(self.A, basis)))
         b_ub = self.b
-        A_eq = np.hstack((basis.T, np.zeros((r,r))))
+        A_eq = np.hstack((basis.T, np.zeros((r, r))))
         b_eq = np.zeros(r)
 
         # solve linear program
@@ -579,9 +579,8 @@ class HPolyhedron(ConvexSet):
         # solve linear program (bounds default (0, Inf) which is required here)
         res = linprog(c, A_eq = A_eq, b_eq = b_eq)
 
-        if res.status == 2:
-            return False
-        elif res.status == 3:
+        # cannot be infeasible since res.x = 0 fulfills any system of equalities A_eq * res.x = 0
+        if res.status == 3:
             return True
         return res.fun < 0
     
@@ -920,7 +919,7 @@ class HPolyhedron(ConvexSet):
         return HPolyhedron(A = A_new, b = b_new, validate = False)
 
     # reduction of set representation size
-    def reduce(self, order: int) -> HPolyhedron:
+    def reduce(self, *, order: int) -> HPolyhedron:
         """Reduction of the set representation size of an HPolyhedron HP.
 
         Args:
@@ -953,8 +952,8 @@ class HPolyhedron(ConvexSet):
                 c = self.center()
             except (UnboundedSetError, EmptySetError):
                 return False
-            # center must fulfill all inequalities with equality
-            return np.allclose(np.matmul(self.A, c), self.b, rtol = rtol, atol = atol)
+            # center must fulfill all inequalities with equality and polytope must be bounded
+            return np.allclose(np.matmul(self.A, c), self.b, rtol = rtol, atol = atol) and self.bounded()
 
         if set_class == 'HPolyhedron':
             return True
@@ -1085,10 +1084,10 @@ class HPolyhedron(ConvexSet):
         if self.empty():
             raise EmptySetError
         
-        n_orig = self.dimension
+        # n_orig = self.dimension
         if self.degenerate():
             # todo: implement using basis of affine hull -> full-dimensional, then back-transformation
-            raise NotImplementedError
+            raise NotImplementedError  # !
 
         # non-degenerate case
         try:
@@ -1146,7 +1145,9 @@ class HPolyhedron(ConvexSet):
         elif mode == 'exact':
             if not self.represents('Zonotope'):
                 raise ExactEvaluationImpossibleError
-            # todo: find generator representation from halfspace representation
+            # even if there were an exact method, I do not know about it (method below exact for 1D)
+            if self.dimension != 1:
+                raise NotImplementedError
 
         # convert to interval (outer approximation)
         interval_dict = self.interval(mode = 'outer')

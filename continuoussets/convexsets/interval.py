@@ -9,6 +9,8 @@ import numpy as np
 from continuoussets.convexsets.convexset import ConvexSet
 from continuoussets.utils.exceptions import EmptySetError, OutOfBoundsError, \
     ExactEvaluationImpossibleError, UnboundedSetError
+# import continuoussets.setoperations.binary_operations as ops
+
 
 if __name__ == '__main__':
     print('This is the Interval class.')
@@ -768,6 +770,7 @@ class Interval(ConvexSet):
         Returns:
             bool: Containment status.
         """
+        # ops.contains(self, other)
         self._checkOtherOperand(other)
 
         if isinstance(other, Interval):
