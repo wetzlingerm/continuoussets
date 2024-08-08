@@ -10,15 +10,17 @@ class TestUtils(unittest.TestCase):
         # M1 empty x M2
         # M1 x M2 empty
         # M1 x M2 == M1
-        # M1 x M2 
+        # M1 x M2
+        # M1 x M2 (1D)
 
         # init matrices
         M1_none = None
         M2_none = None
-        M1 = np.array([[2., 1., -1.], [0., 1., -1.]])
+        M1 = np.array([[2., 0.], [1., 1.], [-1., -1.]])
         M2 = M1
-        M2_zeros = np.array([[2., 1., -1., 0.], [0., 1., -1., 0.]])
-        M2_neg = np.array([[-2., 1., 1.], [0., 1., 1.]])
+        M2_zeros = np.array([[2., 0.], [1., 1.], [-1., -1.], [0., 0.]])
+        M2_neg = np.array([[-2., 0.], [1., 1.], [1., 1.]])
+        M2_1D = np.array([1., 2.])
         
         # check results
         assert comparison.compare_matrices(M1_none, M2_none)
@@ -28,6 +30,8 @@ class TestUtils(unittest.TestCase):
         assert comparison.compare_matrices(M1, M2_zeros, remove_zeros = True)
         assert not comparison.compare_matrices(M1, M2_neg, check_negation = False)
         assert comparison.compare_matrices(M1, M2_neg, check_negation = True)
+        assert not comparison.compare_matrices(M1, M2_1D)
+        assert not comparison.compare_matrices(M2_1D, M2)
 
     def test_find_aligned_generators(self):
         ''' Test for checking alignment of generators '''
@@ -39,9 +43,9 @@ class TestUtils(unittest.TestCase):
 
         # init matrices
         M_none = None
-        M_noaligned = np.array([[0., 1., 2.],[3., 4., 5.]])
-        M_allaligned = np.array([[0., 0., 0.],[1., 2., 3.]])
-        M_somealigned = np.array([[1., 2., -1., 0., 2., 3., 1.],[-1., 0., 1., 1., 1., 1.5, 0.]])
+        M_noaligned = np.array([[0., 3.], [1., 4.], [2., 5.]])
+        M_allaligned = np.array([[0., 1.], [0., 2.] ,[0., 3.]])
+        M_somealigned = np.array([[1., -1.], [2., 0.], [-1., 1.], [0., 1.], [2., 1.], [3., 1.5], [1., 0.]])
 
         # check alignment
         result1 = comparison.find_aligned_generators(M_none)
@@ -82,6 +86,13 @@ class TestUtils(unittest.TestCase):
         # check that empty set information is contained in output string
         assert 'empty set' in e.args[0]
 
+    def test_UnboundedSetError(self):
+        ''' Test for EmptySetError class '''
+        e = exceptions.UnboundedSetError()
+
+        # check that unbounded information is contained in output string
+        assert 'unbounded' in e.args[0]
+
     def test_OtherFunctionError(self):
         ''' Test for OtherFunctionError class '''
         args = (1, 2.)
@@ -92,6 +103,13 @@ class TestUtils(unittest.TestCase):
         assert 'int' in e.args[0]
         assert 'float' in e.args[0]
         assert other_function in e.args[0]
+
+    def test_ExactEvaluationImpossibleError(self):
+        ''' Test for ExactEvaluationImpossible class '''
+        e = exceptions.ExactEvaluationImpossibleError()
+
+        # check that 'no exact evaluation' information is contained in output string
+        assert 'no exact evaluation' in e.args[0]
 
 if __name__ == '__main__':
     unittest.main()

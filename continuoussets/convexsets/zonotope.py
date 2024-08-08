@@ -4,12 +4,18 @@ from itertools import combinations
 from typing import Union
 
 import numpy as np
+from math import comb
 from scipy.optimize import linprog
 from scipy.spatial import ConvexHull
 
 from continuoussets.convexsets.convexset import ConvexSet
+from continuoussets.convexsets.hpolyhedron import HPolyhedron as HP
+# note: the above line means that the HPolyhedron module cannot import the Zonotope module!
 from continuoussets.utils import comparison
-from continuoussets.utils.exceptions import OtherFunctionError
+from continuoussets.utils.exceptions import OtherFunctionError, ExactEvaluationImpossibleError
+from continuoussets.utils.auxiliary import halfspace_representation_from_vector, \
+                                           n_dim_cross_product, \
+                                           number_singular_values
 
 if __name__ == '__main__':
     print('This is the Zonotope class.')
@@ -24,7 +30,8 @@ class Zonotope(ConvexSet):
 
         Args:
             c (Union[np.ndarray, list, float, int], optional): Center of the zonotope. Defaults to None.
-            G (Union[np.ndarray, list, float, int], optional): 2D generator matrix of the zonotope. Defaults to None.
+            G (Union[np.ndarray, list, float, int], optional): 2D generator matrix of the zonotope, each generator is a row.
+            Defaults to None.
             validate (bool, optional): Validation of input arguments. Defaults to True.
 
         Raises:
@@ -34,45 +41,58 @@ class Zonotope(ConvexSet):
             ValueError: Dimensions of center and generator matrix must match.
         """
 
-        # convert to np.ndarray or None if possible
+        # check center
+        if self.validate and validate:
+            # at least center has to be provided
+            if c is None:
+                raise ValueError('Zonotope:__init__',
+                                 'Center has to be defined.')
+            elif (not isinstance(c, int) and not isinstance(c, float)
+                    and not isinstance(c, list) and not isinstance(c, np.ndarray)):
+                raise TypeError('Zonotope:__init__',
+                                'Center must be int, float, list or np.ndarray')
+            elif isinstance(c, np.ndarray) and c.ndim > 1:
+                raise ValueError('Zonotope:__init__',
+                                 'Center needs to be a 1D array.')
+
+        # convert center to np.ndarray
         if not isinstance(c, np.ndarray):
             if isinstance(c, int) or isinstance(c, float):
                 c = np.array([float(c)])
             elif isinstance(c, list):
-                if not all(isinstance(element, float) for element in c):
-                    c = [float(element) for element in c]
-                c = np.array(c)
-        if G is not None and not isinstance(G, np.ndarray):
+                c = np.array(c, dtype = float)
+
+        # init 0-width matrix (for concatenation in methods)
+        if G is None:
+            G = np.zeros((0, c.size))
+
+        # pre-check generator matrix
+        if self.validate and validate:
+            if (not isinstance(G, int) and not isinstance(G, float)
+                    and not isinstance(G, list) and not isinstance(G, np.ndarray)):
+                raise TypeError('Zonotope:__init__',
+                                'Generator matrix must be None, int, float, list or np.ndarray')
+
+        # convert generator(s) to np.ndarray
+        if not isinstance(G, np.ndarray):
             if isinstance(G, int) or isinstance(G, float):
                 G = np.reshape(np.array([float(G)]), (1, 1))
             elif isinstance(G, list):
-                if not all(isinstance(element, float) for element in G):
-                    G = [[float(entry) for entry in row] for row in G]
-                G = np.array(G)
-        if isinstance(G, np.ndarray) and G.shape[1] == 0:
-            # maybe better to init np.zeros((self.dimension,0)) as G?
-            G = None
+                G = np.array(G, dtype = float)
 
+        # expand generator matrix to 2D if only single generator
+        if G.ndim == 1:
+            G = np.reshape(G, (1, G.size))
+
+        # post-check generator matrix (ensured to be np.ndarray now)
         if self.validate and validate:
-            # at least center has to be provided
-            if c is None and G is None:
-                raise ValueError('Zonotope:__init__',
-                                 'No input arguments provided to constructor.')
-            if c is None:
-                raise ValueError('Zonotope:__init__',
-                                 'Center has to be defined.')
-
-            # validate input arguments
-            elif c.ndim > 1:
-                raise ValueError('Zonotope:__init__',
-                                 'Center needs to be a 1D array.')
-            elif G is not None and c.size != G.shape[0]:
+            if c.size != G.shape[1]:
                 raise ValueError('Zonotope:__init__',
                                  'Center and generator matrix need to have the same dimension.')
 
         self.dimension = c.size
         self.c = c.copy()
-        self.G = G.copy() if G is not None else None
+        self.G = G.copy()
 
     # display
     def __repr__(self) -> str:
@@ -82,7 +102,7 @@ class Zonotope(ConvexSet):
             str: Description of the Zonotope object.
         """
         newline = '\n'
-        return f'dimension: {self.dimension}{newline}center:{newline} {self.c}^T{newline}generator matrix:{newline} {self.G}'
+        return f'dimension: {self.dimension}{newline}center:{newline} {self.c}{newline}generator matrix:{newline} {self.G}'
 
     # enable correct handling of right-operations with numpy on left side
     def __array_ufunc__(self, ufunc, method: str, *args, **kwargs) -> Zonotope:
@@ -116,7 +136,7 @@ class Zonotope(ConvexSet):
             other (np.ndarray): Vector.
 
         Raises:
-            OtherFunctionError: If other is a Zonotope, call minkowski_sum instead.
+            OtherFunctionError: If other is a ConvexSet, call minkowski_sum instead.
 
         Returns:
             Zonotope: Result of the translation.
@@ -132,12 +152,14 @@ class Zonotope(ConvexSet):
             raise OtherFunctionError((self, other), 'minkowski_sum')
 
     # set equality
-    def __eq__(self, other: Union[ConvexSet, np.ndarray]) -> bool:
+    def __eq__(self, other: Union[ConvexSet, np.ndarray], *, rtol: float = 1e-10, atol: float = 1e-12) -> bool:
         """Set equality of a Zonotope Z with another set or vector S.
         Defined as forall Z in Z: i in S and forall s in S: s in Z?
 
         Args:
             other (Union[ConvexSet, np.ndarray]): Set or vector.
+            rtol (float, optional): Relative tolerance. Defaults to 1e-10.
+            atol (float, optional): Absolute tolerance. Defaults to 1e-12.
 
         Returns:
             bool: Set equality.
@@ -147,16 +169,24 @@ class Zonotope(ConvexSet):
         if ((isinstance(other, ConvexSet) and self.dimension != other.dimension)
                 or (isinstance(other, np.ndarray) and self.dimension != other.shape[0])):
             return False
+        
         elif isinstance(other, np.ndarray):
-            return (self.G is None or not np.any(self.G)) and np.array_equal(self.c, other)
+            return (np.allclose(self.c, other, rtol = rtol, atol = atol)
+                    and self.represents('Point', rtol = rtol, atol = atol))
+        
         elif isinstance(other, Zonotope):
             # check center
-            if not np.array_equal(self.c, other.c):
+            if not np.allclose(self.c, other.c, rtol = rtol, atol = atol):
                 return False
             # compact both and compare generator matrices
-            return comparison.compare_matrices(self.compact().G, other.compact().G, remove_zeros=True, check_negation=True)
-        elif isinstance(other, ConvexSet):
-            return other.represents('Zonotope') and self == Zonotope(**other.zonotope(), validate = False)
+            return comparison.compare_matrices(self.compact().G, other.compact().G,
+                                               rtol = rtol, atol = atol, remove_zeros = True, check_negation = True)
+        
+        elif type(other).__name__ == 'Interval':
+            return self.__eq__(Zonotope(**other.zonotope(mode = 'exact'), validate = False), rtol = rtol, atol = atol)
+        
+        elif type(other).__name__ in ['VPolytope', 'HPolyhedron']:
+            return other.__eq__(self, rtol = rtol, atol = atol)
 
     # unary minus
     def __neg__(self) -> Zonotope:
@@ -184,12 +214,11 @@ class Zonotope(ConvexSet):
             other (np.ndarray): Vector.
 
         Raises:
-            OtherFunctionError: If Zonotope - Zonotope, call minkowski_difference instead.
+            OtherFunctionError: If Zonotope - ConvexSet, call minkowski_difference instead.
 
         Returns:
             Zonotope: Result of the translation.
         """
-        # TODO support int, float, list
         self._checkOtherOperand(other)
 
         if isinstance(other, np.ndarray):
@@ -198,6 +227,19 @@ class Zonotope(ConvexSet):
 
         elif isinstance(other, ConvexSet):
             raise OtherFunctionError((self, other), 'minkowski_difference')
+
+    # basis of the affine hull (for degenerate sets)
+    def basis_affine_hull(self) -> tuple:
+        """Computes a basis of the affine hull of a Zonotope Z.
+
+        Returns:
+            tuple: Matrix with basis vectors, number of basis vectors.
+        """
+        # use singular value decomposition
+        # todo: use QR decomposition instead? (faster)
+        matrix, S, _ = np.linalg.svd(np.matmul(self.G.T, self.G))
+        s = number_singular_values(S)
+        return (matrix, s)
 
     # point on boundary along a given direction
     def boundary_point(self, direction: np.ndarray) -> np.ndarray:
@@ -213,7 +255,19 @@ class Zonotope(ConvexSet):
 
         # shift zonotope to origin
         Z = self - self.c
-        return direction / Z.zonotope_norm(direction) + self.c
+        norm = Z.zonotope_norm(direction)
+        if norm is None:
+            return self.c
+        return direction / norm + self.c
+    
+    # boundedness
+    def bounded(self) -> bool:
+        """Checks if a Zonotope Z is bounded.
+
+        Returns:
+            bool: Boundedness.
+        """
+        return True
 
     # Cartesian product
     def cartesian_product(self, other: Union[ConvexSet, np.ndarray], *, mode: str = 'exact') -> Zonotope:
@@ -227,39 +281,40 @@ class Zonotope(ConvexSet):
         Returns:
             Zonotope: Result of the Cartesian product.
         """
-        self._checkOtherOperand(other)
         self._checkMode(mode)
 
+        n1, m1 = self.dimension, self.number_generators()
+
         if isinstance(other, np.ndarray):
-            if self.G is None:
-                return Zonotope(c = np.hstack((self.c, other)), G = None, validate = False)
+            if m1 == 0:
+                return Zonotope(c = np.hstack((self.c, other)), G = self.G, validate = False)
             else:
                 return Zonotope(c = np.hstack((self.c, other)),
-                                G = np.vstack((self.G, np.zeros([other.size, self.G.shape[1]]))), validate = False)
+                                G = np.hstack((self.G, np.zeros((m1, other.size)))),
+                                validate = False)
 
         elif isinstance(other, Zonotope):
+            n2 = other.dimension
+            m2 = other.number_generators()
             # concatenate centers
             center = np.hstack((self.c, other.c))
             # block-concatenate generator matrices
-            if self.G is None and other.G is None:
-                return Zonotope(c = center, G = None, validate = False)
-            elif self.G is None:
-                generators = np.vstack((np.zeros([self.dimension, other.G.shape[1]]), other.G))
-            elif other.G is None:
-                generators = np.vstack((self.G, (np.zeros([other.dimension, self.G.shape[1]]))))
-            else:
-                generators = np.vstack((np.hstack((self.G, np.zeros([other.dimension, other.G.shape[1]]))),
-                                        np.hstack((np.zeros([self.dimension, self.G.shape[1]]), other.G))))
+            generators = np.vstack((np.hstack((self.G, np.zeros((m1, n2)))),
+                                    np.hstack((np.zeros((m2, n1)), other.G))))
 
             return Zonotope(c = center, G = generators, validate = False)
 
+        elif other.represents('Point'):
+            # exact evaluation possible
+            return self.cartesian_product(other.center())
+        
         else:
-            # convert to zonotope and compute Cartesian product
+            # may throw an ExactEvaluationImpossibleError unless other is 1D or an Interval
             return self.cartesian_product(Zonotope(**other.zonotope(mode = mode), validate = False))
 
     # center
     def center(self) -> np.ndarray:
-        """Center of a Zonotope Z. (Merely implemented for duck typing purposes.)
+        """Center of a Zonotope Z.
 
         Returns:
             np.ndarray: Center of the Zonotope.
@@ -277,40 +332,34 @@ class Zonotope(ConvexSet):
         Returns:
             Zonotope: Zonotope in minimal representation.
         """
-        # no generators
-        if self.G is None:
-            return Zonotope(c = self.c, G = None, validate = False)
-
-        generators = self.G[:, np.any(self.G, axis=0)]
-        if generators.shape[1] == 0:
-            generators = None
+        # remove all-zero generators
+        generators = self.G[np.any(self.G, axis=1), :]
 
         # check for aligned generators
         index_aligned = comparison.find_aligned_generators(generators, rtol=rtol)
         if index_aligned:
             # init array for new generators
-            new_generators = np.zeros((self.dimension, len(index_aligned)))
-            for column, aligned_tuples in enumerate(index_aligned):
+            new_generators = np.zeros((len(index_aligned), self.dimension))
+            for row, aligned_tuples in enumerate(index_aligned):
                 # mask with factors 1 and -1 (invert direction if generators are anti-parallel)
-                mask = np.logical_not(np.sign(generators[:, aligned_tuples])
-                                      == np.reshape(np.sign(generators[:, aligned_tuples[0]]), (self.dimension, 1))) * -2. + 1.
+                mask = np.logical_not(np.sign(generators[aligned_tuples, :])
+                                      == np.reshape(np.sign(generators[aligned_tuples[0], :]), (1, self.dimension))) * -2. + 1.
                 # add generators
-                new_generators[:, column] = np.reshape(np.sum(generators[:, aligned_tuples] * mask, axis=1), (self.dimension, ))
+                new_generators[row, :] = np.reshape(np.sum(generators[aligned_tuples, :] * mask, axis=0), (1, self.dimension))
             # replace aligned generators by new ones
-            generators = np.hstack((np.delete(generators, index_aligned, axis=1), new_generators))
+            generators = np.vstack((np.delete(generators, index_aligned, axis=0), new_generators))
 
         return Zonotope(c = self.c, G = generators, validate = False)
 
     # containment check
-    def contains(self, other: Union[ConvexSet, np.ndarray]) -> bool:
+    def contains(self, other: Union[ConvexSet, np.ndarray], *, rtol: float = 1e-5, atol: float = 1e-8) -> bool:
         """Checks containment of a ConvexSet or vector (np.ndarray) S in a Zonotope Z.
-        Defined as forall s in S: s in I?
+        Defined as forall s in S: s in Z?
 
         Args:
             other (Union[ConvexSet, np.ndarray]): Set or vector.
-
-        Raises:
-            NotImplementedError: Zonotope-in-zonotope not supported.
+            rtol (float, optional): Relative tolerance. Defaults to 1e-5.
+            atol (float, optional): Absolute tolerance. Defaults to 1e-8.
 
         Returns:
             bool: Containment status.
@@ -318,28 +367,29 @@ class Zonotope(ConvexSet):
         self._checkOtherOperand(other)
 
         if isinstance(other, np.ndarray):
-            if self.G is None:
-                return np.all(np.isclose(self.c, other))
+            if self.number_generators() == 0:
+                return np.allclose(self.c, other, rtol = rtol, atol = atol)
             else:
                 # shift zonotope and other by center of zonotope and check zonotope norm
                 norm = (self - self.c).zonotope_norm(other - self.c)
-                return norm <= 1 or np.isclose(norm, 1.)
-        elif isinstance(other, Zonotope) and other.G is None:
+                return norm <= 1 or np.isclose(norm, 1., rtol = rtol, atol = atol)
+        elif isinstance(other, Zonotope) and other.number_generators() == 0:
             # shift zonotope and other by center of zonotope and check zonotope norm
             norm = (self - self.c).zonotope_norm(other.c - self.c)
-            return norm <= 1 or np.isclose(norm, 1.)
+            return norm <= 1 or np.isclose(norm, 1., rtol = rtol, atol = atol)
         else:
-            # TODO: convert self to polytope and use its contains function
-            raise NotImplementedError
+            # all cases: convert outer body to HPolyhedron
+            self_as_hpolyhedron = HP(**self.hpolyhedron())
+            return self_as_hpolyhedron.contains(other, rtol = rtol, atol = atol)
 
     # convex hull
-    def convex_hull(self, other: Union[ConvexSet, np.ndarray], *, mode: str = 'outer') -> Zonotope:
+    def convex_hull(self, other: Union[ConvexSet, np.ndarray], *, mode: str = 'exact') -> Zonotope:
         """Convex hull of a Zonotope Z and another set or vector S.
         Defined as {lambda*z + (1-lambda)*s | z in Z, s in S, lambda in [0,1]}
 
         Args:
             other (Union[ConvexSet, np.ndarray]): Set or vector.
-            mode (str, optional): Approximation of operation: 'inner', 'exact', 'outer'. Defaults to 'outer'.
+            mode (str, optional): Approximation of operation: 'inner', 'exact', 'outer'. Defaults to 'exact'.
 
         Raises:
             NotImplementedError: Modes 'inner' and 'exact' not supported in the general case.
@@ -351,51 +401,118 @@ class Zonotope(ConvexSet):
         self._checkMode(mode)
 
         if mode in ['exact', 'inner']:
+            # todo: implement special case 'single point - single point'
             raise NotImplementedError
 
         if not isinstance(other, Zonotope):
-            return self.convex_hull(Zonotope(**other.zonotope(mode = mode), validate = False))
+            return self.convex_hull(Zonotope(**other.zonotope(mode = mode), validate = False), mode = mode)
 
         # new center
         center = 0.5 * (self.c + other.c)
 
         # generator from centers
-        generator_center = np.reshape(0.5 * (self.c - other.c), (self.dimension, 1))
-
-        # special cases
-        if self.G is None and other.G is None:
-            # only one resulting generator
-            return Zonotope(c = center, G = generator_center, validate = False)
-        elif self.G is None:
-            return Zonotope(c = center, G = np.hstack((generator_center, other.G)), validate = False)
-        elif other.G is None:
-            return Zonotope(c = center, G = np.hstack((generator_center, self.G)), validate = False)
+        generator_center = 0.5 * (self.c - other.c)
 
         # retrieve number of generators
-        number_generators_self = self.G.shape[1]
-        number_generators_other = other.G.shape[1]
+        number_generators_self = self.number_generators()
+        number_generators_other = other.number_generators()
 
         # new generator matrix
         if number_generators_self >= number_generators_other:
-            generators = np.hstack((generator_center,
-                                    0.5 * (self.G[:, :number_generators_other] + other.G),
-                                    0.5 * (self.G[:, :number_generators_other] - other.G),
-                                    self.G[:, number_generators_other:]))
+            generators = np.vstack((generator_center,
+                                    0.5 * (self.G[:number_generators_other, :] + other.G),
+                                    0.5 * (self.G[:number_generators_other, :] - other.G),
+                                    self.G[number_generators_other:, :]))
         else:
-            generators = np.hstack((generator_center,
-                                    0.5 * (self.G + other.G[:, :number_generators_self]),
-                                    0.5 * (self.G - other.G[:, :number_generators_self]),
-                                    other.G[:, number_generators_self:]))
+            generators = np.vstack((generator_center,
+                                    0.5 * (self.G + other.G[:number_generators_self, :]),
+                                    0.5 * (self.G - other.G[:number_generators_self, :]),
+                                    other.G[number_generators_self:, :]))
 
         return Zonotope(c = center, G = generators, validate = False)
+    
+    # degeneracy
+    def degenerate(self, *, tol: float = 1e-12) -> bool:
+        """Determines if a Zonotope Z is degenerate.
+
+        Returns:
+            bool: Degeneracy of the zonotope.
+            rtol (float, optional): Tolerance. Defaults to 1e-12.
+        """
+        return self.number_generators() == 0 or np.linalg.matrix_rank(self.G, tol = tol) < self.dimension
+    
+    # emptiness
+    def empty(self) -> bool:
+        """Checks if a Zonotope Z is empty.
+
+        Returns:
+            bool: Emptiness.
+        """
+        return False
+
+    # conversion to hpolyhedron
+    def hpolyhedron(self, *, mode: str = 'exact') -> dict:
+        """Conversion of a Zonotope Z to an HPolyhedron HP.
+
+        Args:
+            mode (str, optional): Approximation of conversion: 'inner', 'exact', 'outer'. Defaults to 'exact'.
+
+        Returns:
+            dict: Keyword arguments for instantiation of a HPolyhedron object.
+        """
+        self._checkMode(mode)
+
+        # special instantiation if zonotope is a single point
+        if self.represents('Point'):
+            A, b = halfspace_representation_from_vector(self.center())
+            return {'A': A, 'b': b}
+
+        # conversion requires linearly independent generators
+        Z = self.compact()
+        n_orig = Z.dimension
+
+        if self.degenerate():
+            # shift by center and project onto affine hull
+            (Z, M_proj, c) = Z.project_affine_hull()
+        
+        # pre-allocate constraint matrix and constraint offset
+        n, m = Z.dimension, Z.number_generators()
+        h = comb(m, n-1)
+        A, b = np.zeros((2*h, n)), np.zeros(2*h)
+
+        # we compute the n-dimensional cross product of all combinations of n-1 generators
+        all_combinations = combinations(range(m), r = n-1)
+        for row, combination in enumerate(all_combinations):
+            cross_product = n_dim_cross_product(Z.G[list(combination)].T)
+            A[row] = cross_product / np.linalg.norm(cross_product, ord = 2)
+            A[row+h] = -A[row]
+            delta = np.sum(np.abs(np.matmul(A[row], Z.G.T)))
+            b[row] = np.matmul(A[row], Z.c) + delta
+            b[row+h] = -np.matmul(A[row], Z.c) + delta
+
+        # back-projection
+        if n_orig > n:
+            # additional constraints flattening other dimensions to 0
+            A = np.block([[A, np.zeros((2*h, n_orig-n))],
+                          [np.zeros((n_orig-n, n)), np.eye(n_orig-n)],
+                          [np.zeros((n_orig-n, n)), -np.eye(n_orig-n)]])
+            b = np.hstack((b, np.zeros(2*(n_orig-n))))
+            # map constraint matrix of polytope: M*{x | Ax <= b} = {x | A*M^-1 x <= b}, with M^-1 = M^T in this case
+            A = np.matmul(A, M_proj.T)
+            # incorporate effect of shifted center into constraint offset
+            b += np.matmul(A, c)
+
+        return {'A': A, 'b': b}
 
     # intersection check
-    def intersects(self, other: Union[ConvexSet, np.ndarray]) -> bool:
-        """Checks if a Zonotope Z intersects another set of vector S.
+    def intersects(self, other: Union[ConvexSet, np.ndarray], *, rtol: float = 1e-5, atol: float = 1e-8) -> bool:
+        """Checks if a Zonotope Z intersects another set or vector S.
         Defined as exists s in Z: s in S?
 
         Args:
             other (Union[ConvexSet, np.ndarray]): Set or vector.
+            rtol (float, optional): Relative tolerance. Defaults to 1e-5.
+            atol (float, optional): Absolute tolerance. Defaults to 1e-8.
 
         Returns:
             bool: Result of the intersection check.
@@ -404,29 +521,30 @@ class Zonotope(ConvexSet):
 
         if isinstance(other, np.ndarray):
             return self.contains(other)
+        elif type(other).__name__ in ['VPolytope', 'HPolyhedron']:
+            return other.intersects(self, rtol = rtol, atol = atol)
+        elif type(other).__name__ == 'Interval':
+            other = Zonotope(**other.zonotope(mode = 'exact'))
 
-        elif not isinstance(other, Zonotope):
-            other = Zonotope(**other.zonotope(mode='exact'))
-
-        # cases without generators
-        if self.G is None:
-            return other.contains(self.c)
-        elif other.G is None:
-            return self.contains(other.c)
+        # cases without generators: less intermediate computations
+        if self.number_generators() == 0:
+            return other.contains(self.c, rtol = rtol, atol = atol)
+        elif other.number_generators() == 0:
+            return self.contains(other.c, rtol = rtol, atol = atol)
 
         # use identity: Z1 intersects Z2 iff 0 in Z1 + (-Z2)
-        return (self.minkowski_sum(-other)).contains(np.zeros(self.dimension))
+        return (self.minkowski_sum(-other)).contains(np.zeros(self.dimension), rtol = rtol, atol = atol)
 
     # conversion to interval
-    def interval(self, *, mode: str = 'outer') -> dict:
+    def interval(self, *, mode: str = 'exact') -> dict:
         """Conversion to Interval.
 
         Args:
-            mode (str, optional): Approximation of the conversion: 'inner', 'exact', 'outer'. Defaults to 'outer'.
+            mode (str, optional): Approximation of the conversion: 'inner', 'exact', 'outer'. Defaults to 'exact'.
 
         Raises:
             NotImplementedError: Mode 'inner' only supported if the zonotope represents an interval.
-            NotImplementedError: Mode 'exact' only supported if the zonotope represents an interval.
+            ExactEvaluationImpossibleError: Mode 'exact' only supported if the zonotope represents an interval.
 
         Returns:
             dict: Keyword arguments for instantiation of an Interval object.
@@ -435,7 +553,7 @@ class Zonotope(ConvexSet):
 
         if mode == 'outer':
             # outer approximation
-            radius = np.sum(np.abs(self.G), axis=1) if self.G is not None else np.zeros(self.dimension)
+            radius = np.sum(np.abs(self.G), axis=0)
             lower_bound = self.c - radius
             upper_bound = self.c + radius
         elif mode == 'inner':
@@ -449,8 +567,7 @@ class Zonotope(ConvexSet):
             if self.represents('Interval'):
                 return self.interval(mode = 'outer')
             else:
-                # define error specifying that a given conversion is not possible
-                raise NotImplementedError
+                raise ExactEvaluationImpossibleError
 
         return {'lb': lower_bound, 'ub': upper_bound}
 
@@ -467,24 +584,22 @@ class Zonotope(ConvexSet):
         """
         self._checkMatrix(matrix)
 
-        # linear transformation of center
+        # linear transformation of center and generator matrix
         center = np.dot(matrix, self.c)
-        if self.G is None:
-            return Zonotope(c = center, G = None, validate = False)
-
-        # linear transformation of generator matrix
-        generators = np.matmul(matrix, self.G)
-
+        generators = np.matmul(self.G, matrix.T)
         return Zonotope(c = center, G = generators, validate = False)
 
     # Minkowski sum
-    def minkowski_sum(self, other: Union[ConvexSet, np.ndarray], *, mode: str = 'outer') -> Zonotope:
+    def minkowski_sum(self, other: Union[ConvexSet, np.ndarray], *, mode: str = 'exact') -> Zonotope:
         """Minkowski sum between a Zonotope Z and another set or vector S.
         Defined as {z + s | z in Z, s in S}.
 
         Args:
             other (Union[ConvexSet, np.ndarray]): Set or vector.
-            mode (str, optional): Approximation of the result: 'inner', 'exact', 'outer'. Defaults to 'outer'.
+            mode (str, optional): Approximation of the evaluation: 'inner', 'exact', 'outer'. Defaults to 'exact'.
+
+        Raises:
+            ExactEvaluationImpossibleError: mode == 'exact' only supported in special cases.
 
         Returns:
             Zonotope: Result of the Minkowski sum.
@@ -499,14 +614,7 @@ class Zonotope(ConvexSet):
 
         elif isinstance(other, Zonotope):
             # ...a zonotope (exact computation possible)
-            center = self.c + other.c
-            if self.G is None:
-                generators = other.G
-            elif other.G is None:
-                generators = self.G
-            else:
-                generators = np.hstack((self.G, other.G))
-            return Zonotope(c = center, G = generators, validate = False)
+            return Zonotope(c = self.c + other.c, G = np.vstack((self.G, other.G)), validate = False)
 
         else:
             # ...other ConvexSet object (convert to zonotope and then compute Minkowski sum)
@@ -535,6 +643,15 @@ class Zonotope(ConvexSet):
             return self - other
 
         raise NotImplementedError
+    
+    # number of generators
+    def number_generators(self) -> int:
+        """Returns the number of generators of a Zonotope Z. This is the number of rows in the generator matrix.
+
+        Returns:
+            int: Number of generators.
+        """
+        return self.G.shape[0]
 
     # projection onto subspace
     def project(self, *, axis: tuple) -> Zonotope:
@@ -550,8 +667,30 @@ class Zonotope(ConvexSet):
 
         # convert tuples to lists for indexing
         center = self.c[list(axis)]
-        generators = self.G[list(axis), :] if self.G is not None else None
+        generators = self.G[:, list(axis)] if self.G is not None else None
         return Zonotope(c = center, G = generators, validate = False)
+    
+    # projection onto its own affine hull
+    def project_affine_hull(self) -> tuple:
+        """Projects a zonotope onto its own affine hull.
+        For degenerate zonotopes, the resulting zonotope is of lower dimension, but non-degenerate.
+
+        Returns:
+            tuple: Projected zonotope, projection matrix, center of the new coordinate system in the old coordinate system.
+        """
+        if not self.degenerate():
+            return (self, np.eye(self.dimension), np.zeros(self.dimension))
+
+        # compute basis of the affine hull and project zonotope onto it
+        c = self.c
+        M_proj, r = (self - c).basis_affine_hull()
+        Z_proj = (self - c).matmul(M_proj.T)
+        # remove flat dimensions
+        # todo: check if one can also use center... (not zero everywhere...)
+        non_flat = np.invert(np.all(np.isclose(Z_proj.G, 0.), axis = 0))
+        Z_proj = Z_proj.project(axis = tuple(np.nonzero(non_flat)[0]))
+
+        return (Z_proj, M_proj, c)
 
     # zonotope order reduction (only Girard's method)
     def reduce(self, order: int) -> Zonotope:
@@ -559,7 +698,7 @@ class Zonotope(ConvexSet):
         Zonotope order reduction to an order greater or equal to 1.
 
         Args:
-            order (int): Reduced order.
+            order (int): Reduced zonotope order.
 
         Raises:
             ValueError: order must not be smaller than 1.
@@ -567,63 +706,75 @@ class Zonotope(ConvexSet):
         Returns:
             Zonotope: Zonotope with reduced set representation size.
         """
+        self_generators = self.number_generators()
         # exception handling
         if order < 1:
             raise ValueError('Zonotope:reduce',
                              'Order must be a number greater or equal to 1')
 
         # special cases
-        elif self.G is None:
+        elif self_generators == 0:
             # no generators -> no reduction
-            return Zonotope(c = self.c, G = None, validate = False)
+            return Zonotope(c = self.c, G = self.G, validate = False)
         elif order == 1:
             # corresponds to conversion to interval (unless fewer generators than self.dimension)
-            if self.G.shape[1] <= self.dimension:
+            if self_generators <= self.dimension:
                 return Zonotope(c = self.c, G = self.G, validate = False)
-            return Zonotope(c = self.c, G = np.diag(np.sum(np.abs(self.G), axis=1)), validate = False)
-        elif order * self.dimension >= self.G.shape[1]:
+            return Zonotope(c = self.c, G = np.diag(np.sum(np.abs(self.G), axis=0)), validate = False)
+        elif order * self.dimension >= self_generators:
             # order is too large to cause any reduction
             return Zonotope(c = self.c, G = self.G)
 
         # compute number of remaining generators
         number_remaining_generators = int(np.floor(self.dimension * (order - 1)))
-        number_reduced_generators = int(self.G.shape[1] - number_remaining_generators)
+        number_reduced_generators = int(self_generators - number_remaining_generators)
 
         # compute Girard's metric for all generators
-        girard_metric = np.linalg.norm(self.G, axis=0, ord=1) - np.linalg.norm(self.G, axis=0, ord=np.inf)
+        girard_metric = np.linalg.norm(self.G, axis=1, ord=1) - np.linalg.norm(self.G, axis=1, ord=np.inf)
 
         # indices ascending in value of girard metric
         indices = np.argpartition(girard_metric, number_reduced_generators)
 
         # enclose selected generators by a box
-        reduced_generators = np.diag(np.sum(np.abs(self.G[:, indices[:number_reduced_generators]]), axis=1))
+        reduced_generators = np.diag(np.sum(np.abs(self.G[indices[:number_reduced_generators], :]), axis=0))
 
         return Zonotope(c = self.c,
-                        G = np.hstack((self.G[:, indices[number_reduced_generators:]], reduced_generators)),
+                        G = np.vstack((self.G[indices[number_reduced_generators:], :], reduced_generators)),
                         validate = False)
 
     # representation by other set representation
-    def represents(self, set_class: str) -> bool:
+    def represents(self, set_class: str, *, rtol: float = 1e-5, atol: float = 1e-8) -> bool:
         """Check if a Zonotope Z can also be equivalently represented using another ConvexSet class.
 
         Args:
-            set_class (str): Name of another ConvexSet class.
+            set_class (str): Name of another ConvexSet class or 'Point'.
+            rtol (float, optional): Relative tolerance. Defaults to 1e-5.
+            atol (float, optional): Absolute tolerance. Defaults to 1e-8.
 
         Returns:
             bool: Representation possible.
         """
         self._checkSetClass(set_class)
 
-        if set_class == 'Interval':
-            if self.G is None:
-                # only center
+        if set_class == 'Point':
+            if self.number_generators() == 0:
                 return True
-
-            G_abs = np.abs(self.G)
-            return np.array_equal(np.sum(G_abs, axis=0), np.max(G_abs, axis=0))
-        else:
-            # every zonotope is a zonotope/polytope/constrained zonotope
+            # compute size of box around generators
+            interval_dict = self.interval(mode = 'outer')
+            lower_bound, upper_bound = interval_dict['lb'], interval_dict['ub']
+            return np.allclose(upper_bound - lower_bound, 0., rtol = rtol, atol = atol)
+        
+        if self.dimension == 1:
             return True
+        
+        if set_class == 'Interval':
+            if self.number_generators() == 0:
+                return True
+            G_abs = np.abs(self.G)
+            return np.allclose(np.sum(G_abs, axis=1), np.max(G_abs, axis=1), rtol = rtol, atol = atol)
+        
+        # every zonotope is a zonotope/hpolyhedron/vpolytope
+        return True
 
     # support function evaluation
     def support_function(self, direction: np.ndarray) -> tuple[float, np.ndarray]:
@@ -639,19 +790,19 @@ class Zonotope(ConvexSet):
         """
         self._checkOtherOperand(direction)
 
-        if self.G is None:
+        if self.number_generators() == 0:
             # no generators
             return (np.dot(direction, self.c), self.c)
 
         # auxiliary value: projected generator matrix
-        G_projected = np.dot(direction, self.G)
+        G_projected = np.dot(self.G, direction)
 
         # value of support function
         value = np.dot(direction, self.c) + np.sum(np.abs(G_projected))
 
         # support vector
         factors = np.sign(G_projected)
-        vector = self.c + np.dot(self.G, factors)
+        vector = self.c + np.dot(factors, self.G)
 
         # return value of support function and support vector
         return (value, vector)
@@ -661,27 +812,26 @@ class Zonotope(ConvexSet):
         """Enumeration of all vertices of a Zonotope Z.
 
         Returns:
-            np.ndarray: 2D array containing vertices as columns.
+            np.ndarray: 2D array containing vertices as rows.
         """
         # remove all-zero generators
         Z = self.compact()
 
         # init vertices by center
         V = np.reshape(self.c, (1, self.dimension))
-        if Z.G is None:
-            return V.T
+        if Z.number_generators() == 0:
+            return V
         # add first generator
-        V = np.vstack((self.c + Z.G[:, 0], self.c - Z.G[:, 0]))
+        V = np.vstack((self.c + Z.G[0, :], self.c - Z.G[0, :]))
 
-        # loop over all generators
-        for column in range(1, Z.G.shape[1]):
+        # loop over all remaining generators
+        for row in range(1, Z.number_generators()):
             # add next generator to all vertices
-            V = np.vstack((V + Z.G[:, column], V - Z.G[:, column]))
+            V = np.vstack((V + Z.G[row, :], V - Z.G[row, :]))
             # compute convex hull and extract vertices
             V = V[ConvexHull(V).vertices, :]
 
-        # transpose before returning
-        return V.T
+        return V
 
     # volume computation
     def volume(self) -> float:
@@ -693,17 +843,31 @@ class Zonotope(ConvexSet):
             float: Volume.
         """
         # check degeneracy
-        if np.linalg.matrix_rank(self.G) < self.dimension:
+        if self.degenerate():
             return 0.
 
         # lazy enumeration of all combinations of nxn submatrices
-        all_combinations = combinations(range(self.G.shape[1]), r = self.dimension)
+        all_combinations = combinations(range(self.number_generators()), r = self.dimension)
 
         vol = 0.
         for combination in all_combinations:
-            vol = vol + np.abs(np.linalg.det(self.G[:, combination]))
+            vol = vol + np.abs(np.linalg.det(self.G[combination, :]))
 
         return 2**self.dimension * vol
+
+    # conversion to vpolytope
+    def vpolytope(self, *, mode: str = 'exact') -> dict:
+        """Conversion to VPolytope.
+
+        Args:
+            mode (str, optional): Approximation of the conversion: 'inner', 'exact', 'outer'. Defaults to 'exact'.
+
+        Returns:
+            dict: Keyword arguments for instantiation of a VPolytope object.
+        """
+        self._checkMode(mode)
+
+        return {'V': self.vertices()}
 
     # conversion to zonotope
     def zonotope(self, *, mode: str = 'exact') -> dict:
@@ -734,29 +898,27 @@ class Zonotope(ConvexSet):
         """
         self._checkOtherOperand(other)
 
+        n, m = self.dimension, self.number_generators()
         # special case: no generators
-        if self.G is None:
-            if np.all(np.isclose(other, 0)):
+        if m == 0:
+            if np.allclose(other, 0):
                 return 0.
             else:
                 return np.inf
 
         # ensure that center is close to zero
-        if not np.all(np.isclose(self.c, np.zeros(self.dimension))):
+        if not np.allclose(self.c, np.zeros(n)):
             raise NotImplementedError
 
-        # number of generators
-        number_of_generators = self.G.shape[1]
-
         # objective function
-        c = np.hstack((1, np.zeros(number_of_generators)))
+        c = np.hstack((1., np.zeros(m)))
 
         # constraints
-        A_eq = np.hstack((np.zeros((self.dimension, 1)), self.G))
+        A_eq = np.hstack((np.zeros((n, 1)), self.G.T))
         b_eq = other
-        A_ub = np.vstack((np.hstack((-np.ones((number_of_generators, 1)), np.eye(number_of_generators))),
-                          np.hstack((-np.ones((number_of_generators, 1)), -np.eye(number_of_generators)))))
-        b_ub = np.zeros(2*number_of_generators)
+        A_ub = np.vstack((np.hstack((-np.ones((m, 1)), np.eye(m))),
+                          np.hstack((-np.ones((m, 1)), -np.eye(m)))))
+        b_ub = np.zeros(2*m)
 
         # solve linear program
         res = linprog(c, A_ub, b_ub, A_eq, b_eq, bounds = (None, None))

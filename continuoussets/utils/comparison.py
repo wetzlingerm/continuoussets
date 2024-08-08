@@ -22,10 +22,11 @@ def compare_matrices(M1: np.ndarray, M2: np.ndarray, *, rtol: float = 1e-5, atol
     """
     # note: same default values for relative/absolute tolerance as in np.isclose
 
-    # remove zeros from matrices
-    if remove_zeros:
-        M1 = M1[:, np.any(M1, axis=0)] if M1 is not None else None
-        M2 = M2[:, np.any(M2, axis=0)] if M2 is not None else None
+    # matrices may flatten to 1D, expand again
+    if isinstance(M1, np.ndarray) and M1.ndim == 1:
+        M1 = np.reshape(M1, (1, M1.size))
+    if isinstance(M2, np.ndarray) and M2.ndim == 1:
+        M2 = np.reshape(M2, (1, M2.size))
 
     # either both or none should have no entries
     M1_empty = (M1 is None or M1.shape[1] == 0)
@@ -34,24 +35,31 @@ def compare_matrices(M1: np.ndarray, M2: np.ndarray, *, rtol: float = 1e-5, atol
         return True
     elif M1_empty != M2_empty:
         return False
+    
+    # matrices cannot be None anymore
+
+    # remove zeros from matrices
+    if remove_zeros:
+        M1 = M1[np.any(M1, axis=1), :]
+        M2 = M2[np.any(M2, axis=1), :]
 
     # check number of columns
-    number_of_columns = M1.shape[1]
-    if number_of_columns != M2.shape[1]:
+    number_of_rows = M1.shape[0]
+    if number_of_rows != M2.shape[0]:
         return False
 
     # index for columns in M2 (and M2_neg) that have been matched to a column in M1
-    index_not_matched = np.full(number_of_columns, True)
+    index_not_matched = np.full(number_of_rows, True)
 
     # loop over all columns in M1
-    for M1_i in range(number_of_columns):
+    for M1_i in range(number_of_rows):
         # loop over all columns in M2
-        for M2_j in range(number_of_columns):
+        for M2_j in range(number_of_rows):
             # only check columns that have not been matched
             if index_not_matched[M2_j]:
                 # check for equality between the i-th column in M1 and the j-th column in M2
-                if (np.all(np.isclose(M1[:, M1_i], M2[:, M2_j], rtol=rtol, atol=atol)) or
-                        (check_negation and np.all(np.isclose(M1[:, M1_i], -M2[:, M2_j], rtol=rtol, atol=atol)))):
+                if (np.all(np.isclose(M1[M1_i, :], M2[M2_j, :], rtol=rtol, atol=atol)) or
+                        (check_negation and np.all(np.isclose(M1[M1_i, :], -M2[M2_j, :], rtol=rtol, atol=atol)))):
                     index_not_matched[M2_j] = False
                     break
         else:  # else-clause in for-else: loop terminated without break
@@ -75,28 +83,28 @@ def find_aligned_generators(M: np.ndarray, *, rtol: float = 1e-12) -> tuple[tupl
     if M is None:
         return ()
 
-    # normalize all columns
-    number_of_columns = M.shape[1]
-    M = M / np.linalg.norm(M, axis=0, ord=2)
+    # normalize all rows
+    number_of_rows = M.shape[0]
+    M = M / np.reshape(np.linalg.norm(M, axis=1, ord=2), (number_of_rows, 1))
     # init zero vector for comparison
-    zero_vector = np.zeros(M.shape[0])
+    zero_vector = np.zeros(M.shape[1])
 
     # index for already matched columns
-    index_not_matched = np.full(number_of_columns, True)
+    index_not_matched = np.full(number_of_rows, True)
     # init list of indices as list
     list_of_indices = []
 
     # loop over all columns
-    for M_i in range(number_of_columns):
+    for M_i in range(number_of_rows):
         # init list for aligned columns
         start_new_sublist = True
         # loop over all columns
-        for M_j in range(number_of_columns):
+        for M_j in range(number_of_rows):
             # only check columns that have not been matched, avoid same indices
             if index_not_matched[M_j] and M_i != M_j:
                 # columns must be parallel or anti parallel
-                if (np.all(np.isclose(M[:, M_i], M[:, M_j], rtol=rtol)) or
-                        np.all(np.isclose(M[:, M_i] + M[:, M_j], zero_vector, rtol=rtol))):
+                if (np.all(np.isclose(M[M_i, :], M[M_j, :], rtol=rtol)) or
+                        np.all(np.isclose(M[M_i, :] + M[M_j, :], zero_vector, rtol=rtol))):
                     # start a new sublist
                     if start_new_sublist:
                         index_not_matched[M_i] = False

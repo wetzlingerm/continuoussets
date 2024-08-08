@@ -4,6 +4,8 @@ import matplotlib.pyplot as plt
 from continuoussets.utils import comparison, exceptions
 from continuoussets.convexsets.zonotope import Zonotope
 from continuoussets.convexsets.interval import Interval
+from continuoussets.convexsets.vpolytope import VPolytope
+from continuoussets.convexsets.hpolyhedron import HPolyhedron
 
 
 class TestInterval(unittest.TestCase):
@@ -156,13 +158,16 @@ class TestInterval(unittest.TestCase):
     def test_add(self):
         ''' Test for Minkowski sum '''
         # cases:
-        # interval x vector
-        # interval (single point) x vector
-        # interval (single point) x interval
-        # interval x interval
-        # interval x int
-        # interval x float
-        # interval x list
+        # interval + vector
+        # interval (single point) + vector
+        # interval (single point) + interval
+        # interval + interval
+        # interval + int
+        # interval + float
+        # interval + list
+        # interval + zonotope (error)
+        # interval + vpolytope (error)
+        # interval + hpolyhedron (error)
 
         # init intervals
         lower1 = np.array([-2., 1., 0.])
@@ -176,6 +181,10 @@ class TestInterval(unittest.TestCase):
         scalar_int = 2
         scalar_float = -2.
         vector_list = [1., -2., 0.]
+        Z = Zonotope(c = np.array([1., 0., -1.]), G = np.array([[1., 0., 0.], [-1., 1., 1.]]))
+        VP = VPolytope(V = np.array([[1., 0., -1.], [0., 1., 1.], [-1., -1., 0.]]))
+        HP = HPolyhedron(A = np.array([[1., 0., 0.], [0., 1., 0.], [0., 0., 1.], [-1., -1., -1.]]),
+                         b = np.array([1., 1., 1., 1.]))
 
         # Minkowski sum
         result1 = I1 + vector
@@ -210,13 +219,20 @@ class TestInterval(unittest.TestCase):
         assert result8 == true_result8
         assert result9 == true_result9
 
+        with self.assertRaises(TypeError):
+            I1 + Z
+        with self.assertRaises(TypeError):
+            I1 + VP
+        with self.assertRaises(TypeError):
+            I1 + HP
+
     def test_radd(self):
         ''' Test for Minkowski sum '''
         # cases:
-        # - scalar int x interval
-        # - scalar float x interval
-        # - list x interval
-        # - np.ndarray x interval
+        # - scalar int + interval
+        # - scalar float + interval
+        # - list + interval
+        # - np.ndarray + interval
 
         # init intervals
         lower = np.array([-2., 1., 0.])
@@ -255,6 +271,8 @@ class TestInterval(unittest.TestCase):
         # single-point interval x np.ndarray (True)
         # intervals of different dimension
         # interval x zonotope
+        # interval x vpolytope
+        # interval x hpolyhedron
 
         # init intervals
         lower = np.array([-2., -1.])
@@ -266,15 +284,30 @@ class TestInterval(unittest.TestCase):
         lower_3D = np.array([-2., -1., 0.])
         upper_3D = np.array([3., 4., 0.])
         I4 = Interval(lb = lower_3D, ub = upper_3D)
-        Z = Zonotope(c = np.array([0.5, 1.5]), G = np.array([[2.5, 0.],[0., 2.5]]))
-
+        Z1 = Zonotope(c = np.array([0.5, 1.5]), G = np.array([[2.5, 0.],[0., 2.5]]))
+        Z2 = Zonotope(c = np.array([0.5, 1.5]), G = np.array([[2.5, 0.],[0., 3.0]]))
+        VP1 = VPolytope(V = np.array([[-2., -1.], [-2., 4.], [3., -1.], [3., 4.]]))
+        VP2 = VPolytope(V = np.array([[-2., -1.], [-2., 4.], [3., -1.], [3., 4.01]]))
+        HP1 = HPolyhedron(A = np.array([[1., 0.], [0., 1.], [-1., 0.], [0., -1.]]),
+                          b = np.array([3., 4., 2., 1.]))
+        HP2 = HPolyhedron(A = np.array([[1., 0.], [0., 1.], [-1., 0.], [0., -1.]]),
+                          b = np.array([1., 1., 1., 1.01]))
+        
         assert I1 == I1
+        assert I1.__eq__(I1, rtol = 0., atol = 0.)
         assert not I1 == I2
         assert not I1 == lower
         assert not I3 == (lower + np.array([1., 0.]))
         assert I3 == lower
         assert not I1 == I4
-        assert I1 == Z
+        assert I1 == Z1
+        assert not I1 == Z2
+        assert I1 == VP1
+        assert not I1 == VP2
+        assert I1.__eq__(VP2, rtol = 0.1)
+        assert I1 == HP1
+        assert not I1 == HP2
+        assert I1.__eq__(HP1, rtol = 0.1)
 
     def test_mul(self):
         ''' Test for elementwise multiplication '''
@@ -742,6 +775,22 @@ class TestInterval(unittest.TestCase):
         # check results
         assert result1 == true_result1
 
+    def test_basis_affine_hull(self):
+        ''' Test for computation of the basis of the affine hull '''
+        # cases:
+        # - non-degenerate
+        # - degenerate
+        I1 = Interval(lb = np.array([-2., 0., 1., 2.]), ub = np.array([1., 1., 4., 5.]))
+        I2 = Interval(lb = np.array([-2., 0., 1., 2.]), ub = np.array([1., 0., 4., 2.]))
+
+        result1, r1 = I1.basis_affine_hull()
+        result2, r2 = I2.basis_affine_hull()
+
+        assert np.allclose(result1, np.eye(4))
+        assert r1 == 4
+        assert np.allclose(result2, np.array([[1., 0., 0., 0.], [0., 0., 1., 0.], [0., 1., 0., 0.], [0., 0., 0., 1.]]))
+        assert r2 == 2
+
     def test_boundary_point(self):
         ''' Test for computation of boundary points '''
         # cases:
@@ -795,26 +844,51 @@ class TestInterval(unittest.TestCase):
             I = Interval(lb = np.array([-1., 0.]), ub = np.array([1., 0.]))
             I.boundary_point(np.array([1., 0.]))
 
+    def test_bounded(self):
+        ''' Test for boundedness check '''
+        # cases:
+        # - degenerate
+        # - non-degenerate
+        I1 = Interval(lb = np.array([-2., 0.]), ub = np.array([1., 0.]))
+        I2 = Interval(lb = np.array([-2., 0.]), ub = np.array([1., 3.]))
+
+        assert I1.bounded()
+        assert I2.bounded()
+
     def test_cartesian_product(self):
         ''' Test for Cartesian product '''
         # cases:
         # - interval x interval
         # - interval x np.ndarray
         # - interval x zonotope
+        # - interval x vpolytope
+        # - interval x hpolyhedron
 
         # init intervals
         lower = np.array([-2., -1.])
         upper = np.array([3., 4.])
         I1 = Interval(lb = lower, ub = upper)
         # init zonotope
-        center = np.array([1., 0.])
-        generators = np.array([[-1., 0.],[0., 2.]])
-        Z = Zonotope(c = center, G = generators)
+        Z1 = Zonotope(c = np.array([1., 0.]), G = np.array([[-1., 0.],[0., 2.]]))
+        Z2 = Zonotope(c = np.array([1., 0.]), G = np.array([[-1., 0.],[1., 2.]]))
+        # init vpolytopes
+        VP1 = VPolytope(V = np.array([[1.], [2.]]))
+        VP2 = VPolytope(V = np.array([[1., 0.], [1., 1.], [0., 1.], [0., 0.]]))
+        VP3 = VPolytope(V = np.array([[0., 1.], [1., 0.]]))
+        # init hpolyhedron
+        HP1 = HPolyhedron(A = np.array([[1.], [-1.]]), b = np.array([4., -2.]))
+        HP2 = HPolyhedron(A = np.array([[1., 0.], [-1., 1.], [-1., -1.]]),
+                          b = np.array([1., 1., 1.]))
 
         # compute Cartesian product
         result1 = I1.cartesian_product(I1)
         result2 = I1.cartesian_product(lower)
-        result3 = I1.cartesian_product(Z)
+        result3 = I1.cartesian_product(Z1)
+        result4 = I1.cartesian_product(Z2, mode = 'outer')
+        result5 = I1.cartesian_product(VP1)
+        result6 = I1.cartesian_product(VP2)
+        result7 = I1.cartesian_product(HP1)
+        result8 = I1.cartesian_product(HP2, mode = 'outer')
 
         # manual computation
         true_result1 = Interval(lb = np.hstack((lower, lower)),\
@@ -823,16 +897,35 @@ class TestInterval(unittest.TestCase):
                                 ub = np.hstack((upper, lower)))
         true_result3 = Interval(lb = np.hstack((lower, np.array([0., -2.]))),\
                                 ub = np.hstack((upper, np.array([2., 2.]))))
+        true_result4 = Interval(lb = np.hstack((lower, np.array([-1., -2.]))),\
+                                ub = np.hstack((upper, np.array([3., 2.]))))
+        true_result5 = Interval(lb = np.hstack((lower, np.array([1.]))),\
+                                ub = np.hstack((upper, np.array([2.]))))
+        true_result6 = Interval(lb = np.hstack((lower, np.array([0., 0.]))),\
+                                ub = np.hstack((upper, np.array([1., 1.]))))
+        true_result7 = Interval(lb = np.hstack((lower, np.array([2.]))),\
+                                ub = np.hstack((upper, np.array([4.]))))
+        true_result8 = Interval(lb = np.hstack((lower, np.array([-1., -2.]))),\
+                                ub = np.hstack((upper, np.array([1., 2.]))))
         
         assert result1 == true_result1
         assert result2 == true_result2
         assert result3 == true_result3
+        assert result4 == true_result4
+        assert result5 == true_result5
+        assert result6 == true_result6
+        assert result7 == true_result7
+        assert result8 == true_result8
 
-        with self.assertRaises(NotImplementedError):
-            # 'exact' not supported for Interval x Zonotope
-            I = Interval(lb = np.array([-1., 0.]), ub = np.array([1., 0.]))
-            Z = Zonotope(c = np.array([1., 0.]), G = np.array([[1., 0., -1., 2.],[-2., 1., 1., 0.]]))
-            I.cartesian_product(Z, mode = 'exact')
+        with self.assertRaises(exceptions.ExactEvaluationImpossibleError):
+            # 'exact' not supported in general for Interval x Zonotope
+            I1.cartesian_product(Z2)
+        with self.assertRaises(exceptions.ExactEvaluationImpossibleError):
+            # 'exact' not supported in general for Interval x VPolytope
+            I1.cartesian_product(VP3)
+        with self.assertRaises(exceptions.ExactEvaluationImpossibleError):
+            # 'exact' not supported in general for Interval x HPolyhedron
+            I1.cartesian_product(HP2)
 
     def test_center(self):
         ''' Test for computation of center '''
@@ -886,17 +979,21 @@ class TestInterval(unittest.TestCase):
     def test_contains(self):
         ''' Test for containment check '''
         # cases:
-        # - interval contains itself
-        # - interval contains another interval (True)
-        # - interval contains another interval (False, intersecting)
-        # - interval contains another interval (False, non-intersecting)
-        # - interval contains np.ndarray (inside)
-        # - interval contains np.ndarray (on boundary)
-        # - interval contains np.ndarray (outside)
-        # - interval contains zonotope only center (True)
-        # - interval contains zonotope only center (False)
-        # - interval contains zonotope (True)
-        # - interval contains zonotope (False)
+        # - interval x itself
+        # - interval x another interval (True)
+        # - interval x another interval (False, intersecting)
+        # - interval x another interval (False, non-intersecting)
+        # - interval x np.ndarray (inside)
+        # - interval x np.ndarray (on boundary)
+        # - interval x np.ndarray (outside)
+        # - interval x zonotope only center (True)
+        # - interval x zonotope only center (False)
+        # - interval x zonotope (True)
+        # - interval x zonotope (False)
+        # - interval x vpolytope (True)
+        # - interval x vpolytope (False)
+        # - interval x hpolyhedron (True)
+        # - interval x hpolyhedron (False)
 
         # init intervals
         lower = np.array([-2., -1.])
@@ -917,6 +1014,13 @@ class TestInterval(unittest.TestCase):
         Z2 = Zonotope(c = center1, G = generators)
         Z3 = Zonotope(c = center2)
         Z4 = Zonotope(c = center2, G = generators)
+        # init vpolytopes
+        VP1 = VPolytope(V = np.array([[-1., 0.], [2., 1.], [0., 3.]]))
+        VP2 = VPolytope(V = np.array([[-1., -2.], [1., 1.], [-2., 3.]]))
+        # init hpolyhedra
+        HP1 = HPolyhedron(A = np.array([[1., 0.], [-1., 1.], [-1., -1.]]),
+                          b = np.array([1., 2., 0.]))
+        HP2 = HPolyhedron(A = np.array([[1., 0.]]), b = np.array([1.]))
 
         # check containment
         assert I1.contains(I1)
@@ -930,6 +1034,10 @@ class TestInterval(unittest.TestCase):
         assert I1.contains(Z2)
         assert not I1.contains(Z3)
         assert not I1.contains(Z4)
+        assert I1.contains(VP1)
+        assert not I1.contains(VP2)
+        assert I1.contains(HP1)
+        assert not I1.contains(HP2)
 
     def test_convex_hull(self):
         ''' Test for convex hull '''
@@ -940,6 +1048,8 @@ class TestInterval(unittest.TestCase):
         # - interval x np.ndarray (outside)
         # - interval x interval (non-intersecting)
         # - interval x zonotope (mode = outer)
+        # - interval x vpolytope
+        # - interval x hpolyhedron
 
         # init intervals
         lower = np.array([-2., -1.])
@@ -950,17 +1060,27 @@ class TestInterval(unittest.TestCase):
         upper2 = np.array([11., 15.])
         I2 = Interval(lb = lower2, ub = upper2)
         # init zonotope
-        center = np.array([6., 8.])
-        generators = np.array([[1., -1.],[-1., 0.]])
-        Z = Zonotope(c = center, G = generators)
+        Z = Zonotope(c = np.array([6., 8.]), G = np.array([[1., -1.],[-1., 0.]]))
+        # init vpolytope
+        VP1 = VPolytope(V = np.array([[-1., 2.], [1., 0.], [1., 4.]]))
+        VP2 = VPolytope(V = np.array([[-1., 0.], [1., -2.], [1., 2.]]))
+        # init hpolyhedron
+        HP1 = HPolyhedron(A = np.array([[1., 0.], [-1., 1.], [-1., -1.]]),
+                          b = np.array([1., 3., -1.]))
+        HP2 = HPolyhedron(A = np.array([[1., 0.], [-1., 1.], [-1., -1.]]),
+                          b = np.array([1., 1., 1.]))
 
         # compute convex hull
         result1 = I1.convex_hull(I1)
         result2 = I1.convex_hull(I1.center())
         result3 = I1.convex_hull(lower)
-        result4 = I1.convex_hull(lower + v)
-        result5 = I1.convex_hull(I2)
-        result6 = I1.convex_hull(Z)
+        result4 = I1.convex_hull(lower + v, mode = 'outer')
+        result5 = I1.convex_hull(I2, mode = 'outer')
+        result6 = I1.convex_hull(Z, mode = 'outer')
+        result7 = I1.convex_hull(VP1)
+        result8 = I1.convex_hull(VP2, mode = 'outer')
+        result9 = I1.convex_hull(HP1)
+        result10 = I1.convex_hull(HP2, mode = 'outer')
 
         # manual computation
         true_result1 = I1
@@ -969,6 +1089,10 @@ class TestInterval(unittest.TestCase):
         true_result4 = Interval(lb = lower + v, ub = upper)
         true_result5 = Interval(lb = lower, ub = upper2)
         true_result6 = Interval(lb = lower, ub = np.array([8., 9.]))
+        true_result7 = I1
+        true_result8 = Interval(lb = np.array([-2., -2.]), ub = np.array([3., 4.]))
+        true_result9 = I1
+        true_result10 = true_result8
 
         # check results
         assert result1 == true_result1
@@ -977,12 +1101,29 @@ class TestInterval(unittest.TestCase):
         assert result4 == true_result4
         assert result5 == true_result5
         assert result6 == true_result6
+        assert result7 == true_result7
+        assert result8 == true_result8
+        assert result9 == true_result9
+        assert result10 == true_result10
 
+        with self.assertRaises(exceptions.ExactEvaluationImpossibleError):
+            # exact convex hull with a point outside the interval
+            I1.convex_hull(lower + v)
+        with self.assertRaises(exceptions.ExactEvaluationImpossibleError):
+            # exact convex hull of two intervals where one is not contained in the other
+            I1.convex_hull(I2)
         with self.assertRaises(NotImplementedError):
-            # exact convex hull generally not an Interval
-            I1 = Interval(lb = np.array([-1., 0.]), ub = np.array([1., 0.]))
-            I2 = Interval(lb = np.array([3., -4.]), ub = np.array([4., -4.]))
-            I1.convex_hull(I2, mode='exact')
+            # inner convex hull of two intervals not supported
+            I1.convex_hull(I2, mode = 'inner')
+        with self.assertRaises(exceptions.ExactEvaluationImpossibleError):
+            # exact convex hull with a zonotope that is not contained in the interval
+            I1.convex_hull(Z)
+        with self.assertRaises(exceptions.ExactEvaluationImpossibleError):
+            # exact convex hull with a vpolytope that is not contained in the interval
+            I1.convex_hull(VP2)
+        with self.assertRaises(exceptions.ExactEvaluationImpossibleError):
+            # exact convex hull with a hpolyhedron that is not contained in the interval
+            I1.convex_hull(HP2)
 
     def test_cos(self):
         ''' Test for cosine '''
@@ -1016,6 +1157,17 @@ class TestInterval(unittest.TestCase):
         # check result
         assert result1 == true_result1
         assert result2 == true_result2
+
+    def test_degenerate(self):
+        ''' Test for degeneracy check '''
+        # cases:
+        # - degenerate
+        # - non-degenerate
+        I1 = Interval(lb = np.array([-2., 0.]), ub = np.array([1., 0.]))
+        I2 = Interval(lb = np.array([-2., 0.]), ub = np.array([1., 3.]))
+
+        assert I1.degenerate()
+        assert not I2.degenerate()
 
     def test_diameter(self):
         ''' Test for computation of diameter '''
@@ -1077,6 +1229,42 @@ class TestInterval(unittest.TestCase):
         assert result2 == true_result2
         assert result3 == true_result3
 
+    def test_empty(self):
+        ''' Test for emptiness check '''
+        # cases:
+        # - degenerate
+        # - non-degenerate
+        I1 = Interval(lb = np.array([-2., 0.]), ub = np.array([1., 0.]))
+        I2 = Interval(lb = np.array([-2., 0.]), ub = np.array([1., 3.]))
+
+        assert not I1.empty()
+        assert not I2.empty()
+
+    def test_hpolyhedron(self):
+        ''' Test for conversion to HPolyhedron '''
+        # cases:
+        # - degenerate
+        # - non-degenerate
+        # - 1D
+        I1 = Interval(lb = np.array([-1., 0.]), ub = np.array([-1., 2.]))
+        I2 = Interval(lb = np.array([-1., 0.]), ub = np.array([3., 2.]))
+        I3 = Interval(lb = np.array([1.]), ub = np.array([4.]))
+
+        HP1 = HPolyhedron(**I1.hpolyhedron())
+        HP2 = HPolyhedron(**I2.hpolyhedron())
+        HP3 = HPolyhedron(**I3.hpolyhedron())
+
+        true_result1 = HPolyhedron(A = np.array([[1., 0.], [0., 1.], [-1., 0.], [0., -1.]]),
+                                   b = np.array([-1., 2., 1., 0.]))
+        true_result2 = HPolyhedron(A = np.array([[1., 0.], [0., 1.], [-1., 0.], [0., -1.]]),
+                                   b = np.array([3., 2., 1., 0.]))
+        true_result3 = HPolyhedron(A = np.array([[1.], [-1.]]),
+                                   b = np.array([4., -1.]))
+        
+        assert HP1 == true_result1
+        assert HP2 == true_result2
+        assert HP3 == true_result3
+
     def test_intersects(self):
         ''' Test for intersection check '''
         # cases:
@@ -1088,6 +1276,8 @@ class TestInterval(unittest.TestCase):
         # - interval x interval (intersects from above)
         # - interval x interval (above)
         # - interval x zonotope
+        # - interval x vpolytope
+        # - interval x hpolyhedron
 
         # init intervals
         lower = np.array([-3., 0., 1.])
@@ -1109,8 +1299,19 @@ class TestInterval(unittest.TestCase):
         lower_above = np.array([-0.5, 4., -2.])
         upper_above = np.array([2., 4., -2.])
         I_above = Interval(lb = lower_above, ub = upper_above)
-        Z = Zonotope(c = np.array([-2., 0., 1.]))
 
+        # init zonotopes
+        Z1 = Zonotope(c = np.array([-2., 0., 1.]))
+        Z2 = Zonotope(c = np.array([-4., 0., 1.]), G = np.array([[0., 1., 1.], [0., -1., 2.]]))
+        # init vpolytopes
+        VP1 = VPolytope(V = np.array([[-2., 0., 1.], [3., 1., 2.]]))
+        VP2 = VPolytope(V = np.array([[-4., 0., 2.], [-5., 2., 0.], [-4., -2., -2.], [-4., 0., 4.]]))
+        # init hpolyhedra
+        HP1 = HPolyhedron(A = np.array([[1., 0., 0.], [0., 1., 0.], [0., 0., 1.], [-1., -1., -1.]]),
+                          b = np.array([1., 1., 1., 1.]))
+        HP2 = HPolyhedron(A = np.array([[1., 0., 0.], [0., 1., 0.], [0., 0., 1.], [-1., -1., -1.]]),
+                          b = np.array([5., 1., 1., -3.]))
+        
         # check intersection
         assert I.intersects(vector)
         assert not I.intersects(vector_outside)
@@ -1120,7 +1321,13 @@ class TestInterval(unittest.TestCase):
         assert I.intersects(I_contained)
         assert I.intersects(I_intersects_above)
         assert not I.intersects(I_above)
-        assert I.intersects(Z)
+        
+        assert I.intersects(Z1)
+        assert not I.intersects(Z2)
+        assert I.intersects(VP1)
+        assert not I.intersects(VP2)
+        assert I.intersects(HP1)
+        assert not I.intersects(HP2)
 
     def test_interval(self):
         ''' Test for conversion to interval '''
@@ -1207,8 +1414,10 @@ class TestInterval(unittest.TestCase):
         # - interval x vector
         # - interval x interval
         # - interval x zonotope
+        # - interval x vpolytope
+        # - interval x hpolyhedron
 
-        # init interval
+        # init intervals
         lower1 = np.array([-2., 3., 0.])
         upper1 = np.array([4., 9., 2.])
         I1 = Interval(lb = lower1, ub = upper1)
@@ -1216,14 +1425,24 @@ class TestInterval(unittest.TestCase):
         lower2 = np.array([-2., 1., 0.])
         upper2 = np.array([1., 5., 1.])
         I2 = Interval(lb = lower2, ub = upper2)
+        # init zonotope
         center = np.array([1., 0., 2.])
-        generators = np.array([[1., -2., 0.],[0., 1., 1.],[0., 0., 1.]])
+        generators = np.array([[1., 0., 0.], [-2., 1., 0.], [0., 1., 1.]])
         Z = Zonotope(c = center, G = generators)
+        # init vpolytope
+        VP = VPolytope(V = np.array([[-3., 1., 1.], [1., -3., 1.], [1., 1., -3.], [1., 1., 1.]]))
+        # init hpolyhedron
+        HP1 = HPolyhedron(A = np.array([[1., 0., 0.], [0., 1., 0.], [0., 0., 1.], [-1., -1., -1.]]),
+                         b = np.array([1., 1., 1., 1.]))
+        HP2 = HPolyhedron(A = np.array([1., 0., 0.]), b = np.array([1.]))
+
 
         # Minkowski sum
         result1 = I1.minkowski_sum(vector)
         result2 = I1.minkowski_sum(I2)
-        result3 = I1.minkowski_sum(Z)
+        result3 = I1.minkowski_sum(Z, mode = 'outer')
+        result4 = I1.minkowski_sum(VP, mode = 'outer')
+        result5 = I1.minkowski_sum(HP1, mode = 'outer')
 
         # manual computation
         true_result1 = Interval(lb = np.array([-1., 1., 4.]),\
@@ -1232,18 +1451,34 @@ class TestInterval(unittest.TestCase):
                                 ub = np.array([5., 14., 3.]))
         true_result3 = Interval(lb = np.array([-4., 1., 1.]),\
                                 ub = np.array([8., 11., 5.]))
+        true_result4 = Interval(lb = np.array([-5., 0., -3.]),\
+                                ub = np.array([5., 10., 3.]))
+        true_result5 = true_result4
 
         # check results
         assert result1 == true_result1
         assert result2 == true_result2
         assert result3 == true_result3
+        assert result4 == true_result4
+        assert result5 == true_result5
+
+        with self.assertRaises(exceptions.ExactEvaluationImpossibleError):
+            I1.minkowski_sum(Z)
+        with self.assertRaises(exceptions.ExactEvaluationImpossibleError):
+            I1.minkowski_sum(VP)
+        with self.assertRaises(exceptions.ExactEvaluationImpossibleError):
+            I1.minkowski_sum(HP1)
+        with self.assertRaises(exceptions.UnboundedSetError):
+            I1.minkowski_sum(HP2, mode = 'outer')
 
     def test_minkowski_difference(self):
         ''' Test for Minkowski difference '''
         # cases:
-        # - interval x vector
-        # - interval x interval
-        # - interval x zonotope
+        # - interval - vector
+        # - interval - interval
+        # - interval - zonotope
+        # todo interval - vpolytope
+        # todo interval - hpolyhedron
 
         # init interval
         lower1 = np.array([-2., 3., 0.])
@@ -1253,14 +1488,25 @@ class TestInterval(unittest.TestCase):
         lower2 = np.array([-2., 1., 0.])
         upper2 = np.array([1., 5., 1.])
         I2 = Interval(lb = lower2, ub = upper2)
+        # init zonotope
         center = np.array([1., 0., 2.])
-        generators = np.array([[1., -2., 0.],[0., 1., 1.],[0., 0., 1.]])
+        generators = np.array([[1., 0., 0.], [-2., 1., 0.], [0., 1., 1.]])
         Z = Zonotope(c = center, G = generators)
+        # init vpolytope
+        VP1 = VPolytope(V = np.array([[-0.3, 0.1, 0.1], [0.1, -0.3, 0.1], [0.1, 0.1, -0.3], [0.1, 0.1, 0.1]]))
+        VP2 = VPolytope(V = np.array([[-3., 1., 1.], [1., -3., 1.], [1., 1., -3.], [1., 1., 1.]]))
+        # init hpolyhedron
+        HP1 = HPolyhedron(A = np.array([[1., 0., 0.], [0., 1., 0.], [0., 0., 1.], [-1., -1., -1.]]),
+                          b = np.array([0.1, 0.1, 0.1, 0.1]))
+        HP2 = HPolyhedron(A = np.array([[1., 0., 0.], [0., 1., 0.], [0., 0., 1.], [-1., -1., -1.]]),
+                          b = np.array([1., 1., 1., 1.]))
 
         # Minkowski difference
         result1 = I1.minkowski_difference(vector)
         result2 = I1.minkowski_difference(I2)
         result3 = I1.minkowski_difference(Z)
+        result4 = I1.minkowski_difference(VP1)
+        result5 = I1.minkowski_difference(HP1)
 
         # manual computation
         true_result1 = Interval(lb = np.array([-3., 5., -4.]),\
@@ -1269,24 +1515,32 @@ class TestInterval(unittest.TestCase):
                                 ub = np.array([3., 4., 1.]))
         true_result3 = Interval(lb = np.array([0., 5., -1.]),\
                                 ub = np.array([0., 7., -1.]))
-
+        true_result4 = Interval(lb = np.array([-1.7, 3.3, 0.3]),\
+                                ub = np.array([3.9, 8.9, 1.9]))
+        true_result5 = true_result4
+        
         # check results
         assert result1 == true_result1
         assert result2 == true_result2
         assert result3 == true_result3
+        assert result4 == true_result4
+        assert result5 == true_result5
 
+        # subtrahend too large -> empty set
         with self.assertRaises(exceptions.EmptySetError):
-            # subtrahend too large -> empty set
-            I1 = Interval(lb = np.array([-1., 0.]), ub = np.array([1., 0.]))
-            I2 = Interval(lb = np.array([3., -4.]), ub = np.array([4., -2.]))
+            I2 = I1.matmul(2*np.eye(I1.dimension))
             I1.minkowski_difference(I2)
+        with self.assertRaises(exceptions.EmptySetError):
+            I1.minkowski_difference(VP2)
+        with self.assertRaises(exceptions.EmptySetError):
+            I1.minkowski_difference(HP2)
 
     def test_matmul(self):
         ''' Test for linear map '''
         # cases:
         # - interval x 0
         # - interval x identity
-        # - interval x 
+        # - interval x projection matrix
 
         # init interval
         lower = np.array([-4., -1., -1., 0., 4.])
@@ -1371,6 +1625,24 @@ class TestInterval(unittest.TestCase):
         assert result2 == true_result2
         assert result3 == true_result3
 
+    def test_project_affine_hull(self):
+        ''' Test for projection onto the basis of the affine hull '''
+        # cases:
+        # - non-degenerate
+        # - degenerate
+        I1 = Interval(lb = np.array([-2., 0., 1., 2.]), ub = np.array([1., 1., 4., 5.]))
+        I2 = Interval(lb = np.array([-2., 0., 1., 2.]), ub = np.array([1., 0., 4., 2.]))
+
+        result1, _, c1 = I1.project_affine_hull()
+        result2, _, c2 = I2.project_affine_hull()
+        
+        true_result2 = Interval(lb = np.array([-2., 1.]), ub = np.array([1., 4.]))
+
+        assert result1 == I1
+        assert np.array_equal(c1, np.zeros(I1.dimension))
+        assert result2 == true_result2
+        assert np.array_equal(c2, np.array([0., 0., 0., 2.]))
+
     def test_reduce(self):
         ''' Test for representation size reduction '''
         # cases:
@@ -1407,7 +1679,11 @@ class TestInterval(unittest.TestCase):
         assert I1.represents('Interval')
         assert I1.represents('Zonotope')
         assert I2.represents('Zonotope')
+        assert not I2.represents('Point')
         assert I3.represents('Zonotope')
+        assert I3.represents('VPolytope')
+        assert I3.represents('HPolyhedron')
+        assert I3.represents('Point')
 
     def test_sin(self):
         ''' Test for sine '''
@@ -1588,9 +1864,9 @@ class TestInterval(unittest.TestCase):
         result3 = I3.vertices()
 
         # manual computation
-        true_result1 = np.array([[-2., -2., 3., 3.],[-1., 4., -1., 4.]])
-        true_result2 = np.array([[-2., -2.],[-1., 4.]])
-        true_result3 = lower.reshape(2, 1)
+        true_result1 = np.array([[-2., -1.], [-2., 4.], [3., -1.], [3., 4.]])
+        true_result2 = np.array([[-2., -1.],[-2., 4.]])
+        true_result3 = lower
 
         # check result
         assert comparison.compare_matrices(result1, true_result1)
@@ -1627,12 +1903,13 @@ class TestInterval(unittest.TestCase):
         assert result2 == true_result2
         assert result3 == true_result3
 
-    def test_zonotope(self):
-        ''' Test for conversion from interval to zonotope '''
+    def test_vpolytope(self):
+        ''' Test for conversion to vpolytope '''
         # cases:
         # - full-dimensional interval
         # - degenerate interval
         # - single point
+        # - 1D
 
         # init intervals
         lower = np.array([-2., -1.])
@@ -1641,21 +1918,60 @@ class TestInterval(unittest.TestCase):
         I1 = Interval(lb = lower, ub = upper)
         I2 = Interval(lb = lower, ub = upper_degenerate)
         I3 = Interval(lb = lower)
+        I4 = Interval(lb = np.array([1.]), ub = np.array([4.]))
+
+        # compute vertices
+        result1 = VPolytope(**I1.vpolytope())
+        result2 = VPolytope(**I2.vpolytope())
+        result3 = VPolytope(**I3.vpolytope())
+        result4 = VPolytope(**I4.vpolytope())
+
+        # manual computation
+        true_result1 = VPolytope(V = np.array([[-2., -1.], [-2., 4.], [3., -1.], [3., 4.]]))
+        true_result2 = VPolytope(V = np.array([[-2., -1.],[-2., 4.]]))
+        true_result3 = VPolytope(V = lower)
+        true_result4 = VPolytope(V = np.array([[1.], [4.]]))
+
+        # check result
+        assert result1 == true_result1
+        assert result2 == true_result2
+        assert result3 == true_result3
+        assert result4 == true_result4
+
+    def test_zonotope(self):
+        ''' Test for conversion from interval to zonotope '''
+        # cases:
+        # - full-dimensional interval
+        # - degenerate interval
+        # - single point
+        # - 1D
+
+        # init intervals
+        lower = np.array([-2., -1.])
+        upper = np.array([3., 4.])
+        upper_degenerate = np.array([-2., 4.])
+        I1 = Interval(lb = lower, ub = upper)
+        I2 = Interval(lb = lower, ub = upper_degenerate)
+        I3 = Interval(lb = lower)
+        I4 = Interval(lb = np.array([1.]), ub = np.array([4.]))
 
         # convert to zonotope (dictionary for constructor)
         result1 = Zonotope(**I1.zonotope())
         result2 = Zonotope(**I2.zonotope())
         result3 = Zonotope(**I3.zonotope())
+        result4 = Zonotope(**I4.zonotope())
 
         # manual computation
         true_result1 = Zonotope(c = np.array([0.5, 1.5]), G = np.array([[2.5, 0.],[0., 2.5]]))
-        true_result2 = Zonotope(c = np.array([-2., 1.5]), G = np.array([[0.],[2.5]]))
+        true_result2 = Zonotope(c = np.array([-2., 1.5]), G = np.array([0., 2.5]))
         true_result3 = Zonotope(c = lower)
+        true_result4 = Zonotope(c = np.array([2.5]), G = np.array([[1.5]]))
 
         # check results
         assert result1 == true_result1
         assert result2 == true_result2
         assert result3 == true_result3
+        assert result4 == true_result4
 
     def test_array_ufunc(self):
         ''' Test for overloading of right-operations '''
@@ -1683,3 +1999,4 @@ class TestInterval(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+    

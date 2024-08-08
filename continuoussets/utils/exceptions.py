@@ -32,6 +32,17 @@ class EmptySetError(Exception):
         super().__init__(message)
 
 
+class UnboundedSetError(Exception):
+
+    def __init__(self):
+        """Exception raised if an operation is applied to an unbounded set, leading to no result.
+        """
+        newline = "\n"
+        message = f"{inspect.stack()[1].function}:{newline}\
+                    The operation cannot return a result as the set is unbounded."
+        super().__init__(message)
+
+
 class OtherFunctionError(Exception):
 
     def __init__(self, types: tuple, other_function: str):
@@ -45,4 +56,16 @@ class OtherFunctionError(Exception):
         message = f"{inspect.stack()[1].function}:{newline}\
                     Called function {inspect.stack()[1].function} for types {', '.join([str(type(elem)) for elem in types])}.\
                     Call function {other_function} instead."
+        super().__init__(message)
+
+
+class ExactEvaluationImpossibleError(Exception):
+
+    def __init__(self):
+        """Exception raised if an exact evaluation of a given operation is requested, but mathematically impossible.
+        """
+        newline = "\n"
+        message = f"{inspect.stack()[1].function}:{newline}\
+                    Called function {inspect.stack()[1].function} with mode 'exact'.\
+                    There is no exact evaluation for this operation in the given case."
         super().__init__(message)

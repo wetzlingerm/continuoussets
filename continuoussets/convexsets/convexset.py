@@ -69,24 +69,48 @@ class ConvexSet(ABC):
 
         # compute vertices
         V = projected_set.vertices()
-        if V.shape[1] > 2:
+        if V.shape[0] > 2:
             # correct ordering
-            V = V[:, ConvexHull(V.T).vertices]
+            V = V[ConvexHull(V).vertices, :]
             # append first vertex at the end
-            V = np.hstack((V, np.reshape(V[:, 0], (2, 1))))
+            V = np.vstack((V, V[0, :]))
 
         # plot
-        if V.shape[1] == 1:
+        if V.shape[0] == 1:
             # single point: add marker
-            plt.plot(V[0, :], V[1, :], 'o', **kwargs)
+            plt.plot(V[:, 0], V[:, 1], 'o', **kwargs)
         else:
-            plt.plot(V[0, :], V[1, :], **kwargs)
+            plt.plot(V[:, 0], V[:, 1], **kwargs)
         plt.show()
 
     # conversions
     @abstractmethod
+    def hpolyhedron(self, *, mode: str):
+        """Conversion to HPolyhedron.
+
+        Args:
+            mode (str): Type of conversion: 'inner', 'exact', 'outer'.
+
+        Raises:
+            NotImplementedError: Has to be implemented in subclasses.
+        """
+        raise NotImplementedError
+
+    @abstractmethod
     def interval(self, *, mode: str):
         """Abstract method: Conversion to Interval.
+
+        Args:
+            mode (str): Type of conversion: 'inner', 'exact', 'outer'.
+
+        Raises:
+            NotImplementedError: Has to be implemented in subclasses.
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def vpolytope(self, *, mode: str):
+        """Abstract method: Conversion to VPolytope.
 
         Args:
             mode (str): Type of conversion: 'inner', 'exact', 'outer'.
@@ -128,7 +152,7 @@ class ConvexSet(ABC):
         """Check function for choosing another subclass in ConvexSet.
 
         Args:
-            set_class (str): Name of a subclass in ConvexSet.
+            set_class (str): Name of a subclass in ConvexSet or 'Point'.
 
         Raises:
             ValueError: Chosen class not a subclass of ConvexSet.
@@ -136,6 +160,7 @@ class ConvexSet(ABC):
         # ensure that 'set_class' argument is the class name of a subclass of ConvexSet
         if self.validate:
             admissible_classes = [cls.__name__ for cls in ConvexSet.__subclasses__()]
+            admissible_classes.append('Point')
             if set_class not in admissible_classes:
                 raise ValueError(f'{self.__class__.__name__}.{inspect.stack()[1].function}: ',
                                  f'Keyword argument set_class must be in {str(admissible_classes)}')
@@ -148,7 +173,7 @@ class ConvexSet(ABC):
             check_dimension (bool, optional): Whether unequal dimensions should raise an Exception. Defaults to True.
 
         Raises:
-            TypeError: Other operand has to be either a ConvexSet object or an np.ndarray.
+            TypeError: Other operand must be either a ConvexSet object or an np.ndarray.
             AttributeError: Only vectors (1D np.ndarray) supported.
             AttributeError: Length of np.ndarray does not match dimension of ConvexSet. (Only if check_dimension = True)
             AttributeError: Dimensions of ConvexSet objects do not match. (Only if check_dimension = True)
