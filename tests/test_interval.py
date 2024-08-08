@@ -1601,9 +1601,7 @@ class TestInterval(unittest.TestCase):
         # - projection on single axis
 
         # init interval
-        lower = np.array([-2., -1., 0., -4.])
-        upper = np.array([3., 4., 5., 2.])
-        I = Interval(lb = lower, ub = upper)
+        I = Interval(lb = np.array([-2., -1., 0., -4.]), ub = np.array([3., 4., 5., 2.]))
         
         # subspaces
         subspace_all = (0, 1, 2, 3)
