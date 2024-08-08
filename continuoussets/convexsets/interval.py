@@ -6,7 +6,7 @@ from typing import Union
 
 import numpy as np
 
-from continuoussets.convexsets.convexset import ConvexSet
+from continuoussets.convexsets.interface_convexset import IConvexSet
 from continuoussets.utils.exceptions import EmptySetError, OutOfBoundsError, \
     ExactEvaluationImpossibleError, UnboundedSetError
 # import continuoussets.setoperations.binary_operations as ops
@@ -16,7 +16,7 @@ if __name__ == '__main__':
     print('This is the Interval class.')
 
 
-class Interval(ConvexSet):
+class Interval(IConvexSet):
 
     def __init__(self, *, lb: Union[np.ndarray, list, float, int] = None,
                  ub: Union[np.ndarray, list, float, int] = None, validate: bool = True) -> Interval:
@@ -80,6 +80,11 @@ class Interval(ConvexSet):
         self.dimension = lb.size
         self.lb = lb.copy()
         self.ub = ub.copy()
+
+    # @classmethod
+    # def from_IConvexSet(cls, S: IConvexSet) -> Interval:
+    #     # conversion: return
+    #     pass
 
     # indexing
     def __getitem__(self, key: Union[int, slice]):
@@ -192,12 +197,12 @@ class Interval(ConvexSet):
         return self + other
 
     # set equality
-    def __eq__(self, other: Union[ConvexSet, np.ndarray], *, rtol: float = 1e-5, atol: float = 1e-8) -> bool:
+    def __eq__(self, other: Union[IConvexSet, np.ndarray], *, rtol: float = 1e-5, atol: float = 1e-8) -> bool:
         """Set equality of an Interval I with another set or vector S.
         Defined as forall i in I: i in S and forall s in S: s in I?
 
         Args:
-            other (Union[ConvexSet, np.ndarray]): Set or vector.
+            other (Union[IConvexSet, np.ndarray]): Set or vector.
             rtol (float, optional): Relative tolerance. Defaults to 1e-5.
             atol (float, optional): Absolute tolerance. Defaults to 1e-8.
 
@@ -206,7 +211,7 @@ class Interval(ConvexSet):
         """
         self._checkOtherOperand(other, check_dimension = False)
 
-        if ((isinstance(other, ConvexSet) and self.dimension != other.dimension)
+        if ((isinstance(other, IConvexSet) and self.dimension != other.dimension)
                 or (isinstance(other, np.ndarray) and self.dimension != other.shape[0])):
             return False
         elif isinstance(other, np.ndarray):
@@ -214,7 +219,7 @@ class Interval(ConvexSet):
         elif isinstance(other, Interval):
             return np.allclose(self.lb, other.lb, rtol = rtol, atol = atol) and \
                 np.allclose(self.ub, other.ub, rtol = rtol, atol = atol)
-        elif isinstance(other, ConvexSet):
+        elif isinstance(other, IConvexSet):
             return other.__eq__(self, rtol = rtol, atol = atol)
 
     # element-wise multiplication
@@ -709,12 +714,12 @@ class Interval(ConvexSet):
         return True
 
     # Cartesian product
-    def cartesian_product(self, other: Union[ConvexSet, np.ndarray], *, mode: str = 'exact') -> Interval:
+    def cartesian_product(self, other: Union[IConvexSet, np.ndarray], *, mode: str = 'exact') -> Interval:
         """Cartesian product of an Interval I and another set or vector S.
         Defined as {[a^T s^T]^T | a in I, s in S}.
 
         Args:
-            other (Union[ConvexSet, np.ndarray]): Set or vector.
+            other (Union[IConvexSet, np.ndarray]): Set or vector.
             mode (str, optional): Approximation of the evaluation: 'inner', 'exact', 'outer'. Defaults to 'exact'.
 
         Raises:
@@ -732,7 +737,7 @@ class Interval(ConvexSet):
         elif isinstance(other, np.ndarray):
             return Interval(lb = np.hstack((self.lb, other)),
                             ub = np.hstack((self.ub, other)), validate=False)
-        elif isinstance(other, ConvexSet):
+        elif isinstance(other, IConvexSet):
             # try converting to an interval according to the given mode
             # note: operation below may throw ExactEvaluationImpossibleError!
             other = Interval(**other.interval(mode = mode), validate=False)
@@ -761,12 +766,12 @@ class Interval(ConvexSet):
         return Interval(lb = self.lb, ub = self.ub)
 
     # containment check
-    def contains(self, other: Union[ConvexSet, np.ndarray], *, rtol: float = 1e-5, atol: float = 1e-8) -> bool:
+    def contains(self, other: Union[IConvexSet, np.ndarray], *, rtol: float = 1e-5, atol: float = 1e-8) -> bool:
         """Checks containment of a set or vector S in an Interval I.
         Defined as forall s in S: s in I?
 
         Args:
-            other (Union[ConvexSet, np.ndarray]): Set or vector.
+            other (Union[IConvexSet, np.ndarray]): Set or vector.
             rtol (float, optional): Relative tolerance. Defaults to 1e-5.
             atol (float, optional): Absolute tolerance. Defaults to 1e-8.
 
@@ -779,7 +784,7 @@ class Interval(ConvexSet):
         if isinstance(other, Interval):
             # todo: use tolerances
             return np.all(self.lb <= other.lb) and np.all(self.ub >= other.ub)
-        elif isinstance(other, ConvexSet):
+        elif isinstance(other, IConvexSet):
             try:
                 other = Interval(**other.interval(mode = 'outer'), validate=False)
             except (UnboundedSetError):
@@ -790,12 +795,12 @@ class Interval(ConvexSet):
             return np.all(self.lb <= other) and np.all(self.ub >= other)
 
     # convex hull
-    def convex_hull(self, other: Union[ConvexSet, np.ndarray], *, mode: str = 'exact') -> Interval:
+    def convex_hull(self, other: Union[IConvexSet, np.ndarray], *, mode: str = 'exact') -> Interval:
         """Convex hull of an Interval I and another set or vector S.
         Defined as {lambda*a + (1-lambda)*s | a in I, s in S, lambda in [0,1]}
 
         Args:
-            other (Union[ConvexSet, np.ndarray]): Set or vector.
+            other (Union[IConvexSet, np.ndarray]): Set or vector.
             mode (str, optional): Approximation of the evaluation: 'inner', 'exact', 'outer'. Defaults to 'exact'.
 
         Raises:
@@ -818,7 +823,7 @@ class Interval(ConvexSet):
         if isinstance(other, Interval):
             return Interval(lb = np.minimum(self.lb, other.lb),
                             ub = np.maximum(self.ub, other.ub), validate=False)
-        elif isinstance(other, ConvexSet):
+        elif isinstance(other, IConvexSet):
             return self.convex_hull(Interval(**other.interval(mode = 'outer'), validate=False), mode = 'outer')
         else:
             return Interval(lb = np.minimum(self.lb, other),
@@ -863,12 +868,12 @@ class Interval(ConvexSet):
                 'b': np.hstack((self.ub, -self.lb))}
 
     # intersection check
-    def intersects(self, other: Union[ConvexSet, np.ndarray], *, rtol: float = 1e-5, atol: float = 1e-8) -> bool:
+    def intersects(self, other: Union[IConvexSet, np.ndarray], *, rtol: float = 1e-5, atol: float = 1e-8) -> bool:
         """Checks if an Interval I intersects another set or vector S.
         Defined as exists s in I: s in S?
 
         Args:
-            other (Union[ConvexSet, np.ndarray]): Set or vector.
+            other (Union[IConvexSet, np.ndarray]): Set or vector.
             rtol (float, optional): Relative tolerance. Defaults to 1e-5.
             atol (float, optional): Absolute tolerance. Defaults to 1e-8.
 
@@ -920,12 +925,12 @@ class Interval(ConvexSet):
         return Interval(lb = lower, ub = upper, validate=False)
 
     # Minkowski sum
-    def minkowski_sum(self, other: Union[ConvexSet, np.ndarray], *, mode: str = 'exact') -> Interval:
+    def minkowski_sum(self, other: Union[IConvexSet, np.ndarray], *, mode: str = 'exact') -> Interval:
         """Minkowski sum of an Interval I and another set or vector S.
         Defined as {a + s | a in I, s in S}.
 
         Args:
-            other (Union[ConvexSet, np.ndarray]): Summand.
+            other (Union[IConvexSet, np.ndarray]): Summand.
             mode (str, optional): Approximation of the result: 'inner', 'exact', 'outer'. Defaults to 'exact'.
 
         Returns:
@@ -948,12 +953,12 @@ class Interval(ConvexSet):
         return Interval(lb = lower, ub = upper, validate=False)
 
     # Minkowski difference
-    def minkowski_difference(self, other: Union[ConvexSet, np.ndarray], *, mode: str = 'exact') -> Interval:
+    def minkowski_difference(self, other: Union[IConvexSet, np.ndarray], *, mode: str = 'exact') -> Interval:
         """Minkowski difference between an Interval I and another set or vector S.
         Defined as {s | s + S in I}.
 
         Args:
-            other (Union[ConvexSet, np.ndarray]): Set or vector.
+            other (Union[IConvexSet, np.ndarray]): Set or vector.
             mode (str, optional): Approximation of the result: 'inner', 'exact', 'outer'. Defaults to 'exact'.
 
         Raises:
@@ -1028,10 +1033,10 @@ class Interval(ConvexSet):
 
     # representation by other set representation
     def represents(self, set_class: str, *, rtol: float = 1e-5, atol: float = 1e-8) -> bool:
-        """Check if an interval I can also be equivalently represented using another ConvexSet class.
+        """Check if an interval I can also be equivalently represented using another IConvexSet class.
 
         Args:
-            set_class (str): Name of another ConvexSet class or 'Point'.
+            set_class (str): Name of another IConvexSet class or 'Point'.
             rtol (float, optional): Relative tolerance. Defaults to 1e-5.
             atol (float, optional): Absolute tolerance. Defaults to 1e-8.
 

@@ -248,7 +248,7 @@ class TestZonotope(unittest.TestCase):
         # check results
         assert result1 == true_result1
 
-        # call minkowski_difference insetead of __sub__ with two ConvexSet objects
+        # call minkowski_difference insetead of __sub__ with two IConvexSet objects
         with self.assertRaises(exceptions.OtherFunctionError):
             Z1 - Z1
         with self.assertRaises(exceptions.OtherFunctionError):

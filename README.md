@@ -24,7 +24,7 @@ Proficient users may choose their own installation path.
 
 ## Set Representations
 
-The implemented classes inherit from the abstract base class `ConvexSet`.
+The implemented classes inherit from the interface `IConvexSet`.
 They represent continuous sets of n-dimensional vectors.
 
 > [!TIP]

@@ -9,7 +9,7 @@ from scipy.spatial import ConvexHull
 from scipy.linalg import svd
 from pypoman import compute_polytope_halfspaces
 
-from continuoussets.convexsets.convexset import ConvexSet
+from continuoussets.convexsets.interface_convexset import IConvexSet
 from continuoussets.utils import comparison
 from continuoussets.utils.exceptions import OtherFunctionError, ExactEvaluationImpossibleError
 from continuoussets.utils.auxiliary import halfspace_representation_from_vector, \
@@ -20,7 +20,7 @@ if __name__ == '__main__':
     print('This is the VPolytope class.')
 
 
-class VPolytope(ConvexSet):
+class VPolytope(IConvexSet):
     # the operations in this class are taken from
     # [1] Wetzlinger et al. "Implementation of Polyhedral Operations in CORA 2024", ARCH'24.
 
@@ -93,7 +93,7 @@ class VPolytope(ConvexSet):
             other (np.ndarray): Vector.
 
         Raises:
-            OtherFunctionError: If other is a ConvexSet, call minkowski_sum instead.
+            OtherFunctionError: If other is a IConvexSet, call minkowski_sum instead.
 
         Returns:
             VPolytope: Result of the translation.
@@ -104,16 +104,16 @@ class VPolytope(ConvexSet):
             # ...a vector (exact computation possible)
             return VPolytope(V = self.V + other, validate = False)
 
-        elif isinstance(other, ConvexSet):
+        elif isinstance(other, IConvexSet):
             raise OtherFunctionError((self, other), 'minkowski_sum')
         
     # set equality
-    def __eq__(self, other: Union[ConvexSet, np.ndarray], *, rtol: float = 1e-5, atol: float = 1e-8) -> bool:
+    def __eq__(self, other: Union[IConvexSet, np.ndarray], *, rtol: float = 1e-5, atol: float = 1e-8) -> bool:
         """Set equality of a VPolytope VP with another set or vector S.
         Defined as forall i in VP: i in VP and forall s in S: s in VP?
 
         Args:
-            other (Union[ConvexSet, np.ndarray]): Set or vector.
+            other (Union[IConvexSet, np.ndarray]): Set or vector.
             rtol (float, optional): Relative tolerance. Defaults to 1e-5.
             atol (float, optional): Absolute tolerance. Defaults to 1e-8.
 
@@ -155,7 +155,7 @@ class VPolytope(ConvexSet):
             other (np.ndarray): Vector.
 
         Raises:
-            OtherFunctionError: If VPolytope - ConvexSet, call minkowski_difference instead.
+            OtherFunctionError: If VPolytope - IConvexSet, call minkowski_difference instead.
 
         Returns:
             VPolytope: Result of the translation.
@@ -166,7 +166,7 @@ class VPolytope(ConvexSet):
             # ...a vector (exact computation possible)
             return VPolytope(V = self.V - other, validate = False)
 
-        elif isinstance(other, ConvexSet):
+        elif isinstance(other, IConvexSet):
             raise OtherFunctionError((self, other), 'minkowski_difference')
         
     # basis of the affine hull (for degenerate sets)
@@ -240,12 +240,12 @@ class VPolytope(ConvexSet):
         return True
 
     # Cartesian product
-    def cartesian_product(self, other: Union[ConvexSet, np.ndarray], *, mode: str = 'exact') -> VPolytope:
+    def cartesian_product(self, other: Union[IConvexSet, np.ndarray], *, mode: str = 'exact') -> VPolytope:
         """Cartesian product of a VPolytope VP and another set or vector S.
         Defined as {[a^T s^T]^T | a in VP, s in S}.
 
         Args:
-            other (Union[ConvexSet, np.ndarray]): Set or vector.
+            other (Union[IConvexSet, np.ndarray]): Set or vector.
             mode (str, optional): Approximation of the evaluation: 'inner', 'exact', 'outer'. Defaults to 'exact'.
 
         Returns:
@@ -311,12 +311,12 @@ class VPolytope(ConvexSet):
             return VPolytope(V = self.V[ConvexHull(self.V).vertices, :], validate = False)
 
     # containment check
-    def contains(self, other: Union[ConvexSet, np.ndarray], *, rtol: float = 1e-5, atol: float = 1e-8) -> bool:
-        """Checks containment of a ConvexSet or vector (np.ndarray) S in a VPolytope VP.
+    def contains(self, other: Union[IConvexSet, np.ndarray], *, rtol: float = 1e-5, atol: float = 1e-8) -> bool:
+        """Checks containment of a IConvexSet or vector (np.ndarray) S in a VPolytope VP.
         Defined as forall s in S: s in VP?
 
         Args:
-            other (Union[ConvexSet, np.ndarray]): Set or vector.
+            other (Union[IConvexSet, np.ndarray]): Set or vector.
             rtol (float, optional): Relative tolerance. Defaults to 1e-5.
             atol (float, optional): Absolute tolerance. Defaults to 1e-8.
 
@@ -363,12 +363,12 @@ class VPolytope(ConvexSet):
         return res.success
 
     # convex hull
-    def convex_hull(self, other: Union[ConvexSet, np.ndarray], *, mode: str = 'exact') -> VPolytope:
+    def convex_hull(self, other: Union[IConvexSet, np.ndarray], *, mode: str = 'exact') -> VPolytope:
         """Convex hull of a VPolytope VP and another set or vector S.
         Defined as {lambda*v + (1-lambda)*s | v in VP, s in S, lambda in [0,1]}
 
         Args:
-            other (Union[ConvexSet, np.ndarray]): Set or vector.
+            other (Union[IConvexSet, np.ndarray]): Set or vector.
             mode (str, optional): Approximation of the evaluation: 'inner', 'exact', 'outer'. Defaults to 'exact'.
 
         Returns:
@@ -448,12 +448,12 @@ class VPolytope(ConvexSet):
         return {'A': A, 'b': b}
     
     # intersection check
-    def intersects(self, other: Union[ConvexSet, np.ndarray], *, rtol: float = 1e-5, atol: float = 1e-8) -> bool:
+    def intersects(self, other: Union[IConvexSet, np.ndarray], *, rtol: float = 1e-5, atol: float = 1e-8) -> bool:
         """Checks if an VPolytope VP intersects another set of vector S.
         Defined as exists s in VP: s in S?
 
         Args:
-            other (Union[ConvexSet, np.ndarray]): Set or vector.
+            other (Union[IConvexSet, np.ndarray]): Set or vector.
             rtol (float, optional): Relative tolerance. Defaults to 1e-5.
             atol (float, optional): Absolute tolerance. Defaults to 1e-8.
 
@@ -626,12 +626,12 @@ class VPolytope(ConvexSet):
         return VPolytope(V = np.matmul(self.V, matrix.T), validate = False)
 
     # Minkowski sum
-    def minkowski_sum(self, other: Union[ConvexSet, np.ndarray], *, mode: str = 'exact') -> VPolytope:
+    def minkowski_sum(self, other: Union[IConvexSet, np.ndarray], *, mode: str = 'exact') -> VPolytope:
         """Minkowski sum of a VPolytope VP and another set or vector S.
         Defined as {a + s | a in VP, s in S}.
 
         Args:
-            other (Union[ConvexSet, np.ndarray]): Summand.
+            other (Union[IConvexSet, np.ndarray]): Summand.
             mode (str, optional): Approximation of the evaluation: 'inner', 'exact', 'outer'. Defaults to 'exact'.
 
         Returns:
@@ -655,12 +655,12 @@ class VPolytope(ConvexSet):
         return VPolytope(V = V_sum, validate = False)
     
     # Minkowski difference
-    def minkowski_difference(self, other: Union[ConvexSet, np.ndarray], *, mode: str = 'exact') -> VPolytope:
+    def minkowski_difference(self, other: Union[IConvexSet, np.ndarray], *, mode: str = 'exact') -> VPolytope:
         """Minkowski difference between a VPolytope VP and another set or vector S.
         Defined as {s | s + S in VP}.
 
         Args:
-            other (Union[ConvexSet, np.ndarray]): Subtrahend.
+            other (Union[IConvexSet, np.ndarray]): Subtrahend.
             mode (str, optional): Approximation of the evaluation: 'inner', 'exact', 'outer'. Defaults to 'exact'.
 
         Raises:
@@ -742,10 +742,10 @@ class VPolytope(ConvexSet):
 
     # representation by other set representation
     def represents(self, set_class: str, *, rtol: float = 1e-5, atol: float = 1e-8) -> bool:
-        """Check if a VPolytope VP can also be equivalently represented using another ConvexSet class.
+        """Check if a VPolytope VP can also be equivalently represented using another IConvexSet class.
 
         Args:
-            set_class (str): Name of another ConvexSet class or 'Point'.
+            set_class (str): Name of another IConvexSet class or 'Point'.
             rtol (float, optional): Relative tolerance. Defaults to 1e-5.
             atol (float, optional): Absolute tolerance. Defaults to 1e-8.
 

@@ -8,7 +8,7 @@ from math import comb
 from scipy.optimize import linprog
 from scipy.spatial import ConvexHull
 
-from continuoussets.convexsets.convexset import ConvexSet
+from continuoussets.convexsets.interface_convexset import IConvexSet
 from continuoussets.convexsets.hpolyhedron import HPolyhedron as HP
 # note: the above line means that the HPolyhedron module cannot import the Zonotope module!
 from continuoussets.utils import comparison
@@ -21,7 +21,7 @@ if __name__ == '__main__':
     print('This is the Zonotope class.')
 
 
-class Zonotope(ConvexSet):
+class Zonotope(IConvexSet):
 
     # constructor
     def __init__(self, *, c: Union[np.ndarray, list, float, int] = None,
@@ -136,7 +136,7 @@ class Zonotope(ConvexSet):
             other (np.ndarray): Vector.
 
         Raises:
-            OtherFunctionError: If other is a ConvexSet, call minkowski_sum instead.
+            OtherFunctionError: If other is a IConvexSet, call minkowski_sum instead.
 
         Returns:
             Zonotope: Result of the translation.
@@ -148,16 +148,16 @@ class Zonotope(ConvexSet):
             # ...a vector (exact computation possible)
             return Zonotope(c = self.c + other, G = self.G, validate = False)
 
-        elif isinstance(other, ConvexSet):
+        elif isinstance(other, IConvexSet):
             raise OtherFunctionError((self, other), 'minkowski_sum')
 
     # set equality
-    def __eq__(self, other: Union[ConvexSet, np.ndarray], *, rtol: float = 1e-10, atol: float = 1e-12) -> bool:
+    def __eq__(self, other: Union[IConvexSet, np.ndarray], *, rtol: float = 1e-10, atol: float = 1e-12) -> bool:
         """Set equality of a Zonotope Z with another set or vector S.
         Defined as forall Z in Z: i in S and forall s in S: s in Z?
 
         Args:
-            other (Union[ConvexSet, np.ndarray]): Set or vector.
+            other (Union[IConvexSet, np.ndarray]): Set or vector.
             rtol (float, optional): Relative tolerance. Defaults to 1e-10.
             atol (float, optional): Absolute tolerance. Defaults to 1e-12.
 
@@ -166,7 +166,7 @@ class Zonotope(ConvexSet):
         """
         self._checkOtherOperand(other, check_dimension = False)
 
-        if ((isinstance(other, ConvexSet) and self.dimension != other.dimension)
+        if ((isinstance(other, IConvexSet) and self.dimension != other.dimension)
                 or (isinstance(other, np.ndarray) and self.dimension != other.shape[0])):
             return False
         
@@ -214,7 +214,7 @@ class Zonotope(ConvexSet):
             other (np.ndarray): Vector.
 
         Raises:
-            OtherFunctionError: If Zonotope - ConvexSet, call minkowski_difference instead.
+            OtherFunctionError: If Zonotope - IConvexSet, call minkowski_difference instead.
 
         Returns:
             Zonotope: Result of the translation.
@@ -225,7 +225,7 @@ class Zonotope(ConvexSet):
             # ...a vector (exact computation possible)
             return Zonotope(c = self.c - other, G = self.G, validate = False)
 
-        elif isinstance(other, ConvexSet):
+        elif isinstance(other, IConvexSet):
             raise OtherFunctionError((self, other), 'minkowski_difference')
 
     # basis of the affine hull (for degenerate sets)
@@ -270,12 +270,12 @@ class Zonotope(ConvexSet):
         return True
 
     # Cartesian product
-    def cartesian_product(self, other: Union[ConvexSet, np.ndarray], *, mode: str = 'exact') -> Zonotope:
-        """Cartesian product of a Zonotope Z and another ConvexSet or vector (np.ndarray) S.
+    def cartesian_product(self, other: Union[IConvexSet, np.ndarray], *, mode: str = 'exact') -> Zonotope:
+        """Cartesian product of a Zonotope Z and another IConvexSet or vector (np.ndarray) S.
         Defined as {[z^T s^T]^T | z in Z, s in S}.
 
         Args:
-            other (Union[ConvexSet, np.ndarray]): Set or vector.
+            other (Union[IConvexSet, np.ndarray]): Set or vector.
             mode (str, optional): Approximation of the evaluation: 'inner', 'exact', 'outer'. Defaults to 'exact'.
 
         Returns:
@@ -352,12 +352,12 @@ class Zonotope(ConvexSet):
         return Zonotope(c = self.c, G = generators, validate = False)
 
     # containment check
-    def contains(self, other: Union[ConvexSet, np.ndarray], *, rtol: float = 1e-5, atol: float = 1e-8) -> bool:
-        """Checks containment of a ConvexSet or vector (np.ndarray) S in a Zonotope Z.
+    def contains(self, other: Union[IConvexSet, np.ndarray], *, rtol: float = 1e-5, atol: float = 1e-8) -> bool:
+        """Checks containment of a IConvexSet or vector (np.ndarray) S in a Zonotope Z.
         Defined as forall s in S: s in Z?
 
         Args:
-            other (Union[ConvexSet, np.ndarray]): Set or vector.
+            other (Union[IConvexSet, np.ndarray]): Set or vector.
             rtol (float, optional): Relative tolerance. Defaults to 1e-5.
             atol (float, optional): Absolute tolerance. Defaults to 1e-8.
 
@@ -383,12 +383,12 @@ class Zonotope(ConvexSet):
             return self_as_hpolyhedron.contains(other, rtol = rtol, atol = atol)
 
     # convex hull
-    def convex_hull(self, other: Union[ConvexSet, np.ndarray], *, mode: str = 'exact') -> Zonotope:
+    def convex_hull(self, other: Union[IConvexSet, np.ndarray], *, mode: str = 'exact') -> Zonotope:
         """Convex hull of a Zonotope Z and another set or vector S.
         Defined as {lambda*z + (1-lambda)*s | z in Z, s in S, lambda in [0,1]}
 
         Args:
-            other (Union[ConvexSet, np.ndarray]): Set or vector.
+            other (Union[IConvexSet, np.ndarray]): Set or vector.
             mode (str, optional): Approximation of operation: 'inner', 'exact', 'outer'. Defaults to 'exact'.
 
         Raises:
@@ -505,12 +505,12 @@ class Zonotope(ConvexSet):
         return {'A': A, 'b': b}
 
     # intersection check
-    def intersects(self, other: Union[ConvexSet, np.ndarray], *, rtol: float = 1e-5, atol: float = 1e-8) -> bool:
+    def intersects(self, other: Union[IConvexSet, np.ndarray], *, rtol: float = 1e-5, atol: float = 1e-8) -> bool:
         """Checks if a Zonotope Z intersects another set or vector S.
         Defined as exists s in Z: s in S?
 
         Args:
-            other (Union[ConvexSet, np.ndarray]): Set or vector.
+            other (Union[IConvexSet, np.ndarray]): Set or vector.
             rtol (float, optional): Relative tolerance. Defaults to 1e-5.
             atol (float, optional): Absolute tolerance. Defaults to 1e-8.
 
@@ -590,12 +590,12 @@ class Zonotope(ConvexSet):
         return Zonotope(c = center, G = generators, validate = False)
 
     # Minkowski sum
-    def minkowski_sum(self, other: Union[ConvexSet, np.ndarray], *, mode: str = 'exact') -> Zonotope:
+    def minkowski_sum(self, other: Union[IConvexSet, np.ndarray], *, mode: str = 'exact') -> Zonotope:
         """Minkowski sum between a Zonotope Z and another set or vector S.
         Defined as {z + s | z in Z, s in S}.
 
         Args:
-            other (Union[ConvexSet, np.ndarray]): Set or vector.
+            other (Union[IConvexSet, np.ndarray]): Set or vector.
             mode (str, optional): Approximation of the evaluation: 'inner', 'exact', 'outer'. Defaults to 'exact'.
 
         Raises:
@@ -617,17 +617,17 @@ class Zonotope(ConvexSet):
             return Zonotope(c = self.c + other.c, G = np.vstack((self.G, other.G)), validate = False)
 
         else:
-            # ...other ConvexSet object (convert to zonotope and then compute Minkowski sum)
+            # ...other IConvexSet object (convert to zonotope and then compute Minkowski sum)
             other = Zonotope(**other.zonotope(mode = mode), validate = False)
             return self.minkowski_sum(other)
 
     # Minkowski difference
-    def minkowski_difference(self, other: Union[ConvexSet, np.ndarray], *, mode: str = 'exact') -> Zonotope:
+    def minkowski_difference(self, other: Union[IConvexSet, np.ndarray], *, mode: str = 'exact') -> Zonotope:
         """Minkowski difference between a Zonotope Z and another set or vector S.
         Defined as {s | s + S in Z}.
 
         Args:
-            other (Union[ConvexSet, np.ndarray]): Set or vector.
+            other (Union[IConvexSet, np.ndarray]): Set or vector.
             mode (str, optional): Approximation of the result: 'inner', 'exact', 'outer'. Defaults to 'exact'.
 
         Raises:
@@ -744,10 +744,10 @@ class Zonotope(ConvexSet):
 
     # representation by other set representation
     def represents(self, set_class: str, *, rtol: float = 1e-5, atol: float = 1e-8) -> bool:
-        """Check if a Zonotope Z can also be equivalently represented using another ConvexSet class.
+        """Check if a Zonotope Z can also be equivalently represented using another IConvexSet class.
 
         Args:
-            set_class (str): Name of another ConvexSet class or 'Point'.
+            set_class (str): Name of another IConvexSet class or 'Point'.
             rtol (float, optional): Relative tolerance. Defaults to 1e-5.
             atol (float, optional): Absolute tolerance. Defaults to 1e-8.
 

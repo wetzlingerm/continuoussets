@@ -1,10 +1,10 @@
 import unittest
 import numpy as np
-from continuoussets.convexsets.convexset import ConvexSet
+from continuoussets.convexsets.interface_convexset import IConvexSet
 from continuoussets.convexsets.zonotope import Zonotope
 from continuoussets.convexsets.interval import Interval
 
-class TestConvexSet(unittest.TestCase):
+class TestIConvexSet(unittest.TestCase):
 
     def test_validate_input_arguments(self):
         ''' Test for validation flag '''
@@ -12,22 +12,22 @@ class TestConvexSet(unittest.TestCase):
         # - interval
 
         # validation flag is on
-        ConvexSet.validate_input_arguments(True)
+        IConvexSet.validate_input_arguments(True)
         with self.assertRaises(ValueError):
             # ill-defined interval instantiation
             I = Interval(lb = np.array([1., 0.]), ub = np.array([2., 5., 2.]))
 
         # disable input argument validation 
-        ConvexSet.validate_input_arguments(False)
+        IConvexSet.validate_input_arguments(False)
         # not, ill-defined interval gets instantiated
         I = Interval(lb = np.array([1., 0.]), ub = np.array([2., 5., 2.]))
 
         # set validation flag again to True
-        ConvexSet.validate_input_arguments(True)
+        IConvexSet.validate_input_arguments(True)
 
         # check exceptions
         with self.assertRaises(TypeError):
-            ConvexSet.validate_input_arguments("something")
+            IConvexSet.validate_input_arguments("something")
 
     def test_ne(self):
         ''' Test not equal '''
@@ -79,7 +79,7 @@ class TestConvexSet(unittest.TestCase):
 
         # check exceptions
         with self.assertRaises(TypeError):
-            # other operand is not a ConvexSet or np.ndarray
+            # other operand is not a IConvexSet or np.ndarray
             I1.convex_hull("something")
         with self.assertRaises(AttributeError):
             # other operand is an np.ndarray and represents a matrix
@@ -88,7 +88,7 @@ class TestConvexSet(unittest.TestCase):
             # other operand is an np.ndarray vector and has a different dimension
             I1.convex_hull(v)
         with self.assertRaises(AttributeError):
-            # other operand is a ConvexSet and has a different dimension
+            # other operand is a IConvexSet and has a different dimension
             I1.convex_hull(I2)
 
     def test_check_subspace(self):

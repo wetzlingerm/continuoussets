@@ -5,7 +5,7 @@ from typing import Union
 import numpy as np
 from scipy.optimize import linprog
 from pypoman import compute_polytope_vertices  # project_polytope
-from continuoussets.convexsets.convexset import ConvexSet
+from continuoussets.convexsets.interface_convexset import IConvexSet
 # from continuoussets.utils import comparison
 from continuoussets.utils.exceptions import OtherFunctionError, ExactEvaluationImpossibleError, \
     EmptySetError, UnboundedSetError
@@ -17,7 +17,7 @@ if __name__ == '__main__':
     print('This is the HPolyhedron class.')
 
 
-class HPolyhedron(ConvexSet):
+class HPolyhedron(IConvexSet):
     # the operations in this class are taken from
     # [1] Wetzlinger et al. "Implementation of Polyhedral Operations in CORA 2024", ARCH'24.
 
@@ -104,7 +104,7 @@ class HPolyhedron(ConvexSet):
             other (np.ndarray): Vector.
 
         Raises:
-            OtherFunctionError: If HPolyhedron + ConvexSet, call minkowski_sum instead.
+            OtherFunctionError: If HPolyhedron + IConvexSet, call minkowski_sum instead.
 
         Returns:
             HPolyhedron: Result of the translation.
@@ -115,16 +115,16 @@ class HPolyhedron(ConvexSet):
             # ...a vector (exact computation possible)
             return HPolyhedron(A = self.A, b = self.b + np.matmul(self.A, other), validate = False)
 
-        elif isinstance(other, ConvexSet):
+        elif isinstance(other, IConvexSet):
             raise OtherFunctionError((self, other), 'minkowski_sum')
         
     # set equality
-    def __eq__(self, other: Union[ConvexSet, np.ndarray], *, rtol: float = 1e-5, atol: float = 1e-8) -> bool:
+    def __eq__(self, other: Union[IConvexSet, np.ndarray], *, rtol: float = 1e-5, atol: float = 1e-8) -> bool:
         """Set equality of an HPolyhedron HP with another set or vector S.
         Defined as forall i in HP: i in S and forall s in S: s in HP?
 
         Args:
-            other (Union[ConvexSet, np.ndarray]): Set or vector.
+            other (Union[IConvexSet, np.ndarray]): Set or vector.
             rtol (float, optional): Relative tolerance. Defaults to 1e-5.
             atol (float, optional): Absolute tolerance. Defaults to 1e-8.
 
@@ -176,7 +176,7 @@ class HPolyhedron(ConvexSet):
             other (np.ndarray): Vector.
 
         Raises:
-            OtherFunctionError: If HPolyhedron - ConvexSet, call minkowski_difference instead.
+            OtherFunctionError: If HPolyhedron - IConvexSet, call minkowski_difference instead.
 
         Returns:
             HPolyhedron: Result of the translation.
@@ -187,7 +187,7 @@ class HPolyhedron(ConvexSet):
             # ...a vector (exact computation possible)
             return HPolyhedron(A = self.A, b = self.b - np.matmul(self.A, other), validate = False)
 
-        elif isinstance(other, ConvexSet):
+        elif isinstance(other, IConvexSet):
             raise OtherFunctionError((self, other), 'minkowski_difference')
 
     # basis of the affine hull (for degenerate sets)
@@ -358,12 +358,12 @@ class HPolyhedron(ConvexSet):
         return True
 
     # Cartesian product
-    def cartesian_product(self, other: Union[ConvexSet, np.ndarray], *, mode: str = 'exact') -> HPolyhedron:
+    def cartesian_product(self, other: Union[IConvexSet, np.ndarray], *, mode: str = 'exact') -> HPolyhedron:
         """Cartesian product of an HPolyhedron HP and another set or vector S.
         Defined as {[a^T s^T]^T | a in HP, s in S}.
 
         Args:
-            other (Union[ConvexSet, np.ndarray]): Set or vector.
+            other (Union[IConvexSet, np.ndarray]): Set or vector.
             mode (str, optional): Approximation of the evaluation: 'inner', 'exact', 'outer'. Defaults to 'exact'.
 
         Returns:
@@ -458,12 +458,12 @@ class HPolyhedron(ConvexSet):
         return HPolyhedron(A = self.A[index_irredundant], b = self.b[index_irredundant], validate = False)
 
     # containment check
-    def contains(self, other: Union[ConvexSet, np.ndarray], *, rtol: float = 1e-5, atol: float = 1e-8) -> bool:
-        """Checks containment of a ConvexSet or vector (np.ndarray) S in an HPolyhedron HP.
+    def contains(self, other: Union[IConvexSet, np.ndarray], *, rtol: float = 1e-5, atol: float = 1e-8) -> bool:
+        """Checks containment of a IConvexSet or vector (np.ndarray) S in an HPolyhedron HP.
         Defined as forall s in S: s in HP?
 
         Args:
-            other (Union[ConvexSet, np.ndarray]): Set or vector.
+            other (Union[IConvexSet, np.ndarray]): Set or vector.
             rtol (float, optional): Relative tolerance. Defaults to 1e-5.
             atol (float, optional): Absolute tolerance. Defaults to 1e-8.
 
@@ -493,12 +493,12 @@ class HPolyhedron(ConvexSet):
         return True
 
     # convex hull
-    def convex_hull(self, other: Union[ConvexSet, np.ndarray], *, mode: str = 'exact') -> HPolyhedron:
+    def convex_hull(self, other: Union[IConvexSet, np.ndarray], *, mode: str = 'exact') -> HPolyhedron:
         """Convex hull of an HPolyhedron HP and another set or vector S.
         Defined as {lambda*h + (1-lambda)*s | h in HP, s in S, lambda in [0,1]}
 
         Args:
-            other (Union[ConvexSet, np.ndarray]): Set or vector.
+            other (Union[IConvexSet, np.ndarray]): Set or vector.
             mode (str, optional): Approximation of the evaluation: 'inner', 'exact', 'outer'. Defaults to 'exact'.
 
         Raises:
@@ -599,11 +599,11 @@ class HPolyhedron(ConvexSet):
         return {'A': self.A, 'b': self.b}
     
     # intersection
-    def intersection(self, other: Union[ConvexSet, np.ndarray], mode: str = 'exact') -> HPolyhedron:
+    def intersection(self, other: Union[IConvexSet, np.ndarray], mode: str = 'exact') -> HPolyhedron:
         """Computation of the intersection of an HPolyhedron HP and another set or vector S.
 
         Args:
-            other (Union[ConvexSet, np.ndarray]): Set or vector.
+            other (Union[IConvexSet, np.ndarray]): Set or vector.
             mode (str, optional): Approximation of the evaluation: 'inner', 'exact', 'outer'. Defaults to 'exact'.
 
         Returns:
@@ -625,12 +625,12 @@ class HPolyhedron(ConvexSet):
                            validate = False)
     
     # intersection check
-    def intersects(self, other: Union[ConvexSet, np.ndarray], *, rtol: float = 1e-5, atol: float = 1e-8) -> bool:
+    def intersects(self, other: Union[IConvexSet, np.ndarray], *, rtol: float = 1e-5, atol: float = 1e-8) -> bool:
         """Checks if an HPolyhedron intersects another set of vector S.
         Defined as exists s in HP: s in S?
 
         Args:
-            other (Union[ConvexSet, np.ndarray]): Set or vector.
+            other (Union[IConvexSet, np.ndarray]): Set or vector.
             rtol (float, optional): Relative tolerance. Defaults to 1e-5.
             atol (float, optional): Absolute tolerance. Defaults to 1e-8.
 
@@ -819,12 +819,12 @@ class HPolyhedron(ConvexSet):
         return P
 
     # Minkowski sum
-    def minkowski_sum(self, other: Union[ConvexSet, np.ndarray], *, mode: str = 'exact') -> HPolyhedron:
+    def minkowski_sum(self, other: Union[IConvexSet, np.ndarray], *, mode: str = 'exact') -> HPolyhedron:
         """Minkowski sum of an HPolyhedron HP and another set or vector S.
         Defined as {a + s | a in HP, s in S}.
 
         Args:
-            other (Union[ConvexSet, np.ndarray]): Summand.
+            other (Union[IConvexSet, np.ndarray]): Summand.
             mode (str, optional): Approximation of the evaluation: 'inner', 'exact', 'outer'. Defaults to 'exact'.
 
         Returns:
@@ -865,12 +865,12 @@ class HPolyhedron(ConvexSet):
         return HP_lifted.matmul(M)
     
     # Minkowski difference
-    def minkowski_difference(self, other: Union[ConvexSet, np.ndarray], *, mode: str = 'exact') -> HPolyhedron:
+    def minkowski_difference(self, other: Union[IConvexSet, np.ndarray], *, mode: str = 'exact') -> HPolyhedron:
         """Minkowski difference between an HPolyhedron HP and another set or vector S.
         Defined as {s | s + S in HP}.
 
         Args:
-            other (Union[ConvexSet, np.ndarray]): Set or vector.
+            other (Union[IConvexSet, np.ndarray]): Set or vector.
             mode (str, optional): Approximation of the evaluation: 'inner', 'exact', 'outer'. Defaults to 'exact'.
 
         Returns:
@@ -965,10 +965,10 @@ class HPolyhedron(ConvexSet):
 
     # representation by other set representation
     def represents(self, set_class: str, *, rtol: float = 1e-5, atol: float = 1e-8) -> bool:
-        """Check if an HPolyhedron HP can also be equivalently represented using another ConvexSet class.
+        """Check if an HPolyhedron HP can also be equivalently represented using another IConvexSet class.
 
         Args:
-            set_class (str): Name of another ConvexSet class or 'Point'.
+            set_class (str): Name of another IConvexSet class or 'Point'.
             rtol (float, optional): Relative tolerance. Defaults to 1e-5.
             atol (float, optional): Absolute tolerance. Defaults to 1e-8.
 
