@@ -9,7 +9,8 @@ import numpy as np
 from continuoussets.convexsets.interface_convexset import IConvexSet
 from continuoussets.utils.exceptions import EmptySetError, OutOfBoundsError, \
     ExactEvaluationImpossibleError, UnboundedSetError
-# import continuoussets.setoperations.binary_operations as ops
+
+# todo: remove all functions that are in binary_operations (handled via superclass)
 
 
 if __name__ == '__main__':
@@ -81,6 +82,7 @@ class Interval(IConvexSet):
         self.lb = lb.copy()
         self.ub = ub.copy()
 
+    # todo: implement conversions as class method
     # @classmethod
     # def from_IConvexSet(cls, S: IConvexSet) -> Interval:
     #     # conversion: return
@@ -778,7 +780,6 @@ class Interval(IConvexSet):
         Returns:
             bool: Containment status.
         """
-        # ops.contains(self, other)
         self._checkOtherOperand(other)
 
         if isinstance(other, Interval):

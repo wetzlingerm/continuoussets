@@ -1,18 +1,15 @@
 from __future__ import annotations
 
 import inspect
-from abc import ABC, abstractmethod
+from abc import ABC  # , abstractmethod
 from typing import Union
 
 import numpy as np
 
 import continuoussets.utils.tolerances as tol
 
-# implementations of binary operations and conversions (only as module!)
-# ! this causes circular imports...
-# import continuoussets.set_operations.set_operations as bin_ops
-# import continuoussets.predicates.predicates as pred
-# import continuoussets.conversions.conversions as conversions
+# implementations of binary operations (only as module!)
+import continuoussets.binary_operations.binary_operations as ops
 
 # for plotting
 import matplotlib.pyplot as plt
@@ -56,7 +53,7 @@ class IConvexSet(ABC):
             bool: Arguments are not equal.
         """
         return not self == other
-        # todo equals
+        # todo: replace by call to equals
     
     # set equality
     def __eq__(self, other: Union[IConvexSet, np.ndarray]) -> bool:
@@ -69,24 +66,24 @@ class IConvexSet(ABC):
             bool: Arguments are equal.
         """
         return self == other
-        # todo equals
+        # todo: replace by call to equals
     
-    # # predicates
-    # def contains(S1: Union[IConvexSet, np.ndarray], S2: Union[IConvexSet, np.ndarray], *,
-    #              rtol: float = tol.CONTAINS_RTOL,
-    #              atol: float = tol.CONTAINS_ATOL) -> bool:
-    #     """Checks containment of an IConvexSet or vector S2 in an IConvexSet S1.
-    #     Defined as: forall s2 in S2: s2 in S1?
+    # # opsicates
+    def contains(S1: Union[IConvexSet, np.ndarray], S2: Union[IConvexSet, np.ndarray], *,
+                 rtol: float = tol.CONTAINS_RTOL,
+                 atol: float = tol.CONTAINS_ATOL) -> bool:
+        """Checks containment of an IConvexSet or vector S2 in an IConvexSet S1.
+        Defined as: forall s2 in S2: s2 in S1?
 
-    #     Args:
-    #         other (Union[IConvexSet, np.ndarray]): Set or vector.
-    #         rtol (float, optional): Relative tolerance. Defaults to CONTAINS_RTOL.
-    #         atol (float, optional): Absolute tolerance. Defaults to CONTAINS_ATOL.
+        Args:
+            other (Union[IConvexSet, np.ndarray]): Set or vector.
+            rtol (float, optional): Relative tolerance. Defaults to CONTAINS_RTOL.
+            atol (float, optional): Absolute tolerance. Defaults to CONTAINS_ATOL.
 
-    #     Returns:
-    #         bool: Containment.
-    #     """
-    #     return pred.contains(S1, S2, rtol = rtol, atol = atol)
+        Returns:
+            bool: Containment.
+        """
+        return ops.contains(S1, S2, rtol = rtol, atol = atol)
     
     # def equals(S1: Union[IConvexSet, np.ndarray], S2: Union[IConvexSet, np.ndarray], *,
     #            rtol: float = tol.EQUALS_RTOL,
@@ -102,7 +99,7 @@ class IConvexSet(ABC):
     #     Returns:
     #         bool: Set equality.
     #     """
-    #     return pred.equals(S1, S2, rtol = rtol, atol = atol)
+    #     return ops.equals(S1, S2, rtol = rtol, atol = atol)
 
     # def intersects(S1: Union[IConvexSet, np.ndarray], S2: Union[IConvexSet, np.ndarray], *,
     #                rtol: float = tol.INTERSECTS_RTOL,
@@ -118,7 +115,7 @@ class IConvexSet(ABC):
     #     Returns:
     #         bool: Non-emptiness of intersection.
     #     """
-    #     return pred.intersects(S1, S2, rtol = rtol, atol = atol)
+    #     return ops.intersects(S1, S2, rtol = rtol, atol = atol)
     
     # # binary set operations
     # def cartesian_product(S1: Union[IConvexSet, np.ndarray],
@@ -135,7 +132,7 @@ class IConvexSet(ABC):
     #     Returns:
     #         IConvexSet: Cartesian product of S1 and S2, of type S1 (unless S1 is np.ndarray, then of type S2).
     #     """
-    #     return bin_ops.cartesian_product(S1, S2, mode = mode)
+    #     return ops.cartesian_product(S1, S2, mode = mode)
     
     # def convex_hull(S1: Union[IConvexSet, np.ndarray],
     #                 S2: Union[IConvexSet, np.ndarray], *,
@@ -151,7 +148,7 @@ class IConvexSet(ABC):
     #     Returns:
     #         IConvexSet: Convex hull of S1 and S2, of type S1 (unless S1 is np.ndarray, then of type S2).
     #     """
-    #     return bin_ops.convex_hull(S1, S2, mode = mode)
+    #     return ops.convex_hull(S1, S2, mode = mode)
     
     # def minkowski_difference(S1: Union[IConvexSet, np.ndarray],
     #                          S2: Union[IConvexSet, np.ndarray], *,
@@ -167,7 +164,7 @@ class IConvexSet(ABC):
     #     Returns:
     #         IConvexSet: Minkowski difference of S1 and S2, of type S1 (unless S1 is np.ndarray, then of type S2).
     #     """
-    #     return bin_ops.minkowski_difference(S1, S2, mode = mode)
+    #     return ops.minkowski_difference(S1, S2, mode = mode)
     
     # def minkowski_sum(S1: Union[IConvexSet, np.ndarray],
     #                   S2: Union[IConvexSet, np.ndarray], *,
@@ -183,7 +180,7 @@ class IConvexSet(ABC):
     #     Returns:
     #         IConvexSet: Minkowski sum of S1 and S2, of type S1 (unless S1 is np.ndarray, then of type S2).
     #     """
-    #     return bin_ops.minkowski_sum(S1, S2, mode = mode)
+    #     return ops.minkowski_sum(S1, S2, mode = mode)
 
     # # conversions
     # def convert(S: IConvexSet, set_class: str, mode: str = 'exact') -> IConvexSet:
@@ -226,53 +223,53 @@ class IConvexSet(ABC):
         plt.show()
 
     # conversions
-    @abstractmethod
-    def hpolyhedron(self, *, mode: str):
-        """Conversion to HPolyhedron.
+    # @abstractmethod
+    # def hpolyhedron(self, *, mode: str):
+    #     """Conversion to HPolyhedron.
 
-        Args:
-            mode (str): Type of conversion: 'inner', 'exact', 'outer'.
+    #     Args:
+    #         mode (str): Type of conversion: 'inner', 'exact', 'outer'.
 
-        Raises:
-            NotImplementedError: Has to be implemented in subclasses.
-        """
-        raise NotImplementedError
+    #     Raises:
+    #         NotImplementedError: Has to be implemented in subclasses.
+    #     """
+    #     raise NotImplementedError
 
-    @abstractmethod
-    def interval(self, *, mode: str):
-        """Abstract method: Conversion to Interval.
+    # @abstractmethod
+    # def interval(self, *, mode: str):
+    #     """Abstract method: Conversion to Interval.
 
-        Args:
-            mode (str): Type of conversion: 'inner', 'exact', 'outer'.
+    #     Args:
+    #         mode (str): Type of conversion: 'inner', 'exact', 'outer'.
 
-        Raises:
-            NotImplementedError: Has to be implemented in subclasses.
-        """
-        raise NotImplementedError
+    #     Raises:
+    #         NotImplementedError: Has to be implemented in subclasses.
+    #     """
+    #     raise NotImplementedError
 
-    @abstractmethod
-    def vpolytope(self, *, mode: str):
-        """Abstract method: Conversion to VPolytope.
+    # @abstractmethod
+    # def vpolytope(self, *, mode: str):
+    #     """Abstract method: Conversion to VPolytope.
 
-        Args:
-            mode (str): Type of conversion: 'inner', 'exact', 'outer'.
+    #     Args:
+    #         mode (str): Type of conversion: 'inner', 'exact', 'outer'.
 
-        Raises:
-            NotImplementedError: Has to be implemented in subclasses.
-        """
-        raise NotImplementedError
+    #     Raises:
+    #         NotImplementedError: Has to be implemented in subclasses.
+    #     """
+    #     raise NotImplementedError
 
-    @abstractmethod
-    def zonotope(self, *, mode: str):
-        """Abstract method: Conversion to Interval.
+    # @abstractmethod
+    # def zonotope(self, *, mode: str):
+    #     """Abstract method: Conversion to Interval.
 
-        Args:
-            mode (str): Type of conversion: 'inner', 'exact', 'outer'.
+    #     Args:
+    #         mode (str): Type of conversion: 'inner', 'exact', 'outer'.
 
-        Raises:
-            NotImplementedError: Has to be implemented in subclasses.
-        """
-        raise NotImplementedError
+    #     Raises:
+    #         NotImplementedError: Has to be implemented in subclasses.
+    #     """
+    #     raise NotImplementedError
 
     # check functions
     def _checkMode(self, mode: str):
