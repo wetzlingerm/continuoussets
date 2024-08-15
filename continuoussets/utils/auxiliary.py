@@ -1,25 +1,55 @@
+from __future__ import annotations
+
 import numpy as np
 from itertools import product
 
 if __name__ == '__main__':
     "This is a utilities file for auxiliary computations"
+    
+
+# pair of sets
+class SetPair:
+
+    def __init__(self, first_operand: str, second_operand: str, *, ordered = True) -> SetPair:
+        # save operands and ordering
+        self.sets = (first_operand, second_operand)
+        self.ordered = ordered
+
+    def __repr__(self) -> str:
+        newline = '\n'
+        return f"first operand: {self.sets[0]}{newline}" \
+               f"second operand: {self.sets[1]}{newline}" \
+               f"ordering: {self.ordered}"
+        
+    def __eq__(self, other: SetPair) -> bool:
+        # check for equality, may depend on order
+        if not isinstance(other, SetPair):
+            return False
+        elif self.ordered:
+            return self.sets[0] == other.sets[0] and self.sets[1] == other.sets[1]
+        else:
+            return (self.sets[0] == other.sets[0] and self.sets[1] == other.sets[1]) \
+                    or (self.sets[0] == other.sets[1] and self.sets[1] == other.sets[0])
+
+    def __hash__(self) -> int:
+        return hash(self.sets[0]) + hash(self.sets[1])
 
 
 # halfspace representation for a single vector
-def halfspace_representation_from_vector(v: np.ndarray) -> tuple:
-    """Initialization of the halfspace representation from a single given vector.
+# def halfspace_representation_from_vector(v: np.ndarray) -> tuple:
+#     """Initialization of the halfspace representation from a single given vector.
 
-    Args:
-        v (np.ndarray): Vector.
+#     Args:
+#         v (np.ndarray): Vector.
 
-    Returns:
-        tuple: Set of inequalities A, b fulfilling Ax <= b for the given vector x.
-    """
-    n = v.size
-    A = np.vstack((-np.ones(n), np.eye(n)))
-    b = np.matmul(A, v)
+#     Returns:
+#         tuple: Set of inequalities A, b fulfilling Ax <= b for the given vector x.
+#     """
+#     n = v.size
+#     A = np.vstack((-np.ones(n), np.eye(n)))
+#     b = np.matmul(A, v)
 
-    return (A, b)
+#     return (A, b)
 
 
 # n-dimensional cross product
@@ -149,3 +179,16 @@ def active_inequality(A: np.ndarray, b: np.ndarray, x: np.ndarray, *, rtol: floa
         bool: Status of active inequalities.
     """
     return np.any(np.isclose(b - np.matmul(A, x), 0., rtol = rtol, atol = atol))
+
+
+# sort rows
+def sort_rows(A: np.ndarray) -> np.ndarray:
+    """Sorts a matrix A row-wise.
+
+    Args:
+        A (np.ndarray): 2D matrix.
+
+    Returns:
+        np.ndarray: Sorted matrix.
+    """
+    return A[np.lexsort(A.T[::-1])]

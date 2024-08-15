@@ -4,18 +4,13 @@ from itertools import combinations
 from typing import Union
 
 import numpy as np
-from math import comb
 from scipy.optimize import linprog
 from scipy.spatial import ConvexHull
 
 from continuoussets.convexsets.interface_convexset import IConvexSet
-from continuoussets.convexsets.hpolyhedron import HPolyhedron as HP
-# note: the above line means that the HPolyhedron module cannot import the Zonotope module!
 from continuoussets.utils import comparison
-from continuoussets.utils.exceptions import OtherFunctionError, ExactEvaluationImpossibleError
-from continuoussets.utils.auxiliary import halfspace_representation_from_vector, \
-                                           n_dim_cross_product, \
-                                           number_singular_values
+from continuoussets.utils.exceptions import OtherFunctionError  # , ExactEvaluationImpossibleError
+from continuoussets.utils.auxiliary import number_singular_values
 
 if __name__ == '__main__':
     print('This is the Zonotope class.')
@@ -151,42 +146,42 @@ class Zonotope(IConvexSet):
         elif isinstance(other, IConvexSet):
             raise OtherFunctionError((self, other), 'minkowski_sum')
 
-    # set equality
-    def __eq__(self, other: Union[IConvexSet, np.ndarray], *, rtol: float = 1e-10, atol: float = 1e-12) -> bool:
-        """Set equality of a Zonotope Z with another set or vector S.
-        Defined as forall Z in Z: i in S and forall s in S: s in Z?
+    # # set equality
+    # def __eq__(self, other: Union[IConvexSet, np.ndarray], *, rtol: float = 1e-10, atol: float = 1e-12) -> bool:
+    #     """Set equality of a Zonotope Z with another set or vector S.
+    #     Defined as forall Z in Z: i in S and forall s in S: s in Z?
 
-        Args:
-            other (Union[IConvexSet, np.ndarray]): Set or vector.
-            rtol (float, optional): Relative tolerance. Defaults to 1e-10.
-            atol (float, optional): Absolute tolerance. Defaults to 1e-12.
+    #     Args:
+    #         other (Union[IConvexSet, np.ndarray]): Set or vector.
+    #         rtol (float, optional): Relative tolerance. Defaults to 1e-10.
+    #         atol (float, optional): Absolute tolerance. Defaults to 1e-12.
 
-        Returns:
-            bool: Set equality.
-        """
-        self._checkOtherOperand(other, check_dimension = False)
+    #     Returns:
+    #         bool: Set equality.
+    #     """
+    #     self._checkOtherOperand(other, check_dimension = False)
 
-        if ((isinstance(other, IConvexSet) and self.dimension != other.dimension)
-                or (isinstance(other, np.ndarray) and self.dimension != other.shape[0])):
-            return False
+    #     if ((isinstance(other, IConvexSet) and self.dimension != other.dimension)
+    #             or (isinstance(other, np.ndarray) and self.dimension != other.shape[0])):
+    #         return False
         
-        elif isinstance(other, np.ndarray):
-            return (np.allclose(self.c, other, rtol = rtol, atol = atol)
-                    and self.represents('Point', rtol = rtol, atol = atol))
+    #     elif isinstance(other, np.ndarray):
+    #         return (np.allclose(self.c, other, rtol = rtol, atol = atol)
+    #                 and self.represents('Point', rtol = rtol, atol = atol))
         
-        elif isinstance(other, Zonotope):
-            # check center
-            if not np.allclose(self.c, other.c, rtol = rtol, atol = atol):
-                return False
-            # compact both and compare generator matrices
-            return comparison.compare_matrices(self.compact().G, other.compact().G,
-                                               rtol = rtol, atol = atol, remove_zeros = True, check_negation = True)
+    #     elif isinstance(other, Zonotope):
+    #         # check center
+    #         if not np.allclose(self.c, other.c, rtol = rtol, atol = atol):
+    #             return False
+    #         # compact both and compare generator matrices
+    #         return comparison.compare_matrices(self.compact().G, other.compact().G,
+    #                                            rtol = rtol, atol = atol, remove_zeros = True, check_negation = True)
         
-        elif type(other).__name__ == 'Interval':
-            return self.__eq__(Zonotope(**other.zonotope(mode = 'exact'), validate = False), rtol = rtol, atol = atol)
+    #     elif type(other).__name__ == 'Interval':
+    #         return self.__eq__(Zonotope(**other.zonotope(mode = 'exact'), validate = False), rtol = rtol, atol = atol)
         
-        elif type(other).__name__ in ['VPolytope', 'HPolyhedron']:
-            return other.__eq__(self, rtol = rtol, atol = atol)
+    #     elif type(other).__name__ in ['VPolytope', 'HPolyhedron']:
+    #         return other.__eq__(self, rtol = rtol, atol = atol)
 
     # unary minus
     def __neg__(self) -> Zonotope:
@@ -352,35 +347,35 @@ class Zonotope(IConvexSet):
         return Zonotope(c = self.c, G = generators, validate = False)
 
     # containment check
-    def contains(self, other: Union[IConvexSet, np.ndarray], *, rtol: float = 1e-5, atol: float = 1e-8) -> bool:
-        """Checks containment of a IConvexSet or vector (np.ndarray) S in a Zonotope Z.
-        Defined as forall s in S: s in Z?
+    # def contains(self, other: Union[IConvexSet, np.ndarray], *, rtol: float = 1e-5, atol: float = 1e-8) -> bool:
+    #     """Checks containment of a IConvexSet or vector (np.ndarray) S in a Zonotope Z.
+    #     Defined as forall s in S: s in Z?
 
-        Args:
-            other (Union[IConvexSet, np.ndarray]): Set or vector.
-            rtol (float, optional): Relative tolerance. Defaults to 1e-5.
-            atol (float, optional): Absolute tolerance. Defaults to 1e-8.
+    #     Args:
+    #         other (Union[IConvexSet, np.ndarray]): Set or vector.
+    #         rtol (float, optional): Relative tolerance. Defaults to 1e-5.
+    #         atol (float, optional): Absolute tolerance. Defaults to 1e-8.
 
-        Returns:
-            bool: Containment status.
-        """
-        self._checkOtherOperand(other)
+    #     Returns:
+    #         bool: Containment status.
+    #     """
+    #     self._checkOtherOperand(other)
 
-        if isinstance(other, np.ndarray):
-            if self.number_generators() == 0:
-                return np.allclose(self.c, other, rtol = rtol, atol = atol)
-            else:
-                # shift zonotope and other by center of zonotope and check zonotope norm
-                norm = (self - self.c).zonotope_norm(other - self.c)
-                return norm <= 1 or np.isclose(norm, 1., rtol = rtol, atol = atol)
-        elif isinstance(other, Zonotope) and other.number_generators() == 0:
-            # shift zonotope and other by center of zonotope and check zonotope norm
-            norm = (self - self.c).zonotope_norm(other.c - self.c)
-            return norm <= 1 or np.isclose(norm, 1., rtol = rtol, atol = atol)
-        else:
-            # all cases: convert outer body to HPolyhedron
-            self_as_hpolyhedron = HP(**self.hpolyhedron())
-            return self_as_hpolyhedron.contains(other, rtol = rtol, atol = atol)
+    #     if isinstance(other, np.ndarray):
+    #         if self.number_generators() == 0:
+    #             return np.allclose(self.c, other, rtol = rtol, atol = atol)
+    #         else:
+    #             # shift zonotope and other by center of zonotope and check zonotope norm
+    #             norm = (self - self.c).zonotope_norm(other - self.c)
+    #             return norm <= 1 or np.isclose(norm, 1., rtol = rtol, atol = atol)
+    #     elif isinstance(other, Zonotope) and other.number_generators() == 0:
+    #         # shift zonotope and other by center of zonotope and check zonotope norm
+    #         norm = (self - self.c).zonotope_norm(other.c - self.c)
+    #         return norm <= 1 or np.isclose(norm, 1., rtol = rtol, atol = atol)
+    #     else:
+    #         # all cases: convert outer body to HPolyhedron
+    #         self_as_hpolyhedron = HP(**self.hpolyhedron())
+    #         return self_as_hpolyhedron.contains(other, rtol = rtol, atol = atol)
 
     # convex hull
     def convex_hull(self, other: Union[IConvexSet, np.ndarray], *, mode: str = 'exact') -> Zonotope:
@@ -451,125 +446,89 @@ class Zonotope(IConvexSet):
         return False
 
     # conversion to hpolyhedron
-    def hpolyhedron(self, *, mode: str = 'exact') -> dict:
-        """Conversion of a Zonotope Z to an HPolyhedron HP.
+    # def hpolyhedron(self, *, mode: str = 'exact') -> dict:
+    #     """Conversion of a Zonotope Z to an HPolyhedron HP.
 
-        Args:
-            mode (str, optional): Approximation of conversion: 'inner', 'exact', 'outer'. Defaults to 'exact'.
+    #     Args:
+    #         mode (str, optional): Approximation of conversion: 'inner', 'exact', 'outer'. Defaults to 'exact'.
 
-        Returns:
-            dict: Keyword arguments for instantiation of a HPolyhedron object.
-        """
-        self._checkMode(mode)
+    #     Returns:
+    #         dict: Keyword arguments for instantiation of a HPolyhedron object.
+    #     """
+    #     self._checkMode(mode)
 
-        # special instantiation if zonotope is a single point
-        if self.represents('Point'):
-            A, b = halfspace_representation_from_vector(self.center())
-            return {'A': A, 'b': b}
+    #     # special instantiation if zonotope is a single point
+    #     if self.represents('Point'):
+    #         A, b = halfspace_representation_from_vector(self.center())
+    #         return {'A': A, 'b': b}
 
-        # conversion requires linearly independent generators
-        Z = self.compact()
-        n_orig = Z.dimension
+    #     # conversion requires linearly independent generators
+    #     Z = self.compact()
+    #     n_orig = Z.dimension
 
-        if self.degenerate():
-            # shift by center and project onto affine hull
-            (Z, M_proj, c) = Z.project_affine_hull()
+    #     if self.degenerate():
+    #         # shift by center and project onto affine hull
+    #         (Z, M_proj, c) = Z.project_affine_hull()
         
-        # pre-allocate constraint matrix and constraint offset
-        n, m = Z.dimension, Z.number_generators()
-        h = comb(m, n-1)
-        A, b = np.zeros((2*h, n)), np.zeros(2*h)
+    #     # pre-allocate constraint matrix and constraint offset
+    #     n, m = Z.dimension, Z.number_generators()
+    #     h = comb(m, n-1)
+    #     A, b = np.zeros((2*h, n)), np.zeros(2*h)
 
-        # we compute the n-dimensional cross product of all combinations of n-1 generators
-        all_combinations = combinations(range(m), r = n-1)
-        for row, combination in enumerate(all_combinations):
-            cross_product = n_dim_cross_product(Z.G[list(combination)].T)
-            A[row] = cross_product / np.linalg.norm(cross_product, ord = 2)
-            A[row+h] = -A[row]
-            delta = np.sum(np.abs(np.matmul(A[row], Z.G.T)))
-            b[row] = np.matmul(A[row], Z.c) + delta
-            b[row+h] = -np.matmul(A[row], Z.c) + delta
+    #     # we compute the n-dimensional cross product of all combinations of n-1 generators
+    #     all_combinations = combinations(range(m), r = n-1)
+    #     for row, combination in enumerate(all_combinations):
+    #         cross_product = n_dim_cross_product(Z.G[list(combination)].T)
+    #         A[row] = cross_product / np.linalg.norm(cross_product, ord = 2)
+    #         A[row+h] = -A[row]
+    #         delta = np.sum(np.abs(np.matmul(A[row], Z.G.T)))
+    #         b[row] = np.matmul(A[row], Z.c) + delta
+    #         b[row+h] = -np.matmul(A[row], Z.c) + delta
 
-        # back-projection
-        if n_orig > n:
-            # additional constraints flattening other dimensions to 0
-            A = np.block([[A, np.zeros((2*h, n_orig-n))],
-                          [np.zeros((n_orig-n, n)), np.eye(n_orig-n)],
-                          [np.zeros((n_orig-n, n)), -np.eye(n_orig-n)]])
-            b = np.hstack((b, np.zeros(2*(n_orig-n))))
-            # map constraint matrix of polytope: M*{x | Ax <= b} = {x | A*M^-1 x <= b}, with M^-1 = M^T in this case
-            A = np.matmul(A, M_proj.T)
-            # incorporate effect of shifted center into constraint offset
-            b += np.matmul(A, c)
+    #     # back-projection
+    #     if n_orig > n:
+    #         # additional constraints flattening other dimensions to 0
+    #         A = np.block([[A, np.zeros((2*h, n_orig-n))],
+    #                       [np.zeros((n_orig-n, n)), np.eye(n_orig-n)],
+    #                       [np.zeros((n_orig-n, n)), -np.eye(n_orig-n)]])
+    #         b = np.hstack((b, np.zeros(2*(n_orig-n))))
+    #         # map constraint matrix of polytope: M*{x | Ax <= b} = {x | A*M^-1 x <= b}, with M^-1 = M^T in this case
+    #         A = np.matmul(A, M_proj.T)
+    #         # incorporate effect of shifted center into constraint offset
+    #         b += np.matmul(A, c)
 
-        return {'A': A, 'b': b}
+    #     return {'A': A, 'b': b}
 
-    # intersection check
-    def intersects(self, other: Union[IConvexSet, np.ndarray], *, rtol: float = 1e-5, atol: float = 1e-8) -> bool:
-        """Checks if a Zonotope Z intersects another set or vector S.
-        Defined as exists s in Z: s in S?
+    # # intersection check
+    # def intersects(self, other: Union[IConvexSet, np.ndarray], *, rtol: float = 1e-5, atol: float = 1e-8) -> bool:
+    #     """Checks if a Zonotope Z intersects another set or vector S.
+    #     Defined as exists s in Z: s in S?
 
-        Args:
-            other (Union[IConvexSet, np.ndarray]): Set or vector.
-            rtol (float, optional): Relative tolerance. Defaults to 1e-5.
-            atol (float, optional): Absolute tolerance. Defaults to 1e-8.
+    #     Args:
+    #         other (Union[IConvexSet, np.ndarray]): Set or vector.
+    #         rtol (float, optional): Relative tolerance. Defaults to 1e-5.
+    #         atol (float, optional): Absolute tolerance. Defaults to 1e-8.
 
-        Returns:
-            bool: Result of the intersection check.
-        """
-        self._checkOtherOperand(other)
+    #     Returns:
+    #         bool: Result of the intersection check.
+    #     """
+    #     self._checkOtherOperand(other)
 
-        if isinstance(other, np.ndarray):
-            return self.contains(other)
-        elif type(other).__name__ in ['VPolytope', 'HPolyhedron']:
-            return other.intersects(self, rtol = rtol, atol = atol)
-        elif type(other).__name__ == 'Interval':
-            other = Zonotope(**other.zonotope(mode = 'exact'))
+    #     if isinstance(other, np.ndarray):
+    #         return self.contains(other)
+    #     elif type(other).__name__ in ['VPolytope', 'HPolyhedron']:
+    #         return other.intersects(self, rtol = rtol, atol = atol)
+    #     elif type(other).__name__ == 'Interval':
+    #         other = Zonotope(**other.zonotope(mode = 'exact'))
 
-        # cases without generators: less intermediate computations
-        if self.number_generators() == 0:
-            return other.contains(self.c, rtol = rtol, atol = atol)
-        elif other.number_generators() == 0:
-            return self.contains(other.c, rtol = rtol, atol = atol)
+    #     # cases without generators: less intermediate computations
+    #     if self.number_generators() == 0:
+    #         return other.contains(self.c, rtol = rtol, atol = atol)
+    #     elif other.number_generators() == 0:
+    #         return self.contains(other.c, rtol = rtol, atol = atol)
 
-        # use identity: Z1 intersects Z2 iff 0 in Z1 + (-Z2)
-        return (self.minkowski_sum(-other)).contains(np.zeros(self.dimension), rtol = rtol, atol = atol)
-
-    # conversion to interval
-    def interval(self, *, mode: str = 'exact') -> dict:
-        """Conversion to Interval.
-
-        Args:
-            mode (str, optional): Approximation of the conversion: 'inner', 'exact', 'outer'. Defaults to 'exact'.
-
-        Raises:
-            NotImplementedError: Mode 'inner' only supported if the zonotope represents an interval.
-            ExactEvaluationImpossibleError: Mode 'exact' only supported if the zonotope represents an interval.
-
-        Returns:
-            dict: Keyword arguments for instantiation of an Interval object.
-        """
-        self._checkMode(mode)
-
-        if mode == 'outer':
-            # outer approximation
-            radius = np.sum(np.abs(self.G), axis=0)
-            lower_bound = self.c - radius
-            upper_bound = self.c + radius
-        elif mode == 'inner':
-            # inner approximation or exact conversion
-            if self.represents('Interval'):
-                return self.interval(mode = 'outer')
-            else:
-                raise NotImplementedError
-        elif mode == 'exact':
-            # exact conversion (not always possible)
-            if self.represents('Interval'):
-                return self.interval(mode = 'outer')
-            else:
-                raise ExactEvaluationImpossibleError
-
-        return {'lb': lower_bound, 'ub': upper_bound}
+    #     # use identity: Z1 intersects Z2 iff 0 in Z1 + (-Z2)
+    #     return (self.minkowski_sum(-other)).contains(np.zeros(self.dimension), rtol = rtol, atol = atol)
 
     # linear map
     def matmul(self, matrix: np.ndarray) -> Zonotope:
@@ -742,39 +701,39 @@ class Zonotope(IConvexSet):
                         G = np.vstack((self.G[indices[number_reduced_generators:], :], reduced_generators)),
                         validate = False)
 
-    # representation by other set representation
-    def represents(self, set_class: str, *, rtol: float = 1e-5, atol: float = 1e-8) -> bool:
-        """Check if a Zonotope Z can also be equivalently represented using another IConvexSet class.
+    # # representation by other set representation
+    # def represents(self, set_class: str, *, rtol: float = 1e-5, atol: float = 1e-8) -> bool:
+    #     """Check if a Zonotope Z can also be equivalently represented using another IConvexSet class.
 
-        Args:
-            set_class (str): Name of another IConvexSet class or 'Point'.
-            rtol (float, optional): Relative tolerance. Defaults to 1e-5.
-            atol (float, optional): Absolute tolerance. Defaults to 1e-8.
+    #     Args:
+    #         set_class (str): Name of another IConvexSet class or 'Point'.
+    #         rtol (float, optional): Relative tolerance. Defaults to 1e-5.
+    #         atol (float, optional): Absolute tolerance. Defaults to 1e-8.
 
-        Returns:
-            bool: Representation possible.
-        """
-        self._checkSetClass(set_class)
+    #     Returns:
+    #         bool: Representation possible.
+    #     """
+    #     self._checkSetClass(set_class)
 
-        if set_class == 'Point':
-            if self.number_generators() == 0:
-                return True
-            # compute size of box around generators
-            interval_dict = self.interval(mode = 'outer')
-            lower_bound, upper_bound = interval_dict['lb'], interval_dict['ub']
-            return np.allclose(upper_bound - lower_bound, 0., rtol = rtol, atol = atol)
+    #     if set_class == 'Point':
+    #         if self.number_generators() == 0:
+    #             return True
+    #         # compute size of box around generators
+    #         interval_dict = self.interval(mode = 'outer')
+    #         lower_bound, upper_bound = interval_dict['lb'], interval_dict['ub']
+    #         return np.allclose(upper_bound - lower_bound, 0., rtol = rtol, atol = atol)
         
-        if self.dimension == 1:
-            return True
+    #     if self.dimension == 1:
+    #         return True
         
-        if set_class == 'Interval':
-            if self.number_generators() == 0:
-                return True
-            G_abs = np.abs(self.G)
-            return np.allclose(np.sum(G_abs, axis=1), np.max(G_abs, axis=1), rtol = rtol, atol = atol)
+    #     if set_class == 'Interval':
+    #         if self.number_generators() == 0:
+    #             return True
+    #         G_abs = np.abs(self.G)
+    #         return np.allclose(np.sum(G_abs, axis=1), np.max(G_abs, axis=1), rtol = rtol, atol = atol)
         
-        # every zonotope is a zonotope/hpolyhedron/vpolytope
-        return True
+    #     # every zonotope is a zonotope/hpolyhedron/vpolytope
+    #     return True
 
     # support function evaluation
     def support_function(self, direction: np.ndarray) -> tuple[float, np.ndarray]:
@@ -855,33 +814,33 @@ class Zonotope(IConvexSet):
 
         return 2**self.dimension * vol
 
-    # conversion to vpolytope
-    def vpolytope(self, *, mode: str = 'exact') -> dict:
-        """Conversion to VPolytope.
+    # # conversion to vpolytope
+    # def vpolytope(self, *, mode: str = 'exact') -> dict:
+    #     """Conversion to VPolytope.
 
-        Args:
-            mode (str, optional): Approximation of the conversion: 'inner', 'exact', 'outer'. Defaults to 'exact'.
+    #     Args:
+    #         mode (str, optional): Approximation of the conversion: 'inner', 'exact', 'outer'. Defaults to 'exact'.
 
-        Returns:
-            dict: Keyword arguments for instantiation of a VPolytope object.
-        """
-        self._checkMode(mode)
+    #     Returns:
+    #         dict: Keyword arguments for instantiation of a VPolytope object.
+    #     """
+    #     self._checkMode(mode)
 
-        return {'V': self.vertices()}
+    #     return {'V': self.vertices()}
 
-    # conversion to zonotope
-    def zonotope(self, *, mode: str = 'exact') -> dict:
-        """Overloaded conversion to Zonotope.
+    # # conversion to zonotope
+    # def zonotope(self, *, mode: str = 'exact') -> dict:
+    #     """Overloaded conversion to Zonotope.
 
-        Args:
-            mode (str, optional): Approximation of the conversion: 'inner', 'exact', 'outer'. Defaults to 'exact'.
+    #     Args:
+    #         mode (str, optional): Approximation of the conversion: 'inner', 'exact', 'outer'. Defaults to 'exact'.
 
-        Returns:
-            dict: Keyword arguments for instantiation of an Zonotope object.
-        """
-        self._checkMode(mode)
+    #     Returns:
+    #         dict: Keyword arguments for instantiation of an Zonotope object.
+    #     """
+    #     self._checkMode(mode)
 
-        return {'c': self.c, 'G': self.G}
+    #     return {'c': self.c, 'G': self.G}
 
     # zonotope norm
     def zonotope_norm(self, other: np.ndarray) -> float:

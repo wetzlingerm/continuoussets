@@ -4,14 +4,11 @@ from typing import Union
 
 import numpy as np
 from scipy.optimize import linprog
-from pypoman import compute_polytope_vertices  # project_polytope
+from pypoman import compute_polytope_vertices
 from continuoussets.convexsets.interface_convexset import IConvexSet
 # from continuoussets.utils import comparison
-from continuoussets.utils.exceptions import OtherFunctionError, ExactEvaluationImpossibleError, \
-    EmptySetError, UnboundedSetError
-from continuoussets.utils.auxiliary import halfspace_representation_from_vector, \
-                                           fourier_motzkin_elimination, \
-                                           active_inequality
+from continuoussets.utils.exceptions import OtherFunctionError, EmptySetError, UnboundedSetError
+from continuoussets.utils.auxiliary import fourier_motzkin_elimination, active_inequality
 
 if __name__ == '__main__':
     print('This is the HPolyhedron class.')
@@ -118,37 +115,37 @@ class HPolyhedron(IConvexSet):
         elif isinstance(other, IConvexSet):
             raise OtherFunctionError((self, other), 'minkowski_sum')
         
-    # set equality
-    def __eq__(self, other: Union[IConvexSet, np.ndarray], *, rtol: float = 1e-5, atol: float = 1e-8) -> bool:
-        """Set equality of an HPolyhedron HP with another set or vector S.
-        Defined as forall i in HP: i in S and forall s in S: s in HP?
+    # # set equality
+    # def __eq__(self, other: Union[IConvexSet, np.ndarray], *, rtol: float = 1e-5, atol: float = 1e-8) -> bool:
+    #     """Set equality of an HPolyhedron HP with another set or vector S.
+    #     Defined as forall i in HP: i in S and forall s in S: s in HP?
 
-        Args:
-            other (Union[IConvexSet, np.ndarray]): Set or vector.
-            rtol (float, optional): Relative tolerance. Defaults to 1e-5.
-            atol (float, optional): Absolute tolerance. Defaults to 1e-8.
+    #     Args:
+    #         other (Union[IConvexSet, np.ndarray]): Set or vector.
+    #         rtol (float, optional): Relative tolerance. Defaults to 1e-5.
+    #         atol (float, optional): Absolute tolerance. Defaults to 1e-8.
 
-        Returns:
-            bool: Set equality.
-        """
-        self._checkOtherOperand(other)
+    #     Returns:
+    #         bool: Set equality.
+    #     """
+    #     self._checkOtherOperand(other)
 
-        # special check for comparison to vector
-        if isinstance(other, np.ndarray):
-            if not self.contains(other, rtol = rtol, atol = atol):
-                return False
-            A_other, b_other = halfspace_representation_from_vector(other)
-            other = HPolyhedron(A = A_other, b = b_other)
-            return other.contains(self, rtol = rtol, atol = atol)
+    #     # special check for comparison to vector
+    #     if isinstance(other, np.ndarray):
+    #         if not self.contains(other, rtol = rtol, atol = atol):
+    #             return False
+    #         A_other, b_other = halfspace_representation_from_vector(other)
+    #         other = HPolyhedron(A = A_other, b = b_other)
+    #         return other.contains(self, rtol = rtol, atol = atol)
         
-        # convert everything to a HPolyhedron
-        if not isinstance(other, HPolyhedron):
-            other = HPolyhedron(**other.hpolyhedron(mode = 'exact'))
+    #     # convert everything to a HPolyhedron
+    #     if not isinstance(other, HPolyhedron):
+    #         other = HPolyhedron(**other.hpolyhedron(mode = 'exact'))
 
-        # slow containment method
-        a = self.contains(other, rtol = rtol, atol = atol)
-        b = other.contains(self, rtol = rtol, atol = atol)
-        return a and b
+    #     # slow containment method
+    #     a = self.contains(other, rtol = rtol, atol = atol)
+    #     b = other.contains(self, rtol = rtol, atol = atol)
+    #     return a and b
     
     # unary minus
     def __neg__(self) -> HPolyhedron:
@@ -458,39 +455,39 @@ class HPolyhedron(IConvexSet):
         return HPolyhedron(A = self.A[index_irredundant], b = self.b[index_irredundant], validate = False)
 
     # containment check
-    def contains(self, other: Union[IConvexSet, np.ndarray], *, rtol: float = 1e-5, atol: float = 1e-8) -> bool:
-        """Checks containment of a IConvexSet or vector (np.ndarray) S in an HPolyhedron HP.
-        Defined as forall s in S: s in HP?
+    # def contains(self, other: Union[IConvexSet, np.ndarray], *, rtol: float = 1e-5, atol: float = 1e-8) -> bool:
+    #     """Checks containment of a IConvexSet or vector (np.ndarray) S in an HPolyhedron HP.
+    #     Defined as forall s in S: s in HP?
 
-        Args:
-            other (Union[IConvexSet, np.ndarray]): Set or vector.
-            rtol (float, optional): Relative tolerance. Defaults to 1e-5.
-            atol (float, optional): Absolute tolerance. Defaults to 1e-8.
+    #     Args:
+    #         other (Union[IConvexSet, np.ndarray]): Set or vector.
+    #         rtol (float, optional): Relative tolerance. Defaults to 1e-5.
+    #         atol (float, optional): Absolute tolerance. Defaults to 1e-8.
 
-        Returns:
-            bool: Containment.
-        """
-        self._checkOtherOperand(other)
+    #     Returns:
+    #         bool: Containment.
+    #     """
+    #     self._checkOtherOperand(other)
 
-        if isinstance(other, np.ndarray):
-            values = np.matmul(self.A, other)
-            # check absolute tolerance... only then check relative tolerance
-            if not np.all(values <= self.b + atol):
-                min_value = np.min((np.abs(values), np.abs(self.b)), axis = 0)
-                if np.any(min_value == 0.) or np.any(np.abs(values - self.b) / min_value > rtol):
-                    return False
-            return True
+    #     if isinstance(other, np.ndarray):
+    #         values = np.matmul(self.A, other)
+    #         # check absolute tolerance... only then check relative tolerance
+    #         if not np.all(values <= self.b + atol):
+    #             min_value = np.min((np.abs(values), np.abs(self.b)), axis = 0)
+    #             if np.any(min_value == 0.) or np.any(np.abs(values - self.b) / min_value > rtol):
+    #                 return False
+    #         return True
         
-        for i in range(self.number_constraints()):
-            # compute support function value of in-body along all normal vectors in A and compare to b
-            value = other.support_function(self.A[i])[0]
-            # check absolute tolerance... only then check relative tolerance
-            if value > self.b[i] + atol:
-                min_value = np.min((np.abs(value), np.abs(self.b[i])))
-                if (min_value == 0.) or (np.abs(value - self.b[i]) / min_value > rtol):
-                    return False
+    #     for i in range(self.number_constraints()):
+    #         # compute support function value of in-body along all normal vectors in A and compare to b
+    #         value = other.support_function(self.A[i])[0]
+    #         # check absolute tolerance... only then check relative tolerance
+    #         if value > self.b[i] + atol:
+    #             min_value = np.min((np.abs(value), np.abs(self.b[i])))
+    #             if (min_value == 0.) or (np.abs(value - self.b[i]) / min_value > rtol):
+    #                 return False
         
-        return True
+    #     return True
 
     # convex hull
     def convex_hull(self, other: Union[IConvexSet, np.ndarray], *, mode: str = 'exact') -> HPolyhedron:
@@ -625,161 +622,113 @@ class HPolyhedron(IConvexSet):
                            validate = False)
     
     # intersection check
-    def intersects(self, other: Union[IConvexSet, np.ndarray], *, rtol: float = 1e-5, atol: float = 1e-8) -> bool:
-        """Checks if an HPolyhedron intersects another set of vector S.
-        Defined as exists s in HP: s in S?
+    # def intersects(self, other: Union[IConvexSet, np.ndarray], *, rtol: float = 1e-5, atol: float = 1e-8) -> bool:
+    #     """Checks if an HPolyhedron intersects another set of vector S.
+    #     Defined as exists s in HP: s in S?
 
-        Args:
-            other (Union[IConvexSet, np.ndarray]): Set or vector.
-            rtol (float, optional): Relative tolerance. Defaults to 1e-5.
-            atol (float, optional): Absolute tolerance. Defaults to 1e-8.
+    #     Args:
+    #         other (Union[IConvexSet, np.ndarray]): Set or vector.
+    #         rtol (float, optional): Relative tolerance. Defaults to 1e-5.
+    #         atol (float, optional): Absolute tolerance. Defaults to 1e-8.
 
-        Returns:
-            bool: Result of the intersection check.
-        """
-        self._checkOtherOperand(other)
+    #     Returns:
+    #         bool: Result of the intersection check.
+    #     """
+    #     self._checkOtherOperand(other)
 
-        if isinstance(other, np.ndarray):
-            return self.contains(other)
-        elif isinstance(other, HPolyhedron):
-            return self._intersects_hpolyhedron(other, rtol = rtol, atol = atol)
-        elif type(other).__name__ == 'Interval':
-            return self._intersects_interval(other, rtol = rtol, atol = atol)
-        elif type(other).__name__ == 'Zonotope':
-            return self._intersects_zonotope(other, rtol = rtol, atol = atol)
-        elif type(other).__name__ == 'VPolytope':
-            return self._intersects_vpolytope(other, rtol = rtol, atol = atol)
+    #     if isinstance(other, np.ndarray):
+    #         return self.contains(other)
+    #     elif isinstance(other, HPolyhedron):
+    #         return self._intersects_hpolyhedron(other, rtol = rtol, atol = atol)
+    #     elif type(other).__name__ == 'Interval':
+    #         return self._intersects_interval(other, rtol = rtol, atol = atol)
+    #     elif type(other).__name__ == 'Zonotope':
+    #         return self._intersects_zonotope(other, rtol = rtol, atol = atol)
+    #     elif type(other).__name__ == 'VPolytope':
+    #         return self._intersects_vpolytope(other, rtol = rtol, atol = atol)
     
-    # intersection check with hpolyhedron
-    def _intersects_hpolyhedron(self, other: HPolyhedron, *, rtol: float = 1e-5, atol: float = 1e-8) -> bool:
-        """Intersection of an HPolyhedron HP with another HPolyhedron S.
+    # # intersection check with hpolyhedron
+    # def _intersects_hpolyhedron(self, other: HPolyhedron, *, rtol: float = 1e-5, atol: float = 1e-8) -> bool:
+    #     """Intersection of an HPolyhedron HP with another HPolyhedron S.
 
-        Args:
-            other (HPolyhedron): HPolyhedron.
+    #     Args:
+    #         other (HPolyhedron): HPolyhedron.
 
-        Returns:
-            bool: Result of the intersection check.
-        """
-        # compute explicit intersection and check whether it is empty
-        return not self.intersection(other).empty()
+    #     Returns:
+    #         bool: Result of the intersection check.
+    #     """
+    #     # compute explicit intersection and check whether it is empty
+    #     return not self.intersection(other).empty()
 
-    # intersection check with interval
-    def _intersects_interval(self, other, *, rtol: float = 1e-5, atol: float = 1e-8) -> bool:
-        """Intersection of an HPolyhedron HP with an Interval I.
+    # # intersection check with interval
+    # def _intersects_interval(self, other, *, rtol: float = 1e-5, atol: float = 1e-8) -> bool:
+    #     """Intersection of an HPolyhedron HP with an Interval I.
 
-        Args:
-            other (Interval): Interval.
-            rtol (float, optional): Relative tolerance. Defaults to 1e-5.
-            atol (float, optional): Absolute tolerance. Defaults to 1e-8.
+    #     Args:
+    #         other (Interval): Interval.
+    #         rtol (float, optional): Relative tolerance. Defaults to 1e-5.
+    #         atol (float, optional): Absolute tolerance. Defaults to 1e-8.
 
-        Returns:
-            bool: Result of the intersection check.
-        """
-        # linear program: min 0  s.t.  Ax <= b, lb <= x <= ub
-        res = linprog(np.zeros(self.dimension),
-                      A_ub = np.vstack((self.A, np.eye(self.dimension), -np.eye(self.dimension))),
-                      b_ub = np.hstack((self.b, other.ub, -other.lb)),
-                      bounds = (None, None))
-        return res.success
+    #     Returns:
+    #         bool: Result of the intersection check.
+    #     """
+    #     # linear program: min 0  s.t.  Ax <= b, lb <= x <= ub
+    #     res = linprog(np.zeros(self.dimension),
+    #                   A_ub = np.vstack((self.A, np.eye(self.dimension), -np.eye(self.dimension))),
+    #                   b_ub = np.hstack((self.b, other.ub, -other.lb)),
+    #                   bounds = (None, None))
+    #     return res.success
     
-    # intersection check with zonotope
-    def _intersects_zonotope(self, other, *, rtol: float = 1e-5, atol: float = 1e-8) -> bool:
-        """Intersection of an HPolyhedron HP with a Zonotope Z.
+    # # intersection check with zonotope
+    # def _intersects_zonotope(self, other, *, rtol: float = 1e-5, atol: float = 1e-8) -> bool:
+    #     """Intersection of an HPolyhedron HP with a Zonotope Z.
 
-        Args:
-            other (Zonotope): Zonotope.
-            rtol (float, optional): Relative tolerance. Defaults to 1e-5.
-            atol (float, optional): Absolute tolerance. Defaults to 1e-8.
+    #     Args:
+    #         other (Zonotope): Zonotope.
+    #         rtol (float, optional): Relative tolerance. Defaults to 1e-5.
+    #         atol (float, optional): Absolute tolerance. Defaults to 1e-8.
 
-        Returns:
-            bool: Result of the intersection check.
-        """
-        # linear program: min 0  s.t.  Ax <= b, c + Gbeta == x, ||beta||_oo <= 1
-        n, m = self.dimension, other.number_generators()
+    #     Returns:
+    #         bool: Result of the intersection check.
+    #     """
+    #     # linear program: min 0  s.t.  Ax <= b, c + Gbeta == x, ||beta||_oo <= 1
+    #     n, m = self.dimension, other.number_generators()
 
-        c = np.zeros(n + m)
-        A_ub = np.vstack((np.hstack((self.A, np.zeros((self.number_constraints(), m)))),
-                          np.hstack((np.zeros((2*m, n)),
-                                     np.vstack((np.eye(m), -np.eye(m)))))))
-        b_ub = np.hstack((self.b, np.ones(2*m)))
-        A_eq = np.hstack((-np.eye(n), other.G.T))
-        b_eq = -other.c
+    #     c = np.zeros(n + m)
+    #     A_ub = np.vstack((np.hstack((self.A, np.zeros((self.number_constraints(), m)))),
+    #                       np.hstack((np.zeros((2*m, n)),
+    #                                  np.vstack((np.eye(m), -np.eye(m)))))))
+    #     b_ub = np.hstack((self.b, np.ones(2*m)))
+    #     A_eq = np.hstack((-np.eye(n), other.G.T))
+    #     b_eq = -other.c
 
-        res = linprog(c, A_ub = A_ub, b_ub = b_ub, A_eq = A_eq, b_eq = b_eq, bounds = (None, None))
-        return res.success
+    #     res = linprog(c, A_ub = A_ub, b_ub = b_ub, A_eq = A_eq, b_eq = b_eq, bounds = (None, None))
+    #     return res.success
     
-    def _intersects_vpolytope(self, other, *, rtol: float = 1e-5, atol: float = 1e-8) -> bool:
-        """Intersection of an HPolyhedron HP with a VPolytope VP.
+    # def _intersects_vpolytope(self, other, *, rtol: float = 1e-5, atol: float = 1e-8) -> bool:
+    #     """Intersection of an HPolyhedron HP with a VPolytope VP.
 
-        Args:
-            other (VPolytope): VPolytope.
-            rtol (float, optional): Relative tolerance. Defaults to 1e-5.
-            atol (float, optional): Absolute tolerance. Defaults to 1e-8.
+    #     Args:
+    #         other (VPolytope): VPolytope.
+    #         rtol (float, optional): Relative tolerance. Defaults to 1e-5.
+    #         atol (float, optional): Absolute tolerance. Defaults to 1e-8.
 
-        Returns:
-            bool: Result of the intersection check.
-        """
-        # linear program: min 0  s.t.  Ax <= b, Vbeta == x, sum beta = 1, beta >= 0
-        n, h, m = self.dimension, self.number_constraints(), other.number_vertices()
+    #     Returns:
+    #         bool: Result of the intersection check.
+    #     """
+    #     # linear program: min 0  s.t.  Ax <= b, Vbeta == x, sum beta = 1, beta >= 0
+    #     n, h, m = self.dimension, self.number_constraints(), other.number_vertices()
 
-        c = np.zeros(n + m)
-        A_ub = np.vstack((np.hstack((self.A, np.zeros((h, m)))),
-                          np.hstack((np.zeros((m, n)), -np.eye(m)))))
-        b_ub = np.hstack((self.b, np.zeros(m)))
-        A_eq = np.vstack((np.hstack((-np.eye(n), other.V.T)),
-                          np.hstack((np.zeros(n), np.ones(m)))))
-        b_eq = np.hstack((np.zeros(n), 1.))
+    #     c = np.zeros(n + m)
+    #     A_ub = np.vstack((np.hstack((self.A, np.zeros((h, m)))),
+    #                       np.hstack((np.zeros((m, n)), -np.eye(m)))))
+    #     b_ub = np.hstack((self.b, np.zeros(m)))
+    #     A_eq = np.vstack((np.hstack((-np.eye(n), other.V.T)),
+    #                       np.hstack((np.zeros(n), np.ones(m)))))
+    #     b_eq = np.hstack((np.zeros(n), 1.))
 
-        res = linprog(c, A_ub = A_ub, b_ub = b_ub, A_eq = A_eq, b_eq = b_eq, bounds = (None, None))
-        return res.success
-
-    # conversion to interval
-    def interval(self, *, mode: str = 'exact') -> dict:
-        """Conversion of an HPolyhedron HP to an Interval I.
-
-        Args:
-            mode (str, optional): Approximation of the conversion: 'inner', 'exact', 'outer'. Defaults to 'exact'.
-
-        Raises:
-            NotImplementedError: mode = 'inner' not supported unless HP represents an interval.
-            ExactEvaluationImpossibleError: mode = 'exact' not supported unless HP represents an interval.
-            UnboundedSetError: HPolyhedron is unbounded.
-            EmptySetError: HPolyhedron is empty.
-
-        Returns:
-            dict: Keyword arguments for instantiation of an Interval object.
-        """
-        self._checkMode(mode)
-
-        if mode == 'inner':
-            if not self.represents(set_class = 'Interval'):
-                raise NotImplementedError
-            # else: proceed with 'outer' conversion, which is exact
-        if mode == 'exact':
-            if not self.represents(set_class = 'Interval'):
-                raise ExactEvaluationImpossibleError
-        
-        # loop over all 2n -+ basis vectors and use support function value
-        n = self.dimension
-        lower_bound = np.zeros(n)
-        upper_bound = np.zeros(n)
-
-        basis_vector = np.zeros(n)
-        for i in range(n):
-            for s in [-1., 1.]:
-                basis_vector[i] = s
-                value = self.support_function(basis_vector)[0]
-                basis_vector[i] = 0.
-                if value == np.inf:
-                    raise UnboundedSetError
-                elif value == -np.inf:
-                    raise EmptySetError
-                elif s == -1.:
-                    lower_bound[i] = -value
-                else:  # s == 1.
-                    upper_bound[i] = value
-        
-        return {'lb': lower_bound, 'ub': upper_bound}
+    #     res = linprog(c, A_ub = A_ub, b_ub = b_ub, A_eq = A_eq, b_eq = b_eq, bounds = (None, None))
+    #     return res.success
     
     # linear map
     def matmul(self, matrix: np.ndarray) -> HPolyhedron:
@@ -963,118 +912,118 @@ class HPolyhedron(IConvexSet):
         """
         raise NotImplementedError
 
-    # representation by other set representation
-    def represents(self, set_class: str, *, rtol: float = 1e-5, atol: float = 1e-8) -> bool:
-        """Check if an HPolyhedron HP can also be equivalently represented using another IConvexSet class.
+    # # representation by other set representation
+    # def represents(self, set_class: str, *, rtol: float = 1e-5, atol: float = 1e-8) -> bool:
+    #     """Check if an HPolyhedron HP can also be equivalently represented using another IConvexSet class.
 
-        Args:
-            set_class (str): Name of another IConvexSet class or 'Point'.
-            rtol (float, optional): Relative tolerance. Defaults to 1e-5.
-            atol (float, optional): Absolute tolerance. Defaults to 1e-8.
+    #     Args:
+    #         set_class (str): Name of another IConvexSet class or 'Point'.
+    #         rtol (float, optional): Relative tolerance. Defaults to 1e-5.
+    #         atol (float, optional): Absolute tolerance. Defaults to 1e-8.
 
-        Returns:
-            bool: Representation possible.
-        """
-        self._checkSetClass(set_class)
+    #     Returns:
+    #         bool: Representation possible.
+    #     """
+    #     self._checkSetClass(set_class)
 
-        if set_class == 'Point':
-            try:
-                c = self.center()
-            except (UnboundedSetError, EmptySetError):
-                return False
-            # center must fulfill all inequalities with equality and polytope must be bounded
-            return np.allclose(np.matmul(self.A, c), self.b, rtol = rtol, atol = atol) and self.bounded()
+    #     if set_class == 'Point':
+    #         try:
+    #             c = self.center()
+    #         except (UnboundedSetError, EmptySetError):
+    #             return False
+    #         # center must fulfill all inequalities with equality and polytope must be bounded
+    #         return np.allclose(np.matmul(self.A, c), self.b, rtol = rtol, atol = atol) and self.bounded()
 
-        if set_class == 'HPolyhedron':
-            return True
+    #     if set_class == 'HPolyhedron':
+    #         return True
 
-        # all bounded 1D sets can be represented by every set representation exactly
-        if self.dimension == 1:
-            return self.bounded()
+    #     # all bounded 1D sets can be represented by every set representation exactly
+    #     if self.dimension == 1:
+    #         return self.bounded()
         
-        # vpolytopes can only represent bounded polyhedra
-        if set_class == 'VPolytope':
-            return self.bounded()
+    #     # vpolytopes can only represent bounded polyhedra
+    #     if set_class == 'VPolytope':
+    #         return self.bounded()
         
-        if set_class == 'Interval':
-            return self._represents_interval(rtol = rtol, atol = atol)
+    #     if set_class == 'Interval':
+    #         return self._represents_interval(rtol = rtol, atol = atol)
         
-        if set_class == 'Zonotope':
-            return self._represents_zonotope(rtol = rtol, atol = atol)
+    #     if set_class == 'Zonotope':
+    #         return self._represents_zonotope(rtol = rtol, atol = atol)
     
-    def _represents_interval(self, *, rtol: float = 1e-5, atol: float = 1e-8) -> bool:
-        """Check if an HPolyhedron HP can also be equivalently represented by an Interval.
+    # def _represents_interval(self, *, rtol: float = 1e-5, atol: float = 1e-8) -> bool:
+    #     """Check if an HPolyhedron HP can also be equivalently represented by an Interval.
 
-        Args:
-            rtol (float, optional): Relative tolerance. Defaults to 1e-5.
-            atol (float, optional): Absolut tolerance. Defaults to 1e-8.
+    #     Args:
+    #         rtol (float, optional): Relative tolerance. Defaults to 1e-5.
+    #         atol (float, optional): Absolut tolerance. Defaults to 1e-8.
 
-        Returns:
-            bool: Representation possible.
-        """
-        # todo: what to do with empty?
+    #     Returns:
+    #         bool: Representation possible.
+    #     """
+    #     # todo: what to do with empty?
 
-        # minimal representation must have at least 2n constraints
-        self = self.compact(rtol = rtol)
-        n, h = self.dimension, self.number_constraints()
-        if h < 2*n:
-            return False
+    #     # minimal representation must have at least 2n constraints
+    #     self = self.compact(rtol = rtol)
+    #     n, h = self.dimension, self.number_constraints()
+    #     if h < 2*n:
+    #         return False
         
-        # keep indices for redundancy and for which dimensions are bounded
-        index_keep_for_i = np.full((h,), True)
-        bounded_dimensions_plus = np.full((n,), False)
-        bounded_dimensions_minus = np.full((n,), False)
+    #     # keep indices for redundancy and for which dimensions are bounded
+    #     index_keep_for_i = np.full((h,), True)
+    #     bounded_dimensions_plus = np.full((n,), False)
+    #     bounded_dimensions_minus = np.full((n,), False)
 
-        # loop over constraints, if not axis-aligned -> must be redundant
-        for i in range(h):
-            # axis-aligned constraint may only have a single non-zero entry
-            non_zero_entry = np.invert(np.isclose(self.A[i], 0., rtol = rtol, atol = atol))
+    #     # loop over constraints, if not axis-aligned -> must be redundant
+    #     for i in range(h):
+    #         # axis-aligned constraint may only have a single non-zero entry
+    #         non_zero_entry = np.invert(np.isclose(self.A[i], 0., rtol = rtol, atol = atol))
 
-            if np.sum(non_zero_entry) > 1:
-                # check if constraint is redundant
-                index_keep_for_i[i] = False
-                polyhedron_i = HPolyhedron(A = self.A[index_keep_for_i],
-                                           b = self.b[index_keep_for_i])
-                value = polyhedron_i.support_function(self.A[i])[0]
-                if value > self.b[i] + atol:
-                    return False
-                # note: we do not have to reset index_keep_for_i, as thee ith constraint is redundant
+    #         if np.sum(non_zero_entry) > 1:
+    #             # check if constraint is redundant
+    #             index_keep_for_i[i] = False
+    #             polyhedron_i = HPolyhedron(A = self.A[index_keep_for_i],
+    #                                        b = self.b[index_keep_for_i])
+    #             value = polyhedron_i.support_function(self.A[i])[0]
+    #             if value > self.b[i] + atol:
+    #                 return False
+    #             # note: we do not have to reset index_keep_for_i, as thee ith constraint is redundant
 
-            else:
-                # append this dimension to the respective list of bounded dimensions
-                if self.A[i][non_zero_entry] > 0:
-                    bounded_dimensions_plus = np.logical_or(bounded_dimensions_plus, non_zero_entry)
-                else:
-                    bounded_dimensions_minus = np.logical_or(bounded_dimensions_minus, non_zero_entry)
+    #         else:
+    #             # append this dimension to the respective list of bounded dimensions
+    #             if self.A[i][non_zero_entry] > 0:
+    #                 bounded_dimensions_plus = np.logical_or(bounded_dimensions_plus, non_zero_entry)
+    #             else:
+    #                 bounded_dimensions_minus = np.logical_or(bounded_dimensions_minus, non_zero_entry)
 
-        # currently, all dimensions must be bounded
-        return np.all(bounded_dimensions_plus) and np.all(bounded_dimensions_minus)
+    #     # currently, all dimensions must be bounded
+    #     return np.all(bounded_dimensions_plus) and np.all(bounded_dimensions_minus)
     
-    def _represents_zonotope(self, *, rtol: float = 1e-5, atol: float = 1e-8) -> bool:
-        """Check if an HPolyhedron HP can also be equivalently represented by a Zonotope.
+    # def _represents_zonotope(self, *, rtol: float = 1e-5, atol: float = 1e-8) -> bool:
+    #     """Check if an HPolyhedron HP can also be equivalently represented by a Zonotope.
 
-        Args:
-            rtol (float, optional): Relative tolerance. Defaults to 1e-5.
-            atol (float, optional): Absolute tolerance. Defaults to 1e-8.
+    #     Args:
+    #         rtol (float, optional): Relative tolerance. Defaults to 1e-5.
+    #         atol (float, optional): Absolute tolerance. Defaults to 1e-8.
 
-        Returns:
-            bool: Representation possible.
-        """
-        # current idea:
-        # - must be bounded (for reasons below, this means at least 2n constraints)
-        # - minimal representation must have an even number of constraints
-        # - for each constraint, there must be another with factor -1
+    #     Returns:
+    #         bool: Representation possible.
+    #     """
+    #     # current idea:
+    #     # - must be bounded (for reasons below, this means at least 2n constraints)
+    #     # - minimal representation must have an even number of constraints
+    #     # - for each constraint, there must be another with factor -1
 
-        self = self.compact(rtol = rtol)
-        n, h = self.dimension, self.number_constraints()
-        if h < 2*n or h % 2 != 0 or not self.bounded():
-            return False
+    #     self = self.compact(rtol = rtol)
+    #     n, h = self.dimension, self.number_constraints()
+    #     if h < 2*n or h % 2 != 0 or not self.bounded():
+    #         return False
 
-        # normalize the constraints
-        A_sorted = self.A / np.reshape(np.linalg.norm(self.A, ord = 2, axis = 1), (h, 1))
-        # sort normalized constraints
-        A_sorted = np.sort(A_sorted, axis = 0)
-        return np.allclose(A_sorted[0:int(h/2)] + A_sorted[-1:int(h/2)-1:-1], 0., rtol = rtol, atol = atol)
+    #     # normalize the constraints
+    #     A_sorted = self.A / np.reshape(np.linalg.norm(self.A, ord = 2, axis = 1), (h, 1))
+    #     # sort normalized constraints
+    #     A_sorted = np.sort(A_sorted, axis = 0)
+    #     return np.allclose(A_sorted[0:int(h/2)] + A_sorted[-1:int(h/2)-1:-1], 0., rtol = rtol, atol = atol)
 
     # support function evaluation
     def support_function(self, direction: np.ndarray) -> tuple[float, np.ndarray]:
@@ -1153,49 +1102,49 @@ class HPolyhedron(IConvexSet):
         
         raise NotImplementedError
     
-    # conversion to vpolytope
-    def vpolytope(self, *, mode: str = 'exact') -> dict:
-        """Conversion to a VPolytope VP.
+    # # conversion to vpolytope
+    # def vpolytope(self, *, mode: str = 'exact') -> dict:
+    #     """Conversion to a VPolytope VP.
 
-        Args:
-            mode (str, optional): Approximation of the conversion: 'inner', 'exact', 'outer'. Defaults to 'exact'.
+    #     Args:
+    #         mode (str, optional): Approximation of the conversion: 'inner', 'exact', 'outer'. Defaults to 'exact'.
 
-        Returns:
-            dict: Keyword arguments for instantiation of a VPolytope object.
-        """
-        self._checkMode(mode)
+    #     Returns:
+    #         dict: Keyword arguments for instantiation of a VPolytope object.
+    #     """
+    #     self._checkMode(mode)
 
-        return {'V': self.vertices()}
+    #     return {'V': self.vertices()}
 
-    # conversion to zonotope
-    def zonotope(self, *, mode: str = 'exact') -> dict:
-        """Conversion to a Zonotope Z.
+    # # conversion to zonotope
+    # def zonotope(self, *, mode: str = 'exact') -> dict:
+    #     """Conversion to a Zonotope Z.
 
-        Args:
-            mode (str, optional): Approximation of conversion: 'inner', 'exact', 'outer'. Defaults to 'exact'.
+    #     Args:
+    #         mode (str, optional): Approximation of conversion: 'inner', 'exact', 'outer'. Defaults to 'exact'.
 
-        Returns:
-            dict: keyword arguments for instantiation of a Zonotope object
-        """
-        self._checkMode(mode)
+    #     Returns:
+    #         dict: keyword arguments for instantiation of a Zonotope object
+    #     """
+    #     self._checkMode(mode)
 
-        if mode == 'inner':
-            if not self.represents('Zonotope'):
-                raise NotImplementedError
-        elif mode == 'exact':
-            if not self.represents('Zonotope'):
-                raise ExactEvaluationImpossibleError
-            # even if there were an exact method, I do not know about it (method below exact for 1D)
-            if self.dimension != 1:
-                raise NotImplementedError
+    #     if mode == 'inner':
+    #         if not self.represents('Zonotope'):
+    #             raise NotImplementedError
+    #     elif mode == 'exact':
+    #         if not self.represents('Zonotope'):
+    #             raise ExactEvaluationImpossibleError
+    #         # even if there were an exact method, I do not know about it (method below exact for 1D)
+    #         if self.dimension != 1:
+    #             raise NotImplementedError
 
-        # convert to interval (outer approximation)
-        interval_dict = self.interval(mode = 'outer')
-        lower_bound, upper_bound = interval_dict['lb'], interval_dict['ub']
+    #     # convert to interval (outer approximation)
+    #     interval_dict = self.interval(mode = 'outer')
+    #     lower_bound, upper_bound = interval_dict['lb'], interval_dict['ub']
 
-        # convert interval to zonotope (note: we cannot call Interval methods here)
-        center = (upper_bound + lower_bound) / 2.
-        generators = np.diag((upper_bound - lower_bound) / 2.)
-        generators = generators[~np.all(generators == 0, axis=1), :]
+    #     # convert interval to zonotope (note: we cannot call Interval methods here)
+    #     center = (upper_bound + lower_bound) / 2.
+    #     generators = np.diag((upper_bound - lower_bound) / 2.)
+    #     generators = generators[~np.all(generators == 0, axis=1), :]
         
-        return {'c': center, 'G': generators}
+    #     return {'c': center, 'G': generators}

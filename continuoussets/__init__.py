@@ -7,3 +7,7 @@ from continuoussets.binary_operations.binary_operations import (
     contains, intersects, equals,
     cartesian_product, convex_hull, minkowski_difference, minkowski_sum
 )
+
+from continuoussets.unary_operations.unary_operations import (
+    represents, convert
+)

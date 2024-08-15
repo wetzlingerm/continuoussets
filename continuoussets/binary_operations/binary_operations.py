@@ -40,7 +40,7 @@ def cartesian_product(S1: Union['IConvexSet', np.ndarray],
         IConvexSet: Cartesian product of S1 and S2, of type S1 (unless S1 is np.ndarray, then of type S2).
     """
     # call implementation
-    return op_cartesian_product.CartesianProduct(S1, S2, mode = mode)
+    return op_cartesian_product.CartesianProduct(S1, S2, mode = mode)()
 
 
 def convex_hull(S1: Union['IConvexSet', np.ndarray],
@@ -58,7 +58,7 @@ def convex_hull(S1: Union['IConvexSet', np.ndarray],
         IConvexSet: Convex hull of S1 and S2, of type S1 (unless S1 is np.ndarray, then of type S2).
     """
     # call implementation
-    return op_convex_hull.ConvexHull(S1, S2, mode = mode)
+    return op_convex_hull.ConvexHull(S1, S2, mode = mode)()
 
 
 def minkowski_difference(S1: Union['IConvexSet', np.ndarray],
@@ -76,7 +76,7 @@ def minkowski_difference(S1: Union['IConvexSet', np.ndarray],
         IConvexSet: Minkowski difference of S1 and S2, of type S1 (unless S1 is np.ndarray, then of type S2).
     """
     # call implementation
-    return op_minkowski_difference.MinkowskiDifference(S1, S2, mode = mode)
+    return op_minkowski_difference.MinkowskiDifference(S1, S2, mode = mode)()
 
 
 def minkowski_sum(S1: Union['IConvexSet', np.ndarray],
@@ -94,7 +94,7 @@ def minkowski_sum(S1: Union['IConvexSet', np.ndarray],
         IConvexSet: Minkowski sum of S1 and S2, of type S1 (unless S1 is np.ndarray, then of type S2).
     """
     # call implementation
-    return op_minkowski_sum.MinkowskiSum(S1, S2, mode = mode)
+    return op_minkowski_sum.MinkowskiSum(S1, S2, mode = mode)()
 
 
 # PREDICATES

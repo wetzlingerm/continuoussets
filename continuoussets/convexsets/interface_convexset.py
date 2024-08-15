@@ -1,15 +1,17 @@
 from __future__ import annotations
 
 import inspect
-from abc import ABC  # , abstractmethod
+from abc import ABC
 from typing import Union
 
 import numpy as np
 
 import continuoussets.utils.tolerances as tol
 
-# implementations of binary operations (only as module!)
-import continuoussets.binary_operations.binary_operations as ops
+# implementations of unary/binary operations (only as module!)
+# import continuoussets.binary_operations.binary_operations as binary_ops
+# import continuoussets.unary_operations.unary_operations as unary_ops
+# ! ...yields circular import
 
 # for plotting
 import matplotlib.pyplot as plt
@@ -42,48 +44,75 @@ class IConvexSet(ABC):
 
         cls.validate = new_status
 
-    # negated set equality
-    def __ne__(self, other: Union[IConvexSet, np.ndarray]) -> bool:
-        """Check whether a set and another set or vector are not equal.
+    # # shortcuts for set equality
+    # def __ne__(self, other: Union[IConvexSet, np.ndarray]) -> bool:
+    #     """Check whether a set and another set or vector are not equal.
 
-        Args:
-            other (Union[IConvexSet, np.ndarray]): Set of vector.
+    #     Args:
+    #         other (Union[IConvexSet, np.ndarray]): Set of vector.
 
-        Returns:
-            bool: Arguments are not equal.
-        """
-        return not self == other
-        # todo: replace by call to equals
+    #     Returns:
+    #         bool: Arguments are not equal.
+    #     """
+    #     return not binary_ops.equals(self, other)
     
-    # set equality
-    def __eq__(self, other: Union[IConvexSet, np.ndarray]) -> bool:
-        """Check whether a set and another set or vector are not equal.
+    # def __eq__(self, other: Union[IConvexSet, np.ndarray]) -> bool:
+    #     """Check whether a set and another set or vector are not equal.
 
-        Args:
-            other (Union[IConvexSet, np.ndarray]): Set of vector.
+    #     Args:
+    #         other (Union[IConvexSet, np.ndarray]): Set of vector.
 
-        Returns:
-            bool: Arguments are equal.
-        """
-        return self == other
-        # todo: replace by call to equals
+    #     Returns:
+    #         bool: Arguments are equal.
+    #     """
+    #     return binary_ops.equals(self, other)
     
-    # # opsicates
-    def contains(S1: Union[IConvexSet, np.ndarray], S2: Union[IConvexSet, np.ndarray], *,
-                 rtol: float = tol.CONTAINS_RTOL,
-                 atol: float = tol.CONTAINS_ATOL) -> bool:
-        """Checks containment of an IConvexSet or vector S2 in an IConvexSet S1.
-        Defined as: forall s2 in S2: s2 in S1?
+    # # unary operations
+    # def convert(S: Union[IConvexSet, np.ndarray], set_class: str, *,
+    #             mode: str = 'exact') -> IConvexSet:
+    #     """Converts a IConvexSet S to another IConvexSet class or a point.
 
-        Args:
-            other (Union[IConvexSet, np.ndarray]): Set or vector.
-            rtol (float, optional): Relative tolerance. Defaults to CONTAINS_RTOL.
-            atol (float, optional): Absolute tolerance. Defaults to CONTAINS_ATOL.
+    #     Args:
+    #         S (Union[IConvexSet, np.ndarray]): Set or vector.
+    #         set_class (str): Name of another IConvexSet class or 'Point'.
+    #         mode (str, optional): Approximation of the conversion: 'inner', 'exact', 'outer'. Defaults to 'exact'.
 
-        Returns:
-            bool: Containment.
-        """
-        return ops.contains(S1, S2, rtol = rtol, atol = atol)
+    #     Returns:
+    #         bool: Representation possible.
+    #     """
+    #     return unary_ops.convert(S, set_class, mode = mode)
+
+    # def represents(S: Union[IConvexSet, np.ndarray], set_class: str, *,
+    #                rtol: float = tol.REPRESENTS_RTOL, atol: float = tol.REPRESENTS_ATOL) -> bool:
+    #     """Checks if a IConvexSet S can also be equivalently represented by another IConvexSet class or a point.
+
+    #     Args:
+    #         S (Union[IConvexSet, np.ndarray]): Set or vector.
+    #         set_class (str): Name of another IConvexSet class or 'Point'.
+    #         rtol (float, optional): Relative tolerance. Defaults to REPRESENTS_RTOL.
+    #         atol (float, optional): Absolute tolerance. Defaults to REPRESENTS_ATOL.
+
+    #     Returns:
+    #         bool: Representation possible.
+    #     """
+    #     return unary_ops.represents(S, set_class, rtol = rtol, atol = atol)
+
+    # # predicates
+    # def contains(S1: Union[IConvexSet, np.ndarray], S2: Union[IConvexSet, np.ndarray], *,
+    #              rtol: float = tol.CONTAINS_RTOL,
+    #              atol: float = tol.CONTAINS_ATOL) -> bool:
+    #     """Checks containment of an IConvexSet or vector S2 in an IConvexSet S1.
+    #     Defined as: forall s2 in S2: s2 in S1?
+
+    #     Args:
+    #         other (Union[IConvexSet, np.ndarray]): Set or vector.
+    #         rtol (float, optional): Relative tolerance. Defaults to CONTAINS_RTOL.
+    #         atol (float, optional): Absolute tolerance. Defaults to CONTAINS_ATOL.
+
+    #     Returns:
+    #         bool: Containment.
+    #     """
+    #     return binary_ops.contains(S1, S2, rtol = rtol, atol = atol)
     
     # def equals(S1: Union[IConvexSet, np.ndarray], S2: Union[IConvexSet, np.ndarray], *,
     #            rtol: float = tol.EQUALS_RTOL,
@@ -99,7 +128,7 @@ class IConvexSet(ABC):
     #     Returns:
     #         bool: Set equality.
     #     """
-    #     return ops.equals(S1, S2, rtol = rtol, atol = atol)
+    #     return binary_ops.equals(S1, S2, rtol = rtol, atol = atol)
 
     # def intersects(S1: Union[IConvexSet, np.ndarray], S2: Union[IConvexSet, np.ndarray], *,
     #                rtol: float = tol.INTERSECTS_RTOL,
@@ -115,7 +144,7 @@ class IConvexSet(ABC):
     #     Returns:
     #         bool: Non-emptiness of intersection.
     #     """
-    #     return ops.intersects(S1, S2, rtol = rtol, atol = atol)
+    #     return binary_ops.intersects(S1, S2, rtol = rtol, atol = atol)
     
     # # binary set operations
     # def cartesian_product(S1: Union[IConvexSet, np.ndarray],
@@ -132,7 +161,7 @@ class IConvexSet(ABC):
     #     Returns:
     #         IConvexSet: Cartesian product of S1 and S2, of type S1 (unless S1 is np.ndarray, then of type S2).
     #     """
-    #     return ops.cartesian_product(S1, S2, mode = mode)
+    #     return binary_ops.cartesian_product(S1, S2, mode = mode)
     
     # def convex_hull(S1: Union[IConvexSet, np.ndarray],
     #                 S2: Union[IConvexSet, np.ndarray], *,
@@ -148,7 +177,7 @@ class IConvexSet(ABC):
     #     Returns:
     #         IConvexSet: Convex hull of S1 and S2, of type S1 (unless S1 is np.ndarray, then of type S2).
     #     """
-    #     return ops.convex_hull(S1, S2, mode = mode)
+    #     return binary_ops.convex_hull(S1, S2, mode = mode)
     
     # def minkowski_difference(S1: Union[IConvexSet, np.ndarray],
     #                          S2: Union[IConvexSet, np.ndarray], *,
@@ -164,7 +193,7 @@ class IConvexSet(ABC):
     #     Returns:
     #         IConvexSet: Minkowski difference of S1 and S2, of type S1 (unless S1 is np.ndarray, then of type S2).
     #     """
-    #     return ops.minkowski_difference(S1, S2, mode = mode)
+    #     return binary_ops.minkowski_difference(S1, S2, mode = mode)
     
     # def minkowski_sum(S1: Union[IConvexSet, np.ndarray],
     #                   S2: Union[IConvexSet, np.ndarray], *,
@@ -180,11 +209,7 @@ class IConvexSet(ABC):
     #     Returns:
     #         IConvexSet: Minkowski sum of S1 and S2, of type S1 (unless S1 is np.ndarray, then of type S2).
     #     """
-    #     return ops.minkowski_sum(S1, S2, mode = mode)
-
-    # # conversions
-    # def convert(S: IConvexSet, set_class: str, mode: str = 'exact') -> IConvexSet:
-    #     return conversions.convert(S, set_class = set_class, mode = mode)
+    #     return binary_ops.minkowski_sum(S1, S2, mode = mode)
 
     # plot
     def plot(self, *, axis: tuple, **kwargs):
@@ -221,55 +246,6 @@ class IConvexSet(ABC):
         else:
             plt.plot(V[:, 0], V[:, 1], **kwargs)
         plt.show()
-
-    # conversions
-    # @abstractmethod
-    # def hpolyhedron(self, *, mode: str):
-    #     """Conversion to HPolyhedron.
-
-    #     Args:
-    #         mode (str): Type of conversion: 'inner', 'exact', 'outer'.
-
-    #     Raises:
-    #         NotImplementedError: Has to be implemented in subclasses.
-    #     """
-    #     raise NotImplementedError
-
-    # @abstractmethod
-    # def interval(self, *, mode: str):
-    #     """Abstract method: Conversion to Interval.
-
-    #     Args:
-    #         mode (str): Type of conversion: 'inner', 'exact', 'outer'.
-
-    #     Raises:
-    #         NotImplementedError: Has to be implemented in subclasses.
-    #     """
-    #     raise NotImplementedError
-
-    # @abstractmethod
-    # def vpolytope(self, *, mode: str):
-    #     """Abstract method: Conversion to VPolytope.
-
-    #     Args:
-    #         mode (str): Type of conversion: 'inner', 'exact', 'outer'.
-
-    #     Raises:
-    #         NotImplementedError: Has to be implemented in subclasses.
-    #     """
-    #     raise NotImplementedError
-
-    # @abstractmethod
-    # def zonotope(self, *, mode: str):
-    #     """Abstract method: Conversion to Interval.
-
-    #     Args:
-    #         mode (str): Type of conversion: 'inner', 'exact', 'outer'.
-
-    #     Raises:
-    #         NotImplementedError: Has to be implemented in subclasses.
-    #     """
-    #     raise NotImplementedError
 
     # check functions
     def _checkMode(self, mode: str):

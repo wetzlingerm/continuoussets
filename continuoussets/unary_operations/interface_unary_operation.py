@@ -11,27 +11,25 @@ if TYPE_CHECKING:
 
 
 if __name__ == '__main__':
-    print('This is the IBinaryOperation class')
+    print('This is the IUnaryOperation class')
 
 
-# interface for binary operations
-class IBinaryOperation(ABC):
+# interface for unary operations
+class IUnaryOperation(ABC):
 
     # class variable for selection of strategies
     strategies: Dict[Tuple[str, str], Callable] = dict()
-    # is ordering relevant?
-    ordered_operation = True
 
     def __init__(self,
-                 first_operand: Union['IConvexSet', np.ndarray],
-                 second_operand: Union['IConvexSet', np.ndarray],
-                 *args, **kwargs) -> IBinaryOperation:
+                 S: Union['IConvexSet', np.ndarray],
+                 set_class: str,
+                 *args, **kwargs) -> IUnaryOperation:
         
         # assign sets
-        self.first_operand = first_operand
-        self.second_operand = second_operand
+        self.first_operand = S
+        self.set_class = set_class
 
-        # store additional input arguments
+        # store additional input arguments (mode, tolerances)
         self.args = args
         self.kwargs = kwargs
 
@@ -39,7 +37,7 @@ class IBinaryOperation(ABC):
         self.func = None
 
     @classmethod
-    def register_strategy(cls: IBinaryOperation, pair: Union[SetPair, Tuple[SetPair]]) -> Callable:
+    def register_strategy(cls: IUnaryOperation, pair: Union[SetPair, Tuple[SetPair]]) -> Callable:
         def decorator(func: Callable):
             if isinstance(pair, Tuple):
                 [cls.strategies.update({i_pair: func}) for i_pair in pair]
@@ -54,8 +52,5 @@ class IBinaryOperation(ABC):
         raise NotImplementedError
 
     # read out class names as strings (required since we would get full file structure otherwise)
-    # additionally, let the pair know whether the ordering is important
-    def get_strategy_key(self: IBinaryOperation) -> SetPair:
-        return SetPair(self.first_operand.__class__.__name__,
-                       self.second_operand.__class__.__name__,
-                       ordered = self.ordered_operation)
+    def get_strategy_key(self: IUnaryOperation) -> SetPair:
+        return SetPair(self.first_operand.__class__.__name__, self.set_class)

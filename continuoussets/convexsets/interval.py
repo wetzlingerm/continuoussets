@@ -7,8 +7,7 @@ from typing import Union
 import numpy as np
 
 from continuoussets.convexsets.interface_convexset import IConvexSet
-from continuoussets.utils.exceptions import EmptySetError, OutOfBoundsError, \
-    ExactEvaluationImpossibleError, UnboundedSetError
+from continuoussets.utils.exceptions import EmptySetError, OutOfBoundsError, ExactEvaluationImpossibleError
 
 # todo: remove all functions that are in binary_operations (handled via superclass)
 
@@ -82,11 +81,77 @@ class Interval(IConvexSet):
         self.lb = lb.copy()
         self.ub = ub.copy()
 
-    # todo: implement conversions as class method
+    # todo: decide whether to keep this method...
+    # conversion from vector/zonotope/vpolytope/hpolyhedron
     # @classmethod
-    # def from_IConvexSet(cls, S: IConvexSet) -> Interval:
-    #     # conversion: return
-    #     pass
+    # def convert(S: Union[IConvexSet, np.ndarray], *, mode: str = 'exact') -> Interval:
+    #     """Conversion of a set or vector to an Interval.
+
+    #     Args:
+    #         S (Union[IConvexSet, np.ndarray]): Set or vector.
+    #         mode (str, optional): Approxmation of the conversion: 'inner', 'exact', 'outer'. Defaults to 'exact'.
+
+    #     Returns:
+    #         Interval: Converted set or vector.
+    #     """
+    #     # todo: check mode
+    #     if isinstance(S, np.ndarray):
+    #         return _convert_from_vector(S, mode = mode)
+    #     elif type(S).__name__ == 'Zonotope':
+    #         return _convert_from_zonotope(S, mode = mode)
+    #     elif type(S).__name__ == 'VPolytope':
+    #         return _convert_from_vpolytope(S, mode = mode)
+    #     elif type(S).__name__ == 'HPolyhedron':
+    #         return _convert_from_hpolyhedron(S, mode = mode)
+    #     else:
+    #         NotImplementedError
+
+    # # conversion to zonotope
+    # def zonotope(self, *, mode: str = 'exact') -> dict:
+    #     """Conversion to a Zonotope Z.
+
+    #     Args:
+    #         mode (str, optional): Approximation of conversion: 'inner', 'exact', 'outer'. Defaults to 'exact'.
+
+    #     Returns:
+    #         dict: keyword arguments for instantiation of a Zonotope object
+    #     """
+    #     self._checkMode(mode)
+
+    #     # every interval is a zonotope, so all modes 'exact', 'outer', 'inner' yield the same result
+    #     generators = np.diag(self.diameter())
+    #     generators = 0.5*generators[~np.all(generators == 0, axis=0), :]
+    #     return {'c': self.center(), 'G': generators}
+
+    # # conversion to hpolyhedron
+    # def hpolyhedron(self, *, mode: str = 'exact') -> dict:
+    #     """Conversion of an Interval I to an HPolyhedron HP.
+
+    #     Args:
+    #         mode (str, optional): Approximation of conversion: 'inner', 'exact', 'outer'. Defaults to 'exact'.
+
+    #     Returns:
+    #         dict: keyword arguments for instantiation of a HPolyhedron object
+    #     """
+    #     self._checkMode(mode)
+
+    #     # for consistency, support modes 'exact', 'outer', 'inner'
+    #     return {'A': np.vstack((np.eye(self.dimension), -np.eye(self.dimension))),
+    #             'b': np.hstack((self.ub, -self.lb))}
+    
+    # # conversion to vpolytope
+    # def vpolytope(self, *, mode: str = 'exact') -> dict:
+    #     """Conversion to a VPolytope VP.
+
+    #     Args:
+    #         mode (str, optional): Approximation of the conversion: 'inner', 'exact', 'outer'. Defaults to 'exact'.
+
+    #     Returns:
+    #         dict: Keyword arguments for instantiation of a VPolytope object.
+    #     """
+    #     self._checkMode(mode)
+
+    #     return {'V': self.vertices()}
 
     # indexing
     def __getitem__(self, key: Union[int, slice]):
@@ -198,31 +263,31 @@ class Interval(IConvexSet):
         """
         return self + other
 
-    # set equality
-    def __eq__(self, other: Union[IConvexSet, np.ndarray], *, rtol: float = 1e-5, atol: float = 1e-8) -> bool:
-        """Set equality of an Interval I with another set or vector S.
-        Defined as forall i in I: i in S and forall s in S: s in I?
+    # # set equality
+    # def __eq__(self, other: Union[IConvexSet, np.ndarray], *, rtol: float = 1e-5, atol: float = 1e-8) -> bool:
+    #     """Set equality of an Interval I with another set or vector S.
+    #     Defined as forall i in I: i in S and forall s in S: s in I?
 
-        Args:
-            other (Union[IConvexSet, np.ndarray]): Set or vector.
-            rtol (float, optional): Relative tolerance. Defaults to 1e-5.
-            atol (float, optional): Absolute tolerance. Defaults to 1e-8.
+    #     Args:
+    #         other (Union[IConvexSet, np.ndarray]): Set or vector.
+    #         rtol (float, optional): Relative tolerance. Defaults to 1e-5.
+    #         atol (float, optional): Absolute tolerance. Defaults to 1e-8.
 
-        Returns:
-            bool: Set equality.
-        """
-        self._checkOtherOperand(other, check_dimension = False)
+    #     Returns:
+    #         bool: Set equality.
+    #     """
+    #     self._checkOtherOperand(other, check_dimension = False)
 
-        if ((isinstance(other, IConvexSet) and self.dimension != other.dimension)
-                or (isinstance(other, np.ndarray) and self.dimension != other.shape[0])):
-            return False
-        elif isinstance(other, np.ndarray):
-            return self.__eq__(Interval(lb = other, ub = other), rtol = rtol, atol = atol)
-        elif isinstance(other, Interval):
-            return np.allclose(self.lb, other.lb, rtol = rtol, atol = atol) and \
-                np.allclose(self.ub, other.ub, rtol = rtol, atol = atol)
-        elif isinstance(other, IConvexSet):
-            return other.__eq__(self, rtol = rtol, atol = atol)
+    #     if ((isinstance(other, IConvexSet) and self.dimension != other.dimension)
+    #             or (isinstance(other, np.ndarray) and self.dimension != other.shape[0])):
+    #         return False
+    #     elif isinstance(other, np.ndarray):
+    #         return self.__eq__(Interval(lb = other, ub = other), rtol = rtol, atol = atol)
+    #     elif isinstance(other, Interval):
+    #         return np.allclose(self.lb, other.lb, rtol = rtol, atol = atol) and \
+    #             np.allclose(self.ub, other.ub, rtol = rtol, atol = atol)
+    #     elif isinstance(other, IConvexSet):
+    #         return other.__eq__(self, rtol = rtol, atol = atol)
 
     # element-wise multiplication
     def __mul__(self, other: Union[Interval, np.ndarray, list, int, float]) -> Interval:
@@ -767,33 +832,33 @@ class Interval(IConvexSet):
         """
         return Interval(lb = self.lb, ub = self.ub)
 
-    # containment check
-    def contains(self, other: Union[IConvexSet, np.ndarray], *, rtol: float = 1e-5, atol: float = 1e-8) -> bool:
-        """Checks containment of a set or vector S in an Interval I.
-        Defined as forall s in S: s in I?
+    # # containment check
+    # def contains(self, other: Union[IConvexSet, np.ndarray], *, rtol: float = 1e-5, atol: float = 1e-8) -> bool:
+    #     """Checks containment of a set or vector S in an Interval I.
+    #     Defined as forall s in S: s in I?
 
-        Args:
-            other (Union[IConvexSet, np.ndarray]): Set or vector.
-            rtol (float, optional): Relative tolerance. Defaults to 1e-5.
-            atol (float, optional): Absolute tolerance. Defaults to 1e-8.
+    #     Args:
+    #         other (Union[IConvexSet, np.ndarray]): Set or vector.
+    #         rtol (float, optional): Relative tolerance. Defaults to 1e-5.
+    #         atol (float, optional): Absolute tolerance. Defaults to 1e-8.
 
-        Returns:
-            bool: Containment status.
-        """
-        self._checkOtherOperand(other)
+    #     Returns:
+    #         bool: Containment status.
+    #     """
+    #     self._checkOtherOperand(other)
 
-        if isinstance(other, Interval):
-            # todo: use tolerances
-            return np.all(self.lb <= other.lb) and np.all(self.ub >= other.ub)
-        elif isinstance(other, IConvexSet):
-            try:
-                other = Interval(**other.interval(mode = 'outer'), validate=False)
-            except (UnboundedSetError):
-                return False
-            return self.contains(other, rtol = rtol, atol = atol)
-        else:
-            # todo: use tolerances
-            return np.all(self.lb <= other) and np.all(self.ub >= other)
+    #     if isinstance(other, Interval):
+    #         # todo: use tolerances
+    #         return np.all(self.lb <= other.lb) and np.all(self.ub >= other.ub)
+    #     elif isinstance(other, IConvexSet):
+    #         try:
+    #             other = Interval(**other.interval(mode = 'outer'), validate=False)
+    #         except (UnboundedSetError):
+    #             return False
+    #         return self.contains(other, rtol = rtol, atol = atol)
+    #     else:
+    #         # todo: use tolerances
+    #         return np.all(self.lb <= other) and np.all(self.ub >= other)
 
     # convex hull
     def convex_hull(self, other: Union[IConvexSet, np.ndarray], *, mode: str = 'exact') -> Interval:
@@ -852,43 +917,27 @@ class Interval(IConvexSet):
         """
         return False
 
-    # conversion to hpolyhedron
-    def hpolyhedron(self, *, mode: str = 'exact') -> dict:
-        """Conversion of an Interval I to an HPolyhedron HP.
-
-        Args:
-            mode (str, optional): Approximation of conversion: 'inner', 'exact', 'outer'. Defaults to 'exact'.
-
-        Returns:
-            dict: keyword arguments for instantiation of a HPolyhedron object
-        """
-        self._checkMode(mode)
-
-        # for consistency, support modes 'exact', 'outer', 'inner'
-        return {'A': np.vstack((np.eye(self.dimension), -np.eye(self.dimension))),
-                'b': np.hstack((self.ub, -self.lb))}
-
     # intersection check
-    def intersects(self, other: Union[IConvexSet, np.ndarray], *, rtol: float = 1e-5, atol: float = 1e-8) -> bool:
-        """Checks if an Interval I intersects another set or vector S.
-        Defined as exists s in I: s in S?
+    # def intersects(self, other: Union[IConvexSet, np.ndarray], *, rtol: float = 1e-5, atol: float = 1e-8) -> bool:
+    #     """Checks if an Interval I intersects another set or vector S.
+    #     Defined as exists s in I: s in S?
 
-        Args:
-            other (Union[IConvexSet, np.ndarray]): Set or vector.
-            rtol (float, optional): Relative tolerance. Defaults to 1e-5.
-            atol (float, optional): Absolute tolerance. Defaults to 1e-8.
+    #     Args:
+    #         other (Union[IConvexSet, np.ndarray]): Set or vector.
+    #         rtol (float, optional): Relative tolerance. Defaults to 1e-5.
+    #         atol (float, optional): Absolute tolerance. Defaults to 1e-8.
 
-        Returns:
-            bool: Result of the intersection check.
-        """
-        self._checkOtherOperand(other)
+    #     Returns:
+    #         bool: Result of the intersection check.
+    #     """
+    #     self._checkOtherOperand(other)
 
-        if isinstance(other, np.ndarray):
-            return self.contains(other)
-        elif isinstance(other, Interval):
-            return np.any(np.logical_not(np.any(np.vstack((other.ub <= self.lb + atol, other.lb >= self.ub - atol)), axis=0)))
-        else:
-            return other.intersects(self, rtol = rtol, atol = atol)
+    #     if isinstance(other, np.ndarray):
+    #         return self.contains(other)
+    #     elif isinstance(other, Interval):
+    #         return np.any(np.logical_not(np.any(np.vstack((other.ub <= self.lb + atol, other.lb >= self.ub - atol)), axis=0)))
+    #     else:
+    #         return other.intersects(self, rtol = rtol, atol = atol)
     
     # conversion to interval
     def interval(self, *, mode: str = 'exact') -> dict:
@@ -1032,24 +1081,24 @@ class Interval(IConvexSet):
         """
         return Interval(lb = self.lb, ub = self.ub, validate=False)
 
-    # representation by other set representation
-    def represents(self, set_class: str, *, rtol: float = 1e-5, atol: float = 1e-8) -> bool:
-        """Check if an interval I can also be equivalently represented using another IConvexSet class.
+    # # representation by other set representation
+    # def represents(self, set_class: str, *, rtol: float = 1e-5, atol: float = 1e-8) -> bool:
+    #     """Check if an interval I can also be equivalently represented using another IConvexSet class.
 
-        Args:
-            set_class (str): Name of another IConvexSet class or 'Point'.
-            rtol (float, optional): Relative tolerance. Defaults to 1e-5.
-            atol (float, optional): Absolute tolerance. Defaults to 1e-8.
+    #     Args:
+    #         set_class (str): Name of another IConvexSet class or 'Point'.
+    #         rtol (float, optional): Relative tolerance. Defaults to 1e-5.
+    #         atol (float, optional): Absolute tolerance. Defaults to 1e-8.
 
-        Returns:
-            bool: Representation possible.
-        """
-        self._checkSetClass(set_class)
+    #     Returns:
+    #         bool: Representation possible.
+    #     """
+    #     self._checkSetClass(set_class)
 
-        if set_class == 'Point':
-            return np.allclose(self.diameter(), 0., rtol = rtol, atol = atol)
+    #     if set_class == 'Point':
+    #         return np.allclose(self.diameter(), 0., rtol = rtol, atol = atol)
 
-        return True
+    #     return True
 
     # support function evaluation
     def support_function(self, direction: np.ndarray) -> tuple[float, np.ndarray]:
@@ -1116,37 +1165,6 @@ class Interval(IConvexSet):
             float: Volume.
         """
         return np.prod(self.diameter())
-    
-    # conversion to vpolytope
-    def vpolytope(self, *, mode: str = 'exact') -> dict:
-        """Conversion to a VPolytope VP.
-
-        Args:
-            mode (str, optional): Approximation of the conversion: 'inner', 'exact', 'outer'. Defaults to 'exact'.
-
-        Returns:
-            dict: Keyword arguments for instantiation of a VPolytope object.
-        """
-        self._checkMode(mode)
-
-        return {'V': self.vertices()}
-
-    # conversion to zonotope
-    def zonotope(self, *, mode: str = 'exact') -> dict:
-        """Conversion to a Zonotope Z.
-
-        Args:
-            mode (str, optional): Approximation of conversion: 'inner', 'exact', 'outer'. Defaults to 'exact'.
-
-        Returns:
-            dict: keyword arguments for instantiation of a Zonotope object
-        """
-        self._checkMode(mode)
-
-        # every interval is a zonotope, so all modes 'exact', 'outer', 'inner' yield the same result
-        generators = np.diag(self.diameter())
-        generators = 0.5*generators[~np.all(generators == 0, axis=0), :]
-        return {'c': self.center(), 'G': generators}
 
     # check function
     def _checkIntervalArithmetic(self, other: Union[Interval, np.ndarray]):
@@ -1164,3 +1182,97 @@ class Interval(IConvexSet):
                     and not isinstance(other, np.ndarray) and not isinstance(other, Interval)):
                 raise TypeError(f'{self.__class__.__name__}.{inspect.stack()[1].function}: '
                                 f'Other operand must be of type int, float, list, np.ndarray or Interval')
+
+
+# def _convert_from_vector(s: np.ndarray, *, mode: str = 'exact') -> Interval:
+#     return Interval(lb = s, ub = s)
+
+
+# def _convert_from_zonotope(Z: 'Zonotope', *, mode: str = 'exact') -> Interval:
+#     """
+#     Raises:
+#         NotImplementedError: Mode 'inner' only supported if the zonotope represents an interval.
+#         ExactEvaluationImpossibleError: Mode 'exact' only supported if the zonotope represents an interval.
+#     """
+#     if mode == 'inner':
+#         if not Z.represents('Interval'):
+#             raise NotImplementedError
+#         else:
+#             return _convert_from_zonotope(Z, mode = 'outer')
+    
+#     if mode == 'exact':
+#         if not Z.represents('Interval'):
+#             raise ExactEvaluationImpossibleError
+#         else:
+#             return _convert_from_zonotope(Z, mode = 'outer')
+
+#     if mode == 'outer':
+#         radius = np.sum(np.abs(Z.G), axis = 0)
+#         return Interval(lb = Z.c - radius, ub = Z.c + radius, validate = False)
+
+
+# def _convert_from_vpolytope(VP: 'VPolytope', *, mode: str = 'exact') -> Interval:
+#     """
+#     Raises:
+#         NotImplementedError: Conversion to inner approximation not supported.
+#         ExactEvaluationImpossibleError: Exact conversion only possible in special cases.
+#     """
+#     if mode == 'inner':
+#         if not VP.represents('Interval'):
+#             raise NotImplementedError
+#         else:
+#             return _convert_from_vpolytope(VP, mode = 'outer')
+    
+#     if mode == 'exact':
+#         if not VP.represents('Interval'):
+#             raise ExactEvaluationImpossibleError
+#         else:
+#             return _convert_from_vpolytope(VP, mode = 'exact')
+
+#     if mode == 'outer':
+#         return Interval(lb = np.min(VP.V, axis = 0), ub = np.max(VP.V, axis = 0), validate = False)
+
+
+# def _convert_from_hpolyhedron(HP: 'HPolyhedron', *, mode: str = 'exact') -> Interval:
+#     """
+#     Raises:
+#             NotImplementedError: mode = 'inner' not supported unless HP represents an interval.
+#             ExactEvaluationImpossibleError: mode = 'exact' not supported unless HP represents an interval.
+#             UnboundedSetError: HPolyhedron is unbounded.
+#             EmptySetError: HPolyhedron is empty.
+#     """
+#     if mode == 'inner':
+#         if not HP.represents(set_class = 'Interval'):
+#             raise NotImplementedError
+#         else:
+#             return _convert_from_hpolyhedron(HP, mode = 'outer')
+
+#     if mode == 'exact':
+#         if not HP.represents(set_class = 'Interval'):
+#             raise ExactEvaluationImpossibleError
+#         else:
+#             return _convert_from_hpolyhedron(HP, mode = 'outer')
+    
+#     if mode == 'outer':
+#         # idea: loop over all 2n -+ basis vectors and use support function value
+#         n = HP.dimension
+#         lower_bound = np.zeros(n)
+#         upper_bound = np.zeros(n)
+
+#         basis_vector = np.zeros(n)
+#         for i in range(n):
+#             for s in [-1., 1.]:
+#                 basis_vector[i] = s
+#                 value = HP.support_function(basis_vector)[0]
+#                 basis_vector[i] = 0.
+
+#                 if value == np.inf:
+#                     raise UnboundedSetError
+#                 elif value == -np.inf:
+#                     raise EmptySetError
+#                 elif s == -1.:
+#                     lower_bound[i] = -value
+#                 else:  # s == 1.
+#                     upper_bound[i] = value
+    
+#         return Interval(lb = lower_bound, ub = upper_bound, validate = False)
