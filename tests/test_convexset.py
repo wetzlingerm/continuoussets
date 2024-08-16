@@ -4,6 +4,8 @@ from continuoussets.convexsets.interface_convexset import IConvexSet
 from continuoussets.convexsets.zonotope import Zonotope
 from continuoussets.convexsets.interval import Interval
 
+# todo: move checks to other module and adapt test...
+
 class TestIConvexSet(unittest.TestCase):
 
     def test_validate_input_arguments(self):

@@ -6,12 +6,12 @@ from typing import Union
 
 import numpy as np
 
-import continuoussets.utils.tolerances as tol
+# import continuoussets.utils.tolerances as tol
 
 # implementations of unary/binary operations (only as module!)
 # import continuoussets.binary_operations.binary_operations as binary_ops
 # import continuoussets.unary_operations.unary_operations as unary_ops
-# ! ...leads to circular import
+# ! leads to circular import... fixable?
 
 # for plotting
 import matplotlib.pyplot as plt

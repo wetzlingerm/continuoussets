@@ -8,8 +8,8 @@ if TYPE_CHECKING:
     from continuoussets.convexsets.interface_convexset import IConvexSet
 
 import continuoussets.convexsets.interval as interval
-import continuoussets.convexsets.zonotope as zonotope
-import continuoussets.convexsets.vpolytope as vpolytope
+# import continuoussets.convexsets.zonotope as zonotope
+# import continuoussets.convexsets.vpolytope as vpolytope
 import continuoussets.convexsets.hpolyhedron as hpolyhedron
 
 from continuoussets.binary_operations.contains import Contains
