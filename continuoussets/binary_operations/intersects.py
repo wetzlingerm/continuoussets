@@ -13,8 +13,10 @@ from continuoussets.utils.auxiliary import SetPair
 from continuoussets.unary_operations.convert import Convert
 from continuoussets.binary_operations.contains import Contains
 
+if __name__ == '__main__':
+    print('This is the Intersects class.')
 
-# class for all intersection checks
+
 class Intersects(IBinaryOperation):
 
     strategies: Dict[Tuple[str, str], Callable] = dict()

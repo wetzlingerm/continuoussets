@@ -17,15 +17,17 @@ import continuoussets.convexsets.zonotope as zonotope
 import continuoussets.convexsets.vpolytope as vpolytope
 import continuoussets.convexsets.hpolyhedron as hpolyhedron
 
+from continuoussets.unary_operations.represents import Represents
+
 from continuoussets.utils.auxiliary import SetPair, n_dim_cross_product
 from continuoussets.utils.exceptions import ExactEvaluationImpossibleError, \
                                             UnboundedSetError, \
                                             EmptySetError
 
-# todo check .copy() for self-conversions
+if __name__ == '__main__':
+    print('This is the Convert class.')
 
 
-# class for all equality checks
 class Convert(IUnaryOperation):
 
     strategies: Dict[Tuple[str, str], Callable] = dict()
@@ -48,46 +50,58 @@ class Convert(IUnaryOperation):
             raise NotImplementedError
 
     # evaluate the conversion
-    def __call__(self) -> bool:
+    def __call__(self) -> 'IConvexSet':
         return self.func(self.first_operand, **self.kwargs)
 
 
-@Convert.register_strategy(SetPair('ndarray', 'ndarray'))
-def _convert_point_point(s, mode) -> np.ndarray:
-    return s
+@Convert.register_strategy((SetPair('ndarray', 'ndarray'),
+                            SetPair('Interval', 'Interval'),
+                            SetPair('Zonotope', 'Zonotope'),
+                            SetPair('VPolytope', 'VPolytope'),
+                            SetPair('HPolyhedron', 'HPolyhedron')))
+def _convert_any_self(S, mode) -> Union[np.ndarray, 'IConvexSet']:
+    return S.copy()
 
 
 @Convert.register_strategy(SetPair('ndarray', 'Interval'))
 def _convert_point_interval(s, mode) -> interval.Interval:
-    return interval.Interval(lb = s, ub = s)
+    return interval.Interval(lb = s, ub = s, validate = False)
 
 
 @Convert.register_strategy(SetPair('ndarray', 'Zonotope'))
 def _convert_point_zonotope(s, mode) -> zonotope.Zonotope:
-    return zonotope.Zonotope(c = s)
+    return zonotope.Zonotope(c = s, validate = False)
 
 
 @Convert.register_strategy(SetPair('ndarray', 'VPolytope'))
 def _convert_point_vpolytope(s, mode) -> vpolytope.VPolytope:
-    return vpolytope.VPolytope(V = s)
+    return vpolytope.VPolytope(V = s, validate = False)
 
 
 @Convert.register_strategy(SetPair('ndarray', 'HPolyhedron'))
 def _convert_point_hpolyhedron(s, mode) -> hpolyhedron.HPolyhedron:
     A = np.vstack((-np.ones(s.size), np.eye(s.size)))
     b = np.matmul(A, s)
-    return hpolyhedron.HPolyhedron(A, b)
+    return hpolyhedron.HPolyhedron(A, b, validate = False)
 
 
-@Convert.register_strategy(SetPair('Interval', 'ndarray'))
-def _convert_interval_point(I, mode) -> np.ndarray:
-    # todo
-    pass
+@Convert.register_strategy((SetPair('Interval', 'ndarray'),
+                            SetPair('Zonotope', 'ndarray'),
+                            SetPair('VPolytope', 'ndarray'),
+                            SetPair('HPolyhedron', 'ndarray')))
+def _convert_interval_point(S, mode) -> np.ndarray:
+    if mode == 'inner':
+        return S.center()
+    
+    if mode == 'exact':
+        if not Represents(S, 'ndarray', rtol = 1e-12, atol = 1e-12)():
+            raise ExactEvaluationImpossibleError
+        return S.center()
 
-
-@Convert.register_strategy(SetPair('Interval', 'Interval'))
-def _convert_interval_interval(I, mode) -> interval.Interval:
-    return interval.Interval(lb = I.lb, ub = I.ub, validate = False)
+    if mode == 'outer':
+        if not Represents(S, 'ndarray', rtol = 1e-12, atol = 1e-12)():
+            raise ExactEvaluationImpossibleError
+        return S.center()
 
 
 @Convert.register_strategy(SetPair('Interval', 'Zonotope'))
@@ -98,9 +112,11 @@ def _convert_interval_zonotope(I, mode) -> zonotope.Zonotope:
     return zonotope.Zonotope(c = I.center(), G = generators, validate = False)
 
 
-@Convert.register_strategy(SetPair('Interval', 'VPolytope'))
-def _convert_interval_vpolytope(I, mode) -> vpolytope.VPolytope:
-    return _convert_iconvexset_vpolytope(I, mode)
+@Convert.register_strategy((SetPair('Interval', 'VPolytope'),
+                            SetPair('Zonotope', 'VPolytope'),
+                            SetPair('HPolyhedron', 'VPolytope')))
+def _convert_other_vpolytope(S, mode) -> vpolytope.VPolytope:
+    return vpolytope.VPolytope(V = S.vertices(), validate = False)
 
 
 @Convert.register_strategy(SetPair('Interval', 'HPolyhedron'))
@@ -111,21 +127,15 @@ def _convert_interval_hpolyhedron(I, mode) -> hpolyhedron.HPolyhedron:
                                    validate = False)
 
 
-@Convert.register_strategy(SetPair('Zonotope', 'ndarray'))
-def _convert_zonotope_point(Z, mode) -> np.ndarray:
-    # todo
-    pass
-
-
 @Convert.register_strategy(SetPair('Zonotope', 'Interval'))
 def _convert_zonotope_interval(Z, mode) -> interval.Interval:
     if mode == 'inner':
-        if not Z.represents('Interval'):
+        if not Represents(Z, 'Interval', rtol = 1e-12, atol = 1e-12)():
             raise NotImplementedError
         return _convert_zonotope_interval(Z, mode = 'outer')
     
     if mode == 'exact':
-        if not Z.represents('Interval'):
+        if not Represents(Z, 'Interval', rtol = 1e-12, atol = 1e-12)():
             raise ExactEvaluationImpossibleError
         return _convert_zonotope_interval(Z, mode = 'outer')
 
@@ -134,21 +144,11 @@ def _convert_zonotope_interval(Z, mode) -> interval.Interval:
         return interval.Interval(lb = Z.c - radius, ub = Z.c + radius, validate = False)
 
 
-@Convert.register_strategy(SetPair('Zonotope', 'Zonotope'))
-def _convert_zonotope_zonotope(Z, mode) -> zonotope.Zonotope:
-    return zonotope.Zonotope(c = Z.c, G = Z.G, validate = False)
-
-
-@Convert.register_strategy(SetPair('Zonotope', 'VPolytope'))
-def _convert_zonotope_vpolytope(Z, mode) -> vpolytope.VPolytope:
-    return _convert_iconvexset_vpolytope(Z, mode)
-
-
 @Convert.register_strategy(SetPair('Zonotope', 'HPolyhedron'))
 def _convert_zonotope_hpolyhedron(Z, mode) -> hpolyhedron.HPolyhedron:
     # ***same method for all three modes (exact)
     # special instantiation if zonotope is a single point
-    if Z.represents('Point'):
+    if Represents(Z, 'ndarray', rtol = 1e-12, atol = 1e-12)():
         return _convert_point_hpolyhedron(Z.center(), mode = 'exact')
 
     # conversion requires linearly independent generators
@@ -189,21 +189,15 @@ def _convert_zonotope_hpolyhedron(Z, mode) -> hpolyhedron.HPolyhedron:
     return hpolyhedron.HPolyhedron(A = A, b = b, validate = False)
 
 
-@Convert.register_strategy(SetPair('VPolytope', 'ndarray'))
-def _convert_vpolytope_point(VP, mode) -> np.ndarray:
-    # todo
-    pass
-
-
 @Convert.register_strategy(SetPair('VPolytope', 'Interval'))
 def _convert_vpolytope_interval(VP, mode) -> interval.Interval:
     if mode == 'inner':
-        if not VP.represents('Interval'):
+        if not Represents(VP, 'Interval', rtol = 1e-12, atol = 1e-12)():
             raise NotImplementedError
         return _convert_vpolytope_interval(VP, mode = 'outer')
     
     if mode == 'exact':
-        if not VP.represents('Interval'):
+        if not Represents(VP, 'Interval', rtol = 1e-12, atol = 1e-12)():
             raise ExactEvaluationImpossibleError
         return _convert_vpolytope_interval(VP, mode = 'exact')
 
@@ -214,15 +208,15 @@ def _convert_vpolytope_interval(VP, mode) -> interval.Interval:
 @Convert.register_strategy(SetPair('VPolytope', 'Zonotope'))
 def _convert_vpolytope_zonotope(VP, mode) -> zonotope.Zonotope:
     if VP.number_vertices() == 1:
-        return zonotope.Zonotope(c = VP.V[0].flatten())
+        return zonotope.Zonotope(c = VP.V[0].flatten(), validate = False)
 
     if mode == 'inner':
-        if not VP.represents('Interval'):
+        if not Represents(VP, 'Interval', rtol = 1e-12, atol = 1e-12)():
             raise NotImplementedError
         return _convert_vpolytope_zonotope(VP, mode = 'outer')
         
     if mode == 'exact':
-        if not VP.represents('Zonotope'):
+        if not Represents(VP, 'Interval', rtol = 1e-12, atol = 1e-12)():
             raise ExactEvaluationImpossibleError
         # don't know how to do exact conversion (method below is exact for 1D, though)
         if VP.dimension != 1:
@@ -233,11 +227,6 @@ def _convert_vpolytope_zonotope(VP, mode) -> zonotope.Zonotope:
         # convert to interval, then to zonotope
         I = _convert_hpolyhedron_interval(mode = 'outer')
         return _convert_interval_zonotope(I, mode = 'exact')
-
-
-@Convert.register_strategy(SetPair('VPolytope', 'VPolytope'))
-def _convert_vpolytope_vpolytope(VP, mode) -> vpolytope.VPolytope:
-    return vpolytope.VPolytope(V = VP.V, validate = False)
 
 
 @Convert.register_strategy(SetPair('VPolytope', 'HPolyhedron'))
@@ -274,21 +263,15 @@ def _convert_vpolytope_hpolyhedron(VP, mode) -> hpolyhedron.HPolyhedron:
     return hpolyhedron.HPolyhedron(A = A, b = b, validate = False)
 
 
-@Convert.register_strategy(SetPair('HPolyhedron', 'ndarray'))
-def _convert_hpolyhedron_point(HP, mode) -> np.ndarray:
-    # todo
-    pass
-
-
 @Convert.register_strategy(SetPair('HPolyhedron', 'Interval'))
 def _convert_hpolyhedron_interval(HP, mode) -> interval.Interval:
     if mode == 'inner':
-        if not HP.represents(set_class = 'Interval'):
+        if not Represents(HP, 'Interval', rtol = 1e-12, atol = 1e-12)():
             raise NotImplementedError
         return _convert_hpolyhedron_interval(HP, mode = 'outer')
 
     if mode == 'exact':
-        if not HP.represents(set_class = 'Interval'):
+        if not Represents(HP, 'Interval', rtol = 1e-12, atol = 1e-12)():
             raise ExactEvaluationImpossibleError
         return _convert_hpolyhedron_interval(HP, mode = 'outer')
     
@@ -320,12 +303,12 @@ def _convert_hpolyhedron_interval(HP, mode) -> interval.Interval:
 @Convert.register_strategy(SetPair('HPolyhedron', 'Zonotope'))
 def _convert_hpolyhedron_zonotope(HP, mode) -> zonotope.Zonotope:
     if mode == 'inner':
-        if not HP.represents('Zonotope'):
+        if not Represents(HP, 'Zonotope', rtol = 1e-12, atol = 1e-12)():
             raise NotImplementedError
         return _convert_hpolyhedron_zonotope(HP, mode = 'outer')
 
     if mode == 'exact':
-        if not HP.represents('Zonotope'):
+        if not Represents(HP, 'Zonotope', rtol = 1e-12, atol = 1e-12)():
             raise ExactEvaluationImpossibleError
         elif HP.dimension != 1:
             # even if there were an exact method, I do not know about it (method below exact for 1D)
@@ -336,19 +319,3 @@ def _convert_hpolyhedron_zonotope(HP, mode) -> zonotope.Zonotope:
         # convert to interval, then to zonotope
         I = _convert_hpolyhedron_interval(mode = 'outer')
         return _convert_interval_zonotope(I, mode = 'exact')
-    
-
-@Convert.register_strategy(SetPair('HPolyhedron', 'VPolytope'))
-def _convert_hpolyhedron_vpolytope(HP, mode) -> vpolytope.VPolytope:
-    return _convert_iconvexset_vpolytope(HP, mode)
-
-
-@Convert.register_strategy(SetPair('HPolyhedron', 'HPolyhedron'))
-def _convert_hpolyhedron_hpolyhedron(HP, mode) -> hpolyhedron.HPolyhedron:
-    return hpolyhedron.HPolyhedron(A = HP.A, b = HP.b, validate = False)
-
-
-# algorithms
-def _convert_iconvexset_vpolytope(S, mode) -> 'IConvexSet':
-    # ***same method for all three modes (exact)
-    return vpolytope.VPolytope(V = S.vertices(), validate = False)

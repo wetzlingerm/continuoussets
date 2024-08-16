@@ -12,17 +12,22 @@ import continuoussets.convexsets.zonotope as zonotope
 import continuoussets.convexsets.vpolytope as vpolytope
 import continuoussets.convexsets.hpolyhedron as hpolyhedron
 
+from continuoussets.binary_operations.contains import Contains
+from continuoussets.unary_operations.represents import Represents
+from continuoussets.unary_operations.convert import Convert
+
 from continuoussets.utils.auxiliary import SetPair
+from continuoussets.utils.exceptions import UnboundedSetError
 
-# ! we need ...
+if __name__ == '__main__':
+    print('This is the ConvexHull class.')
 
 
-# class for all containment checks
 class ConvexHull(IBinaryOperation):
 
     strategies: Dict[Tuple[str, str], Callable] = dict()
-    # ordering is relevant
-    ordered_operation = True
+    # ordering is not relevant
+    ordered_operation = False
     
     # main task is to set the variables and decide which function to call for the evaluation
     def __init__(self, S1: Union['IConvexSet', np.ndarray], S2: Union['IConvexSet', np.ndarray], *,
@@ -39,130 +44,138 @@ class ConvexHull(IBinaryOperation):
         if self.func is None:
             raise NotImplementedError
         
-    def __call__(self) -> bool:
+    def __call__(self) -> 'IConvexSet':
         return self.func(self.first_operand, self.second_operand, **self.kwargs)
 
 
 @ConvexHull.register_strategy(SetPair('ndarray', 'ndarray'))
-def _convex_hull_point_point(s1, s2, mode) -> np.ndarray:
-    return np.hstack(s1, s2)
+def _convex_hull_point_point(s1, s2, mode) -> Union[np.ndarray, zonotope.Zonotope]:
+    if np.allclose(s1, s2, rtol = 1e-12, atol = 1e-12):
+        return s1
 
-
-@ConvexHull.register_strategy(SetPair('ndarray', 'Interval'))
-def _convex_hull_point_interval(s1, I2, mode) -> interval.Interval:
-    pass
-
-
-@ConvexHull.register_strategy(SetPair('ndarray', 'Zonotope'))
-def _convex_hull_point_zonotope(s1, Z2, mode) -> zonotope.Zonotope:
-    pass
-
-
-@ConvexHull.register_strategy(SetPair('ndarray', 'VPolytope'))
-def _convex_hull_point_vpolytope(s1, VP2, mode) -> vpolytope.VPolytope:
-    pass
-
-
-@ConvexHull.register_strategy(SetPair('ndarray', 'HPolyhedron'))
-def _convex_hull_point_hpolyhedron(s1, HP2, mode) -> hpolyhedron.HPolyhedron:
-    pass
+    center = (s1 + s2) / 2.
+    generator = s2 - center
+    return zonotope.Zonotope(c = center, G = generator, validate = False)
 
 
 @ConvexHull.register_strategy(SetPair('Interval', 'ndarray'))
 def _convex_hull_interval_point(I1, s2, mode) -> interval.Interval:
-    pass
+    if mode == 'inner':
+        return I1.copy()
+    
+    if mode == 'exact':
+        if Contains(I1, s2, rtol = 1e-12, atol = 1e-12)():
+            return I1.copy()
+        VP1 = Convert(I1, 'VPolytope', mode = 'exact')
+        return _convex_hull_vpolytope_other(VP1, s2, mode = 'exact')
+    
+    if mode == 'outer':
+        I2 = Convert(s2, 'Interval', mode = 'exact')()
+        return _convex_hull_interval_interval(I1, I2)
 
 
 @ConvexHull.register_strategy(SetPair('Interval', 'Interval'))
 def _convex_hull_interval_interval(I1, I2, mode) -> interval.Interval:
-    pass
+    return interval.Interval(lb = np.minimum(I1.lb, I2.lb),
+                             ub = np.maximum(I1.ub, I2.ub), validate=False)
 
 
-@ConvexHull.register_strategy(SetPair('Interval', 'Zonotope'))
-def _convex_hull_interval_zonotope(I1, Z2, mode) -> interval.Interval:
-    pass
-
-
-@ConvexHull.register_strategy(SetPair('Interval', 'VPolytope'))
-def _convex_hull_interval_vpolytope(I1, VP2, mode) -> interval.Interval:
-    pass
-
-
-@ConvexHull.register_strategy(SetPair('Interval', 'HPolyhedron'))
-def _convex_hull_interval_hpolyhedron(I1, HP2, mode) -> interval.Interval:
-    pass
-
-
-@ConvexHull.register_strategy(SetPair('Zonotope', 'ndarray'))
-def _convex_hull_zonotope_point(Z1, s2, mode) -> zonotope.Zonotope:
-    pass
-
-
-@ConvexHull.register_strategy(SetPair('Zonotope', 'Interval'))
-def _convex_hull_zonotope_interval(Z1, I2, mode) -> zonotope.Zonotope:
-    pass
+@ConvexHull.register_strategy((SetPair('Zonotope', 'ndarray'),
+                               SetPair('Zonotope', 'Interval')))
+def _convex_hull_zonotope_other(Z1, S2, mode) -> zonotope.Zonotope:
+    Z2 = Convert(S2, 'Zonotope', mode = mode)()
+    return _convex_hull_zonotope_zonotope(Z1, Z2, mode = mode)
 
 
 @ConvexHull.register_strategy(SetPair('Zonotope', 'Zonotope'))
 def _convex_hull_zonotope_zonotope(Z1, Z2, mode) -> zonotope.Zonotope:
-    pass
+    if mode == 'inner':
+        # pick one of the zonotopes...
+        return Z1.copy()
+
+    elif mode == 'exact':
+        if (Represents(Z1, 'ndarray', rtol = 1e-12, atol = 1e-12)()
+                and Represents(Z1, 'ndarray', rtol = 1e-12, atol = 1e-12)()):
+            # here, outer approximation algorithm returns the exact solution
+            return _convex_hull_zonotope_zonotope(Z1, Z2, mode = 'outer')
+        if Contains(Z1, Z2, rtol = 1e-12, atol = 1e-12)():
+            return Z1.copy()
+        if Contains(Z2, Z1, rtol = 1e-12, atol = 1e-12)():
+            return Z2.copy()
+        VP1 = Convert(Z1, 'VPolytope', mode = 'exact')
+        return _convex_hull_vpolytope_other(VP1, Z2, mode = 'exact')
+
+    if mode == 'outer':
+        center = 0.5 * (Z1.c + Z2.c)
+        generator_center = 0.5 * (Z1.c - Z2.c)
+
+        m1, m2 = Z1.number_generators(), Z2.number_generators()
+
+        if m1 >= m2:
+            generators = np.vstack((generator_center,
+                                    0.5 * (Z1.G[:m2, :] + Z2.G),
+                                    0.5 * (Z1.G[:m2, :] - Z2.G),
+                                    Z1.G[m2:, :]))
+        else:
+            generators = np.vstack((generator_center,
+                                    0.5 * (Z1.G + Z2.G[:m1, :]),
+                                    0.5 * (Z1.G - Z2.G[:m1, :]),
+                                    Z2.G[m1:, :]))
+
+        return zonotope.Zonotope(c = center, G = generators, validate = False)
 
 
-@ConvexHull.register_strategy(SetPair('Zonotope', 'VPolytope'))
-def _convex_hull_zonotope_vpolytope(Z1, VP2, mode) -> zonotope.Zonotope:
-    pass
-
-
-@ConvexHull.register_strategy(SetPair('Zonotope', 'HPolyhedron'))
-def _convex_hull_zonotope_hpolyhedron(Z1, HP2, mode) -> zonotope.Zonotope:
-    pass
-
-
-@ConvexHull.register_strategy(SetPair('VPolytope', 'ndarray'))
-def _convex_hull_vpolytope_point(VP1, s2, mode) -> vpolytope.VPolytope:
-    pass
-
-
-@ConvexHull.register_strategy(SetPair('VPolytope', 'Interval'))
-def _convex_hull_vpolytope_interval(VP1, I2, mode) -> vpolytope.VPolytope:
-    pass
-
-
-@ConvexHull.register_strategy(SetPair('VPolytope', 'Zonotope'))
-def _convex_hull_vpolytope_zonotope(VP1, Z2, mode) -> vpolytope.VPolytope:
-    pass
+@ConvexHull.register_strategy((SetPair('VPolytope', 'ndarray'),
+                               SetPair('VPolytope', 'Interval'),
+                               SetPair('VPolytope', 'Zonotope')))
+def _convex_hull_vpolytope_other(VP1, S2, mode) -> vpolytope.VPolytope:
+    VP2 = Convert(S2, 'VPolytope', mode = mode)()
+    return _convex_hull_vpolytope_vpolytope(VP1, VP2, mode = mode)
 
 
 @ConvexHull.register_strategy(SetPair('VPolytope', 'VPolytope'))
 def _convex_hull_vpolytope_vpolytope(VP1, VP2, mode) -> vpolytope.VPolytope:
-    pass
+    V_all = np.vstack((VP1.V, VP2.V))
+    return vpolytope.VPolytope(V = V_all, validate = False)
 
 
-@ConvexHull.register_strategy(SetPair('VPolytope', 'HPolyhedron'))
-def _convex_hull_vpolytope_hpolyhedron(VP1, HP2, mode) -> vpolytope.VPolytope:
-    pass
+@ConvexHull.register_strategy((SetPair('HPolyhedron', 'ndarray'),
+                               SetPair('HPolyhedron', 'Interval'),
+                               SetPair('HPolyhedron', 'Zonotope'),
+                               SetPair('HPolyhedron', 'VPolytope'),
+                               SetPair('HPolyhedron', 'HPolyhedron')))
+def _convex_hull_hpolyhedron_other(HP1, S2, mode) -> hpolyhedron.HPolyhedron:
+    if mode == 'inner':
+        return HP1.copy()
+    
+    if mode == 'exact':
+        if Contains(HP1, S2, rtol = 1e-12, atol = 1e-12)():
+            return HP1.copy()
+        if Contains(S2, HP1, rtol = 1e-12, atol = 1e-12)():
+            return S2.copy()
+        try:
+            VP1 = Convert(HP1, 'VPolytope', mode = 'exact')
+        except (UnboundedSetError):
+            raise NotImplementedError
+        return _convex_hull_vpolytope_other(VP1, S2)
+    
+    if mode == 'outer':
+        h = HP1.number_constraints()
+        
+        # 'outer': compute support function of HP1+S2, take larger value, additional constraints from box
+        A_new = np.vstack((HP1.A, np.eye(HP1.dimension), -np.eye(HP1.dimension)))
+        b_new = np.zeros(h + 2*HP1.dimension)
 
+        # for the first constraints, we already have the value computed for the HPolyhedron
+        for i in range(h):
+            # compute support function value of S2 set
+            value = S2.support_function(HP1.A[i])[0]
+            b_new[i] = HP1.b[i] if HP1.b[i] > value else value
 
-@ConvexHull.register_strategy(SetPair('HPolyhedron', 'ndarray'))
-def _convex_hull_hpolyhedron_point(HP1, s2, mode) -> hpolyhedron.HPolyhedron:
-    pass
+        # for the remaining constraints, we also have to evaluate the support function for the HPolyhedron
+        for i in range(2*HP1.dimension):
+            value_polyhedron = HP1.support_function(A_new[h+i])[0]
+            value = S2.support_function(A_new[h+i])[0]
+            b_new[h+i] = value_polyhedron if value_polyhedron > value else value
 
-
-@ConvexHull.register_strategy(SetPair('HPolyhedron', 'Interval'))
-def _convex_hull_hpolyhedron_interval(HP1, I2, mode) -> hpolyhedron.HPolyhedron:
-    pass
-
-
-@ConvexHull.register_strategy(SetPair('HPolyhedron', 'Zonotope'))
-def _convex_hull_hpolyhedron_zonotope(HP1, Z2, mode) -> hpolyhedron.HPolyhedron:
-    pass
-
-
-@ConvexHull.register_strategy(SetPair('HPolyhedron', 'VPolytope'))
-def _convex_hull_hpolyhedron_vpolytope(HP1, VP2, mode) -> hpolyhedron.HPolyhedron:
-    pass
-
-
-@ConvexHull.register_strategy(SetPair('HPolyhedron', 'HPolyhedron'))
-def _convex_hull_hpolyhedron_hpolyhedron(HP1, HP2, mode) -> hpolyhedron.HPolyhedron:
-    pass
+        return hpolyhedron.HPolyhedron(A = A_new, b = b_new, validate = False)

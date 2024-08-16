@@ -14,10 +14,11 @@ from continuoussets.utils.exceptions import UnboundedSetError
 
 from continuoussets.unary_operations.convert import Convert
 from continuoussets.unary_operations.represents import Represents
-# required once in: _contains_zonotope_other
+
+if __name__ == '__main__':
+    print('This is the Contains class.')
 
 
-# class for all containment checks
 class Contains(IBinaryOperation):
 
     strategies: Dict[Tuple[str, str], Callable] = dict()

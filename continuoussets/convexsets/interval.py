@@ -7,7 +7,7 @@ from typing import Union
 import numpy as np
 
 from continuoussets.convexsets.interface_convexset import IConvexSet
-from continuoussets.utils.exceptions import EmptySetError, OutOfBoundsError, ExactEvaluationImpossibleError
+from continuoussets.utils.exceptions import OutOfBoundsError
 
 # todo: remove all functions that are in binary_operations (handled via superclass)
 
@@ -80,6 +80,15 @@ class Interval(IConvexSet):
         self.dimension = lb.size
         self.lb = lb.copy()
         self.ub = ub.copy()
+
+    # deep copy
+    def copy(self) -> Interval:
+        """Returns a deep copy of an Interval.
+
+        Returns:
+            Interval: Copied Interval.
+        """
+        return Interval(lb = self.lb.copy(), ub = self.ub.copy(), validate = False)
 
     # todo: decide whether to keep this method...
     # conversion from vector/zonotope/vpolytope/hpolyhedron
@@ -780,35 +789,35 @@ class Interval(IConvexSet):
         """
         return True
 
-    # Cartesian product
-    def cartesian_product(self, other: Union[IConvexSet, np.ndarray], *, mode: str = 'exact') -> Interval:
-        """Cartesian product of an Interval I and another set or vector S.
-        Defined as {[a^T s^T]^T | a in I, s in S}.
+    # # Cartesian product
+    # def cartesian_product(self, other: Union[IConvexSet, np.ndarray], *, mode: str = 'exact') -> Interval:
+    #     """Cartesian product of an Interval I and another set or vector S.
+    #     Defined as {[a^T s^T]^T | a in I, s in S}.
 
-        Args:
-            other (Union[IConvexSet, np.ndarray]): Set or vector.
-            mode (str, optional): Approximation of the evaluation: 'inner', 'exact', 'outer'. Defaults to 'exact'.
+    #     Args:
+    #         other (Union[IConvexSet, np.ndarray]): Set or vector.
+    #         mode (str, optional): Approximation of the evaluation: 'inner', 'exact', 'outer'. Defaults to 'exact'.
 
-        Raises:
-            NotImplementedError: Inner approximation not implemented unless other represents an Interval.
-            ExactEvaluationImpossibleError: Exact Cartesian product only representable by an Interval in special cases.
+    #     Raises:
+    #         NotImplementedError: Inner approximation not implemented unless other represents an Interval.
+    #         ExactEvaluationImpossibleError: Exact Cartesian product only representable by an Interval in special cases.
 
-        Returns:
-            Interval: Result of the Cartesian product.
-        """
-        self._checkMode(mode)
+    #     Returns:
+    #         Interval: Result of the Cartesian product.
+    #     """
+    #     self._checkMode(mode)
 
-        if isinstance(other, Interval):
-            return Interval(lb = np.hstack((self.lb, other.lb)),
-                            ub = np.hstack((self.ub, other.ub)), validate=False)
-        elif isinstance(other, np.ndarray):
-            return Interval(lb = np.hstack((self.lb, other)),
-                            ub = np.hstack((self.ub, other)), validate=False)
-        elif isinstance(other, IConvexSet):
-            # try converting to an interval according to the given mode
-            # note: operation below may throw ExactEvaluationImpossibleError!
-            other = Interval(**other.interval(mode = mode), validate=False)
-            return self.cartesian_product(other)
+    #     if isinstance(other, Interval):
+    #         return Interval(lb = np.hstack((self.lb, other.lb)),
+    #                         ub = np.hstack((self.ub, other.ub)), validate=False)
+    #     elif isinstance(other, np.ndarray):
+    #         return Interval(lb = np.hstack((self.lb, other)),
+    #                         ub = np.hstack((self.ub, other)), validate=False)
+    #     elif isinstance(other, IConvexSet):
+    #         # try converting to an interval according to the given mode
+    #         # note: operation below may throw ExactEvaluationImpossibleError!
+    #         other = Interval(**other.interval(mode = mode), validate=False)
+    #         return self.cartesian_product(other)
 
     # center
     def center(self) -> np.ndarray:
@@ -860,40 +869,40 @@ class Interval(IConvexSet):
     #         # todo: use tolerances
     #         return np.all(self.lb <= other) and np.all(self.ub >= other)
 
-    # convex hull
-    def convex_hull(self, other: Union[IConvexSet, np.ndarray], *, mode: str = 'exact') -> Interval:
-        """Convex hull of an Interval I and another set or vector S.
-        Defined as {lambda*a + (1-lambda)*s | a in I, s in S, lambda in [0,1]}
+    # # convex hull
+    # def convex_hull(self, other: Union[IConvexSet, np.ndarray], *, mode: str = 'exact') -> Interval:
+    #     """Convex hull of an Interval I and another set or vector S.
+    #     Defined as {lambda*a + (1-lambda)*s | a in I, s in S, lambda in [0,1]}
 
-        Args:
-            other (Union[IConvexSet, np.ndarray]): Set or vector.
-            mode (str, optional): Approximation of the evaluation: 'inner', 'exact', 'outer'. Defaults to 'exact'.
+    #     Args:
+    #         other (Union[IConvexSet, np.ndarray]): Set or vector.
+    #         mode (str, optional): Approximation of the evaluation: 'inner', 'exact', 'outer'. Defaults to 'exact'.
 
-        Raises:
-            NotImplementedError: Inner approximation and exact evaluation not implemented in the general case.
+    #     Raises:
+    #         NotImplementedError: Inner approximation and exact evaluation not implemented in the general case.
 
-        Returns:
-            Interval: Result of the convex hull.
-        """
-        self._checkOtherOperand(other)
-        self._checkMode(mode)
+    #     Returns:
+    #         Interval: Result of the convex hull.
+    #     """
+    #     self._checkOtherOperand(other)
+    #     self._checkMode(mode)
 
-        if mode in ['inner', 'exact'] and \
-                not (self.contains(other) or (isinstance(other, Interval) and other.contains(self))):
-            if mode == 'inner':
-                raise NotImplementedError
-            elif mode == 'exact':
-                raise ExactEvaluationImpossibleError
+    #     if mode in ['inner', 'exact'] and \
+    #             not (self.contains(other) or (isinstance(other, Interval) and other.contains(self))):
+    #         if mode == 'inner':
+    #             raise NotImplementedError
+    #         elif mode == 'exact':
+    #             raise ExactEvaluationImpossibleError
 
-        # mode = 'outer' from here on out... (covers exact cases if conditions are met)
-        if isinstance(other, Interval):
-            return Interval(lb = np.minimum(self.lb, other.lb),
-                            ub = np.maximum(self.ub, other.ub), validate=False)
-        elif isinstance(other, IConvexSet):
-            return self.convex_hull(Interval(**other.interval(mode = 'outer'), validate=False), mode = 'outer')
-        else:
-            return Interval(lb = np.minimum(self.lb, other),
-                            ub = np.maximum(self.ub, other), validate=False)
+    #     # mode = 'outer' from here on out... (covers exact cases if conditions are met)
+    #     if isinstance(other, Interval):
+    #         return Interval(lb = np.minimum(self.lb, other.lb),
+    #                         ub = np.maximum(self.ub, other.ub), validate=False)
+    #     elif isinstance(other, IConvexSet):
+    #         return self.convex_hull(Interval(**other.interval(mode = 'outer'), validate=False), mode = 'outer')
+    #     else:
+    #         return Interval(lb = np.minimum(self.lb, other),
+    #                         ub = np.maximum(self.ub, other), validate=False)
         
     # degeneracy
     def degenerate(self, *, rtol: float = 1e-5, atol: float = 1e-8) -> bool:
@@ -974,69 +983,69 @@ class Interval(IConvexSet):
 
         return Interval(lb = lower, ub = upper, validate=False)
 
-    # Minkowski sum
-    def minkowski_sum(self, other: Union[IConvexSet, np.ndarray], *, mode: str = 'exact') -> Interval:
-        """Minkowski sum of an Interval I and another set or vector S.
-        Defined as {a + s | a in I, s in S}.
+    # # Minkowski sum
+    # def minkowski_sum(self, other: Union[IConvexSet, np.ndarray], *, mode: str = 'exact') -> Interval:
+    #     """Minkowski sum of an Interval I and another set or vector S.
+    #     Defined as {a + s | a in I, s in S}.
 
-        Args:
-            other (Union[IConvexSet, np.ndarray]): Summand.
-            mode (str, optional): Approximation of the result: 'inner', 'exact', 'outer'. Defaults to 'exact'.
+    #     Args:
+    #         other (Union[IConvexSet, np.ndarray]): Summand.
+    #         mode (str, optional): Approximation of the result: 'inner', 'exact', 'outer'. Defaults to 'exact'.
 
-        Returns:
-            Interval: Result of the Minkowski sum.
-        """
-        self._checkOtherOperand(other)
-        self._checkMode(mode)
+    #     Returns:
+    #         Interval: Result of the Minkowski sum.
+    #     """
+    #     self._checkOtherOperand(other)
+    #     self._checkMode(mode)
 
-        if isinstance(other, np.ndarray):
-            lower = self.lb + other
-            upper = self.ub + other
-        elif isinstance(other, Interval):
-            lower = self.lb + other.lb
-            upper = self.ub + other.ub
-        else:
-            # convert other set to interval (may throw UnboundedSetError)
-            other = Interval(**other.interval(mode = mode), validate=False)
-            return self + other
+    #     if isinstance(other, np.ndarray):
+    #         lower = self.lb + other
+    #         upper = self.ub + other
+    #     elif isinstance(other, Interval):
+    #         lower = self.lb + other.lb
+    #         upper = self.ub + other.ub
+    #     else:
+    #         # convert other set to interval (may throw UnboundedSetError)
+    #         other = Interval(**other.interval(mode = mode), validate=False)
+    #         return self + other
 
-        return Interval(lb = lower, ub = upper, validate=False)
+    #     return Interval(lb = lower, ub = upper, validate=False)
 
-    # Minkowski difference
-    def minkowski_difference(self, other: Union[IConvexSet, np.ndarray], *, mode: str = 'exact') -> Interval:
-        """Minkowski difference between an Interval I and another set or vector S.
-        Defined as {s | s + S in I}.
+    # # Minkowski difference
+    # def minkowski_difference(self, other: Union[IConvexSet, np.ndarray], *, mode: str = 'exact') -> Interval:
+    #     """Minkowski difference between an Interval I and another set or vector S.
+    #     Defined as {s | s + S in I}.
 
-        Args:
-            other (Union[IConvexSet, np.ndarray]): Set or vector.
-            mode (str, optional): Approximation of the result: 'inner', 'exact', 'outer'. Defaults to 'exact'.
+    #     Args:
+    #         other (Union[IConvexSet, np.ndarray]): Set or vector.
+    #         mode (str, optional): Approximation of the result: 'inner', 'exact', 'outer'. Defaults to 'exact'.
 
-        Raises:
-            EmptySetError: Result is the empty set.
+    #     Raises:
+    #         EmptySetError: Result is the empty set.
 
-        Returns:
-            Interval: Result of the Minkowski difference.
-        """
-        self._checkOtherOperand(other)
-        self._checkMode(mode)
+    #     Returns:
+    #         Interval: Result of the Minkowski difference.
+    #     """
+    #     self._checkOtherOperand(other)
+    #     self._checkMode(mode)
 
-        # special case: Minkowski difference with a vector
-        if isinstance(other, np.ndarray):
-            return self - other
+    #     # special case: Minkowski difference with a vector
+    #     if isinstance(other, np.ndarray):
+    #         return self - other
 
-        # convert subtrahend to interval
-        # note: outer approximative conversion still yields exact result
-        if not isinstance(other, Interval):
-            other = Interval(**other.interval(mode = 'outer'))
+    #     # convert subtrahend to interval
+    #     # note: outer approximative conversion still yields exact result
+    #     if not isinstance(other, Interval):
+    #         other = Interval(**other.interval(mode = 'outer'))
 
-        # check diameters
-        other_diameter = other.diameter()
-        if np.any(self.diameter() < other_diameter):
-            raise EmptySetError
+    #     # check diameters
+    #     other_diameter = other.diameter()
+    #     if np.any(self.diameter() < other_diameter):
+    #         raise EmptySetError
 
-        other_center = other.center()
-        return Interval(lb = self.lb - other_center + 0.5*other_diameter,
-                        ub = self.ub - other_center - 0.5*other_diameter, validate=False)
+    #     other_center = other.center()
+    #     return Interval(lb = self.lb - other_center + 0.5*other_diameter,
+    #                     ub = self.ub - other_center - 0.5*other_diameter, validate = False)
 
     # projection onto subspace
     def project(self, *, axis: tuple) -> Interval:

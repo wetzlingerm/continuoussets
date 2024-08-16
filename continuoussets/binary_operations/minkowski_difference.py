@@ -12,12 +12,16 @@ import continuoussets.convexsets.zonotope as zonotope
 import continuoussets.convexsets.vpolytope as vpolytope
 import continuoussets.convexsets.hpolyhedron as hpolyhedron
 
+from continuoussets.unary_operations.convert import Convert
+from continuoussets.unary_operations.represents import Represents
+
 from continuoussets.utils.auxiliary import SetPair
+from continuoussets.utils.exceptions import UnboundedSetError, EmptySetError
 
-# ! we need ...
+if __name__ == '__main__':
+    print('This is the MinkowskiDifference class.')
 
 
-# class for all containment checks
 class MinkowskiDifference(IBinaryOperation):
 
     strategies: Dict[Tuple[str, str], Callable] = dict()
@@ -39,130 +43,77 @@ class MinkowskiDifference(IBinaryOperation):
         if self.func is None:
             raise NotImplementedError
         
-    def __call__(self) -> bool:
+    def __call__(self) -> Union[np.ndarray, 'IConvexSet']:
         return self.func(self.first_operand, self.second_operand, **self.kwargs)
 
 
-@MinkowskiDifference.register_strategy(SetPair('ndarray', 'ndarray'))
-def _minkowski_difference_point_point(s1, s2, mode) -> np.ndarray:
-    return np.hstack(s1, s2)
+@MinkowskiDifference.register_strategy((SetPair('ndarray', 'ndarray'),
+                                        SetPair('Interval', 'ndarray'),
+                                        SetPair('Zonotope', 'ndarray'),
+                                        SetPair('VPolytope', 'ndarray'),
+                                        SetPair('HPolyhedron', 'ndarray')))
+def _minkowski_difference_any_point(S1, s2, mode) -> Union[np.ndarray, 'IConvexSet']:
+    return S1 - s2
 
 
-@MinkowskiDifference.register_strategy(SetPair('ndarray', 'Interval'))
-def _minkowski_difference_point_interval(s1, I2, mode) -> interval.Interval:
-    pass
-
-
-@MinkowskiDifference.register_strategy(SetPair('ndarray', 'Zonotope'))
-def _minkowski_difference_point_zonotope(s1, Z2, mode) -> zonotope.Zonotope:
-    pass
-
-
-@MinkowskiDifference.register_strategy(SetPair('ndarray', 'VPolytope'))
-def _minkowski_difference_point_vpolytope(s1, VP2, mode) -> vpolytope.VPolytope:
-    pass
-
-
-@MinkowskiDifference.register_strategy(SetPair('ndarray', 'HPolyhedron'))
-def _minkowski_difference_point_hpolyhedron(s1, HP2, mode) -> hpolyhedron.HPolyhedron:
-    pass
-
-
-@MinkowskiDifference.register_strategy(SetPair('Interval', 'ndarray'))
-def _minkowski_difference_interval_point(I1, s2, mode) -> interval.Interval:
-    pass
+@MinkowskiDifference.register_strategy((SetPair('ndarray', 'Interval'),
+                                        SetPair('ndarray', 'Zonotope'),
+                                        SetPair('ndarray', 'VPolytope'),
+                                        SetPair('ndarray', 'HPolyhedron')))
+def _minkowski_difference_point_interval(s1, S2, mode) -> np.ndarray:
+    if not Represents(S2, 'ndarray', rtol = 1e-12, atol = 1e-12)():
+        raise EmptySetError
+    return s1 - S2.center()
 
 
 @MinkowskiDifference.register_strategy(SetPair('Interval', 'Interval'))
-def _minkowski_difference_interval_interval(I1, I2, mode) -> interval.Interval:
-    pass
+def _minkowski_difference_interval_interval(I1, S2, mode) -> interval.Interval:
+    S2_diameter = S2.diameter()
+    if np.any(I1.diameter() < S2_diameter):
+        raise EmptySetError
+
+    other_center = S2.center()
+    return interval.Interval(lb = I1.lb - other_center + 0.5*S2_diameter,
+                             ub = I1.ub - other_center - 0.5*S2_diameter, validate = False)
 
 
-@MinkowskiDifference.register_strategy(SetPair('Interval', 'Zonotope'))
-def _minkowski_difference_interval_zonotope(I1, Z2, mode) -> interval.Interval:
-    pass
+@MinkowskiDifference.register_strategy((SetPair('Interval', 'Zonotope'),
+                                        SetPair('Interval', 'VPolytope'),
+                                        SetPair('Interval', 'HPolyhedron')))
+def _minkowski_difference_interval_other(I1, S2, mode) -> interval.Interval:
+    try:
+        I2 = Convert(S2, 'Interval', mode = 'outer')()
+    except (UnboundedSetError):
+        raise EmptySetError
+
+    return _minkowski_difference_interval_interval(I1, I2)
 
 
-@MinkowskiDifference.register_strategy(SetPair('Interval', 'VPolytope'))
-def _minkowski_difference_interval_vpolytope(I1, VP2, mode) -> interval.Interval:
-    pass
+@MinkowskiDifference.register_strategy((SetPair('Zonotope', 'Interval'),
+                                        SetPair('Zonotope', 'Zonotope'),
+                                        SetPair('Zonotope', 'VPolytope'),
+                                        SetPair('Zonotope', 'HPolyhedron')))
+def _minkowski_difference_zonotope_other(Z1, S2, mode) -> zonotope.Zonotope:
+    raise NotImplementedError
 
 
-@MinkowskiDifference.register_strategy(SetPair('Interval', 'HPolyhedron'))
-def _minkowski_difference_interval_hpolyhedron(I1, HP2, mode) -> interval.Interval:
-    pass
+@MinkowskiDifference.register_strategy((SetPair('VPolytope', 'Interval'),
+                                        SetPair('VPolytope', 'Zonotope'),
+                                        SetPair('VPolytope', 'VPolytope'),
+                                        SetPair('VPolytope', 'HPolyhedron')))
+def _minkowski_difference_vpolytope_other(VP1, S2, mode) -> vpolytope.VPolytope:
+    if not Represents(S2, 'ndarray', rtol = 1e-12, atol = 1e-12)():
+        raise NotImplementedError
+    return VP1 - S2.center()
+    
 
+@MinkowskiDifference.register_strategy((SetPair('HPolyhedron', 'Interval'),
+                                        SetPair('HPolyhedron', 'Zonotope'),
+                                        SetPair('HPolyhedron', 'VPolytope'),
+                                        SetPair('HPolyhedron', 'HPolyhedron')))
+def _minkowski_difference_hpolyhedron_other(HP1, S2, mode) -> hpolyhedron.HPolyhedron:
+    b_new = HP1.b.copy()
+    for i in range(HP1.number_constraints()):
+        b_new[i] -= S2.support_function(HP1.A[i])[0]
 
-@MinkowskiDifference.register_strategy(SetPair('Zonotope', 'ndarray'))
-def _minkowski_difference_zonotope_point(Z1, s2, mode) -> zonotope.Zonotope:
-    pass
-
-
-@MinkowskiDifference.register_strategy(SetPair('Zonotope', 'Interval'))
-def _minkowski_difference_zonotope_interval(Z1, I2, mode) -> zonotope.Zonotope:
-    pass
-
-
-@MinkowskiDifference.register_strategy(SetPair('Zonotope', 'Zonotope'))
-def _minkowski_difference_zonotope_zonotope(Z1, Z2, mode) -> zonotope.Zonotope:
-    pass
-
-
-@MinkowskiDifference.register_strategy(SetPair('Zonotope', 'VPolytope'))
-def _minkowski_difference_zonotope_vpolytope(Z1, VP2, mode) -> zonotope.Zonotope:
-    pass
-
-
-@MinkowskiDifference.register_strategy(SetPair('Zonotope', 'HPolyhedron'))
-def _minkowski_difference_zonotope_hpolyhedron(Z1, HP2, mode) -> zonotope.Zonotope:
-    pass
-
-
-@MinkowskiDifference.register_strategy(SetPair('VPolytope', 'ndarray'))
-def _minkowski_difference_vpolytope_point(VP1, s2, mode) -> vpolytope.VPolytope:
-    pass
-
-
-@MinkowskiDifference.register_strategy(SetPair('VPolytope', 'Interval'))
-def _minkowski_difference_vpolytope_interval(VP1, I2, mode) -> vpolytope.VPolytope:
-    pass
-
-
-@MinkowskiDifference.register_strategy(SetPair('VPolytope', 'Zonotope'))
-def _minkowski_difference_vpolytope_zonotope(VP1, Z2, mode) -> vpolytope.VPolytope:
-    pass
-
-
-@MinkowskiDifference.register_strategy(SetPair('VPolytope', 'VPolytope'))
-def _minkowski_difference_vpolytope_vpolytope(VP1, VP2, mode) -> vpolytope.VPolytope:
-    pass
-
-
-@MinkowskiDifference.register_strategy(SetPair('VPolytope', 'HPolyhedron'))
-def _minkowski_difference_vpolytope_hpolyhedron(VP1, HP2, mode) -> vpolytope.VPolytope:
-    pass
-
-
-@MinkowskiDifference.register_strategy(SetPair('HPolyhedron', 'ndarray'))
-def _minkowski_difference_hpolyhedron_point(HP1, s2, mode) -> hpolyhedron.HPolyhedron:
-    pass
-
-
-@MinkowskiDifference.register_strategy(SetPair('HPolyhedron', 'Interval'))
-def _minkowski_difference_hpolyhedron_interval(HP1, I2, mode) -> hpolyhedron.HPolyhedron:
-    pass
-
-
-@MinkowskiDifference.register_strategy(SetPair('HPolyhedron', 'Zonotope'))
-def _minkowski_difference_hpolyhedron_zonotope(HP1, Z2, mode) -> hpolyhedron.HPolyhedron:
-    pass
-
-
-@MinkowskiDifference.register_strategy(SetPair('HPolyhedron', 'VPolytope'))
-def _minkowski_difference_hpolyhedron_vpolytope(HP1, VP2, mode) -> hpolyhedron.HPolyhedron:
-    pass
-
-
-@MinkowskiDifference.register_strategy(SetPair('HPolyhedron', 'HPolyhedron'))
-def _minkowski_difference_hpolyhedron_hpolyhedron(HP1, HP2, mode) -> hpolyhedron.HPolyhedron:
-    pass
+    return hpolyhedron.HPolyhedron(A = HP1.A.copy(), b = b_new)

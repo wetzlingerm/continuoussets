@@ -12,9 +12,11 @@ from continuoussets.utils.comparison import compare_matrices
 
 from continuoussets.unary_operations.convert import Convert
 from continuoussets.binary_operations.contains import Contains
-# required for _equals_hpolyhedron_point, _equals_hpolyhedron_other, _equals_hpolyhedron_hpolyhedron
 
-# class for all equality checks
+if __name__ == '__main__':
+    print('This is the Equals class.')
+
+
 class Equals(IBinaryOperation):
 
     strategies: Dict[Tuple[str, str], Callable] = dict()

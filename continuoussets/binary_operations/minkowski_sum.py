@@ -12,17 +12,19 @@ import continuoussets.convexsets.zonotope as zonotope
 import continuoussets.convexsets.vpolytope as vpolytope
 import continuoussets.convexsets.hpolyhedron as hpolyhedron
 
+from continuoussets.unary_operations.convert import Convert
+
 from continuoussets.utils.auxiliary import SetPair
 
-# ! we need ...
+if __name__ == '__main__':
+    print('This is the MinkowskiSum class.')
 
 
-# class for all containment checks
 class MinkowskiSum(IBinaryOperation):
 
     strategies: Dict[Tuple[str, str], Callable] = dict()
     # ordering is relevant
-    ordered_operation = True
+    ordered_operation = False
     
     # main task is to set the variables and decide which function to call for the evaluation
     def __init__(self, S1: Union['IConvexSet', np.ndarray], S2: Union['IConvexSet', np.ndarray], *,
@@ -39,130 +41,95 @@ class MinkowskiSum(IBinaryOperation):
         if self.func is None:
             raise NotImplementedError
         
-    def __call__(self) -> bool:
+    def __call__(self) -> Union[np.ndarray, 'IConvexSet']:
         return self.func(self.first_operand, self.second_operand, **self.kwargs)
 
 
-@MinkowskiSum.register_strategy(SetPair('ndarray', 'ndarray'))
-def _minkowski_sum_point_point(s1, s2, mode) -> np.ndarray:
-    return np.hstack(s1, s2)
-
-
-@MinkowskiSum.register_strategy(SetPair('ndarray', 'Interval'))
-def _minkowski_sum_point_interval(s1, I2, mode) -> interval.Interval:
-    pass
-
-
-@MinkowskiSum.register_strategy(SetPair('ndarray', 'Zonotope'))
-def _minkowski_sum_point_zonotope(s1, Z2, mode) -> zonotope.Zonotope:
-    pass
-
-
-@MinkowskiSum.register_strategy(SetPair('ndarray', 'VPolytope'))
-def _minkowski_sum_point_vpolytope(s1, VP2, mode) -> vpolytope.VPolytope:
-    pass
-
-
-@MinkowskiSum.register_strategy(SetPair('ndarray', 'HPolyhedron'))
-def _minkowski_sum_point_hpolyhedron(s1, HP2, mode) -> hpolyhedron.HPolyhedron:
-    pass
-
-
-@MinkowskiSum.register_strategy(SetPair('Interval', 'ndarray'))
-def _minkowski_sum_interval_point(I1, s2, mode) -> interval.Interval:
-    pass
+@MinkowskiSum.register_strategy((SetPair('ndarray', 'ndarray'),
+                                 SetPair('Interval', 'ndarray'),
+                                 SetPair('Zonotope', 'ndarray'),
+                                 SetPair('VPolytope', 'ndarray'),
+                                 SetPair('HPolyhedron', 'ndarray')))
+def _minkowski_sum_any_point(S1, s2, mode) -> np.ndarray:
+    return S1 + s2
 
 
 @MinkowskiSum.register_strategy(SetPair('Interval', 'Interval'))
 def _minkowski_sum_interval_interval(I1, I2, mode) -> interval.Interval:
-    pass
-
-
-@MinkowskiSum.register_strategy(SetPair('Interval', 'Zonotope'))
-def _minkowski_sum_interval_zonotope(I1, Z2, mode) -> interval.Interval:
-    pass
-
-
-@MinkowskiSum.register_strategy(SetPair('Interval', 'VPolytope'))
-def _minkowski_sum_interval_vpolytope(I1, VP2, mode) -> interval.Interval:
-    pass
-
-
-@MinkowskiSum.register_strategy(SetPair('Interval', 'HPolyhedron'))
-def _minkowski_sum_interval_hpolyhedron(I1, HP2, mode) -> interval.Interval:
-    pass
-
-
-@MinkowskiSum.register_strategy(SetPair('Zonotope', 'ndarray'))
-def _minkowski_sum_zonotope_point(Z1, s2, mode) -> zonotope.Zonotope:
-    pass
+    return interval.Interval(lb = I1.lb + I2.lb,
+                             ub = I1.ub + I2.ub,
+                             validate = False)
 
 
 @MinkowskiSum.register_strategy(SetPair('Zonotope', 'Interval'))
 def _minkowski_sum_zonotope_interval(Z1, I2, mode) -> zonotope.Zonotope:
-    pass
+    Z2 = Convert(I2, 'Zonotope', mode = 'exact')
+    return _minkowski_sum_zonotope_zonotope(Z1, Z2, mode = mode)
 
 
 @MinkowskiSum.register_strategy(SetPair('Zonotope', 'Zonotope'))
 def _minkowski_sum_zonotope_zonotope(Z1, Z2, mode) -> zonotope.Zonotope:
-    pass
+    return zonotope.Zonotope(c = Z1.c + Z2.c,
+                             G = np.vstack((Z1.G, Z2.G)),
+                             validate = False)
 
 
-@MinkowskiSum.register_strategy(SetPair('Zonotope', 'VPolytope'))
-def _minkowski_sum_zonotope_vpolytope(Z1, VP2, mode) -> zonotope.Zonotope:
-    pass
-
-
-@MinkowskiSum.register_strategy(SetPair('Zonotope', 'HPolyhedron'))
-def _minkowski_sum_zonotope_hpolyhedron(Z1, HP2, mode) -> zonotope.Zonotope:
-    pass
-
-
-@MinkowskiSum.register_strategy(SetPair('VPolytope', 'ndarray'))
-def _minkowski_sum_vpolytope_point(VP1, s2, mode) -> vpolytope.VPolytope:
-    pass
-
-
-@MinkowskiSum.register_strategy(SetPair('VPolytope', 'Interval'))
-def _minkowski_sum_vpolytope_interval(VP1, I2, mode) -> vpolytope.VPolytope:
-    pass
-
-
-@MinkowskiSum.register_strategy(SetPair('VPolytope', 'Zonotope'))
-def _minkowski_sum_vpolytope_zonotope(VP1, Z2, mode) -> vpolytope.VPolytope:
-    pass
+@MinkowskiSum.register_strategy((SetPair('VPolytope', 'Interval'),
+                                 SetPair('VPolytope', 'Zonotope')))
+def _minkowski_sum_vpolytope_other(VP1, S2, mode) -> vpolytope.VPolytope:
+    VP2 = Convert(S2, 'VPolytope', mode = mode)
+    return _minkowski_sum_vpolytope_vpolytope(VP1, VP2, mode = mode)
 
 
 @MinkowskiSum.register_strategy(SetPair('VPolytope', 'VPolytope'))
 def _minkowski_sum_vpolytope_vpolytope(VP1, VP2, mode) -> vpolytope.VPolytope:
-    pass
+    # add each combination
+    V_sum = np.zeros((VP1.number_vertices()*VP2.number_vertices(), VP1.dimension))
+    # todo: replace this by a faster method
+    for i in range(VP1.number_vertices()):
+        for j in range(VP2.number_vertices()):
+            V_sum[i * VP2.number_vertices() + j] = VP1.V[i] + VP2.V[j]
+
+    return vpolytope.VPolytope(V = V_sum, validate = False)
 
 
-@MinkowskiSum.register_strategy(SetPair('VPolytope', 'HPolyhedron'))
-def _minkowski_sum_vpolytope_hpolyhedron(VP1, HP2, mode) -> vpolytope.VPolytope:
-    pass
-
-
-@MinkowskiSum.register_strategy(SetPair('HPolyhedron', 'ndarray'))
-def _minkowski_sum_hpolyhedron_point(HP1, s2, mode) -> hpolyhedron.HPolyhedron:
-    pass
-
-
-@MinkowskiSum.register_strategy(SetPair('HPolyhedron', 'Interval'))
-def _minkowski_sum_hpolyhedron_interval(HP1, I2, mode) -> hpolyhedron.HPolyhedron:
-    pass
-
-
-@MinkowskiSum.register_strategy(SetPair('HPolyhedron', 'Zonotope'))
-def _minkowski_sum_hpolyhedron_zonotope(HP1, Z2, mode) -> hpolyhedron.HPolyhedron:
-    pass
-
-
-@MinkowskiSum.register_strategy(SetPair('HPolyhedron', 'VPolytope'))
-def _minkowski_sum_hpolyhedron_vpolytope(HP1, VP2, mode) -> hpolyhedron.HPolyhedron:
-    pass
+@MinkowskiSum.register_strategy((SetPair('HPolyhedron', 'Interval'),
+                                 SetPair('HPolyhedron', 'Zonotope'),
+                                 SetPair('HPolyhedron', 'VPolytope')))
+def _minkowski_sum_hpolyhedron_other(HP1, I2, mode) -> hpolyhedron.HPolyhedron:
+    HP2 = Convert(I2, 'HPolyhedron', mode = mode)
+    return _minkowski_sum_hpolyhedron_hpolyhedron(HP1, HP2, mode = mode)
 
 
 @MinkowskiSum.register_strategy(SetPair('HPolyhedron', 'HPolyhedron'))
 def _minkowski_sum_hpolyhedron_hpolyhedron(HP1, HP2, mode) -> hpolyhedron.HPolyhedron:
-    pass
+    if mode == 'inner':
+        return _minkowski_sum_hpolyhedron_hpolyhedron(HP1, HP2, mode = 'exact')
+    
+    if mode == 'exact':
+        n1, h1 = HP1.dimension, HP1.number_constraints()
+        n2, h2 = HP2.dimension, HP2.number_constraints()
+
+        # lift and project onto first n dimensions (rewriting of Cartesian product...)
+        HP_lifted = hpolyhedron.HPolyhedron(A = np.block([[HP1.A, np.zeros((n2, h1))], [np.zeros((n1, h2)), HP2.A]]),
+                                            b = np.hstack(HP1.b, HP2.b),
+                                            validate = False)
+        M = np.hstack((np.eye(HP1.dimension), np.eye(HP1.dimension)))
+        return HP_lifted.matmul(M)
+    
+    if mode == 'outer':
+        n, h = HP1.dimension, HP1.number_constraints()
+
+        # addition of support function evaluation
+        A_new = np.vstack((HP1.A, np.eye(n), -np.eye(n)))
+        b_new = np.hstack((HP1.b, np.zeros(2*n)))
+    
+        # first h constraints: only compute support function of HP2
+        for i in range(h):
+            b_new[i] += HP2.support_function(A_new[i])[0]
+
+        # remaining 2n constraints: also compute support function of HP1
+        for i in range(2*n):
+            b_new[h+i] = HP1.support_function(A_new[h+i])[0] + HP2.support_function(A_new[h+i])[0]
+
+        return hpolyhedron.HPolyhedron(A = A_new, b = b_new, validate = False)

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import inspect
-from abc import ABC
+from abc import ABC, abstractmethod
 from typing import Union
 
 import numpy as np
@@ -11,7 +11,7 @@ import continuoussets.utils.tolerances as tol
 # implementations of unary/binary operations (only as module!)
 # import continuoussets.binary_operations.binary_operations as binary_ops
 # import continuoussets.unary_operations.unary_operations as unary_ops
-# ! ...yields circular import
+# ! ...leads to circular import
 
 # for plotting
 import matplotlib.pyplot as plt
@@ -210,6 +210,13 @@ class IConvexSet(ABC):
     #         IConvexSet: Minkowski sum of S1 and S2, of type S1 (unless S1 is np.ndarray, then of type S2).
     #     """
     #     return binary_ops.minkowski_sum(S1, S2, mode = mode)
+
+    # copy set
+    @abstractmethod
+    def copy(self) -> IConvexSet:
+        """Returns a deep copy of a IConvexSet object.
+        """
+        raise NotImplementedError
 
     # plot
     def plot(self, *, axis: tuple, **kwargs):

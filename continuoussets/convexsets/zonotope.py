@@ -89,6 +89,15 @@ class Zonotope(IConvexSet):
         self.c = c.copy()
         self.G = G.copy()
 
+    # deep copy
+    def copy(self) -> Zonotope:
+        """Returns a deep copy of an Zonotope.
+
+        Returns:
+            Zonotope: Copied Zonotope.
+        """
+        return Zonotope(c = self.c.copy(), G = self.G.copy(), validate = False)
+
     # display
     def __repr__(self) -> str:
         """Representation on the command window.
@@ -264,48 +273,48 @@ class Zonotope(IConvexSet):
         """
         return True
 
-    # Cartesian product
-    def cartesian_product(self, other: Union[IConvexSet, np.ndarray], *, mode: str = 'exact') -> Zonotope:
-        """Cartesian product of a Zonotope Z and another IConvexSet or vector (np.ndarray) S.
-        Defined as {[z^T s^T]^T | z in Z, s in S}.
+    # # Cartesian product
+    # def cartesian_product(self, other: Union[IConvexSet, np.ndarray], *, mode: str = 'exact') -> Zonotope:
+    #     """Cartesian product of a Zonotope Z and another IConvexSet or vector (np.ndarray) S.
+    #     Defined as {[z^T s^T]^T | z in Z, s in S}.
 
-        Args:
-            other (Union[IConvexSet, np.ndarray]): Set or vector.
-            mode (str, optional): Approximation of the evaluation: 'inner', 'exact', 'outer'. Defaults to 'exact'.
+    #     Args:
+    #         other (Union[IConvexSet, np.ndarray]): Set or vector.
+    #         mode (str, optional): Approximation of the evaluation: 'inner', 'exact', 'outer'. Defaults to 'exact'.
 
-        Returns:
-            Zonotope: Result of the Cartesian product.
-        """
-        self._checkMode(mode)
+    #     Returns:
+    #         Zonotope: Result of the Cartesian product.
+    #     """
+    #     self._checkMode(mode)
 
-        n1, m1 = self.dimension, self.number_generators()
+    #     n1, m1 = self.dimension, self.number_generators()
 
-        if isinstance(other, np.ndarray):
-            if m1 == 0:
-                return Zonotope(c = np.hstack((self.c, other)), G = self.G, validate = False)
-            else:
-                return Zonotope(c = np.hstack((self.c, other)),
-                                G = np.hstack((self.G, np.zeros((m1, other.size)))),
-                                validate = False)
+    #     if isinstance(other, np.ndarray):
+    #         if m1 == 0:
+    #             return Zonotope(c = np.hstack((self.c, other)), G = self.G, validate = False)
+    #         else:
+    #             return Zonotope(c = np.hstack((self.c, other)),
+    #                             G = np.hstack((self.G, np.zeros((m1, other.size)))),
+    #                             validate = False)
 
-        elif isinstance(other, Zonotope):
-            n2 = other.dimension
-            m2 = other.number_generators()
-            # concatenate centers
-            center = np.hstack((self.c, other.c))
-            # block-concatenate generator matrices
-            generators = np.vstack((np.hstack((self.G, np.zeros((m1, n2)))),
-                                    np.hstack((np.zeros((m2, n1)), other.G))))
+    #     elif isinstance(other, Zonotope):
+    #         n2 = other.dimension
+    #         m2 = other.number_generators()
+    #         # concatenate centers
+    #         center = np.hstack((self.c, other.c))
+    #         # block-concatenate generator matrices
+    #         generators = np.vstack((np.hstack((self.G, np.zeros((m1, n2)))),
+    #                                 np.hstack((np.zeros((m2, n1)), other.G))))
 
-            return Zonotope(c = center, G = generators, validate = False)
+    #         return Zonotope(c = center, G = generators, validate = False)
 
-        elif other.represents('Point'):
-            # exact evaluation possible
-            return self.cartesian_product(other.center())
+    #     elif other.represents('Point'):
+    #         # exact evaluation possible
+    #         return self.cartesian_product(other.center())
         
-        else:
-            # may throw an ExactEvaluationImpossibleError unless other is 1D or an Interval
-            return self.cartesian_product(Zonotope(**other.zonotope(mode = mode), validate = False))
+    #     else:
+    #         # may throw an ExactEvaluationImpossibleError unless other is 1D or an Interval
+    #         return self.cartesian_product(Zonotope(**other.zonotope(mode = mode), validate = False))
 
     # center
     def center(self) -> np.ndarray:
@@ -377,54 +386,54 @@ class Zonotope(IConvexSet):
     #         self_as_hpolyhedron = HP(**self.hpolyhedron())
     #         return self_as_hpolyhedron.contains(other, rtol = rtol, atol = atol)
 
-    # convex hull
-    def convex_hull(self, other: Union[IConvexSet, np.ndarray], *, mode: str = 'exact') -> Zonotope:
-        """Convex hull of a Zonotope Z and another set or vector S.
-        Defined as {lambda*z + (1-lambda)*s | z in Z, s in S, lambda in [0,1]}
+    # # convex hull
+    # def convex_hull(self, other: Union[IConvexSet, np.ndarray], *, mode: str = 'exact') -> Zonotope:
+    #     """Convex hull of a Zonotope Z and another set or vector S.
+    #     Defined as {lambda*z + (1-lambda)*s | z in Z, s in S, lambda in [0,1]}
 
-        Args:
-            other (Union[IConvexSet, np.ndarray]): Set or vector.
-            mode (str, optional): Approximation of operation: 'inner', 'exact', 'outer'. Defaults to 'exact'.
+    #     Args:
+    #         other (Union[IConvexSet, np.ndarray]): Set or vector.
+    #         mode (str, optional): Approximation of operation: 'inner', 'exact', 'outer'. Defaults to 'exact'.
 
-        Raises:
-            NotImplementedError: Modes 'inner' and 'exact' not supported in the general case.
+    #     Raises:
+    #         NotImplementedError: Modes 'inner' and 'exact' not supported in the general case.
 
-        Returns:
-            Zonotope: Result of the convex hull.
-        """
-        self._checkOtherOperand(other)
-        self._checkMode(mode)
+    #     Returns:
+    #         Zonotope: Result of the convex hull.
+    #     """
+    #     self._checkOtherOperand(other)
+    #     self._checkMode(mode)
 
-        if mode in ['exact', 'inner']:
-            # todo: implement special case 'single point - single point'
-            raise NotImplementedError
+    #     if mode in ['exact', 'inner']:
+    #         # todo: implement special case 'single point - single point'
+    #         raise NotImplementedError
 
-        if not isinstance(other, Zonotope):
-            return self.convex_hull(Zonotope(**other.zonotope(mode = mode), validate = False), mode = mode)
+    #     if not isinstance(other, Zonotope):
+    #         return self.convex_hull(Zonotope(**other.zonotope(mode = mode), validate = False), mode = mode)
 
-        # new center
-        center = 0.5 * (self.c + other.c)
+    #     # new center
+    #     center = 0.5 * (self.c + other.c)
 
-        # generator from centers
-        generator_center = 0.5 * (self.c - other.c)
+    #     # generator from centers
+    #     generator_center = 0.5 * (self.c - other.c)
 
-        # retrieve number of generators
-        number_generators_self = self.number_generators()
-        number_generators_other = other.number_generators()
+    #     # retrieve number of generators
+    #     number_generators_self = self.number_generators()
+    #     number_generators_other = other.number_generators()
 
-        # new generator matrix
-        if number_generators_self >= number_generators_other:
-            generators = np.vstack((generator_center,
-                                    0.5 * (self.G[:number_generators_other, :] + other.G),
-                                    0.5 * (self.G[:number_generators_other, :] - other.G),
-                                    self.G[number_generators_other:, :]))
-        else:
-            generators = np.vstack((generator_center,
-                                    0.5 * (self.G + other.G[:number_generators_self, :]),
-                                    0.5 * (self.G - other.G[:number_generators_self, :]),
-                                    other.G[number_generators_self:, :]))
+    #     # new generator matrix
+    #     if number_generators_self >= number_generators_other:
+    #         generators = np.vstack((generator_center,
+    #                                 0.5 * (self.G[:number_generators_other, :] + other.G),
+    #                                 0.5 * (self.G[:number_generators_other, :] - other.G),
+    #                                 self.G[number_generators_other:, :]))
+    #     else:
+    #         generators = np.vstack((generator_center,
+    #                                 0.5 * (self.G + other.G[:number_generators_self, :]),
+    #                                 0.5 * (self.G - other.G[:number_generators_self, :]),
+    #                                 other.G[number_generators_self:, :]))
 
-        return Zonotope(c = center, G = generators, validate = False)
+    #     return Zonotope(c = center, G = generators, validate = False)
     
     # degeneracy
     def degenerate(self, *, tol: float = 1e-12) -> bool:
@@ -548,60 +557,60 @@ class Zonotope(IConvexSet):
         generators = np.matmul(self.G, matrix.T)
         return Zonotope(c = center, G = generators, validate = False)
 
-    # Minkowski sum
-    def minkowski_sum(self, other: Union[IConvexSet, np.ndarray], *, mode: str = 'exact') -> Zonotope:
-        """Minkowski sum between a Zonotope Z and another set or vector S.
-        Defined as {z + s | z in Z, s in S}.
+    # # Minkowski sum
+    # def minkowski_sum(self, other: Union[IConvexSet, np.ndarray], *, mode: str = 'exact') -> Zonotope:
+    #     """Minkowski sum between a Zonotope Z and another set or vector S.
+    #     Defined as {z + s | z in Z, s in S}.
 
-        Args:
-            other (Union[IConvexSet, np.ndarray]): Set or vector.
-            mode (str, optional): Approximation of the evaluation: 'inner', 'exact', 'outer'. Defaults to 'exact'.
+    #     Args:
+    #         other (Union[IConvexSet, np.ndarray]): Set or vector.
+    #         mode (str, optional): Approximation of the evaluation: 'inner', 'exact', 'outer'. Defaults to 'exact'.
 
-        Raises:
-            ExactEvaluationImpossibleError: mode == 'exact' only supported in special cases.
+    #     Raises:
+    #         ExactEvaluationImpossibleError: mode == 'exact' only supported in special cases.
 
-        Returns:
-            Zonotope: Result of the Minkowski sum.
-        """
-        self._checkOtherOperand(other)
-        self._checkMode(mode)
+    #     Returns:
+    #         Zonotope: Result of the Minkowski sum.
+    #     """
+    #     self._checkOtherOperand(other)
+    #     self._checkMode(mode)
 
-        # Minkowski sum with...
-        if isinstance(other, np.ndarray):
-            # ...a vector (exact computation possible)
-            return Zonotope(c = self.c + other, G = self.G, validate = False)
+    #     # Minkowski sum with...
+    #     if isinstance(other, np.ndarray):
+    #         # ...a vector (exact computation possible)
+    #         return Zonotope(c = self.c + other, G = self.G, validate = False)
 
-        elif isinstance(other, Zonotope):
-            # ...a zonotope (exact computation possible)
-            return Zonotope(c = self.c + other.c, G = np.vstack((self.G, other.G)), validate = False)
+    #     elif isinstance(other, Zonotope):
+    #         # ...a zonotope (exact computation possible)
+    #         return Zonotope(c = self.c + other.c, G = np.vstack((self.G, other.G)), validate = False)
 
-        else:
-            # ...other IConvexSet object (convert to zonotope and then compute Minkowski sum)
-            other = Zonotope(**other.zonotope(mode = mode), validate = False)
-            return self.minkowski_sum(other)
+    #     else:
+    #         # ...other IConvexSet object (convert to zonotope and then compute Minkowski sum)
+    #         other = Zonotope(**other.zonotope(mode = mode), validate = False)
+    #         return self.minkowski_sum(other)
 
-    # Minkowski difference
-    def minkowski_difference(self, other: Union[IConvexSet, np.ndarray], *, mode: str = 'exact') -> Zonotope:
-        """Minkowski difference between a Zonotope Z and another set or vector S.
-        Defined as {s | s + S in Z}.
+    # # Minkowski difference
+    # def minkowski_difference(self, other: Union[IConvexSet, np.ndarray], *, mode: str = 'exact') -> Zonotope:
+    #     """Minkowski difference between a Zonotope Z and another set or vector S.
+    #     Defined as {s | s + S in Z}.
 
-        Args:
-            other (Union[IConvexSet, np.ndarray]): Set or vector.
-            mode (str, optional): Approximation of the result: 'inner', 'exact', 'outer'. Defaults to 'exact'.
+    #     Args:
+    #         other (Union[IConvexSet, np.ndarray]): Set or vector.
+    #         mode (str, optional): Approximation of the result: 'inner', 'exact', 'outer'. Defaults to 'exact'.
 
-        Raises:
-            NotImplementedError: Minkowski difference with a Zonotope as a subtrahend not supported.
+    #     Raises:
+    #         NotImplementedError: Minkowski difference with a Zonotope as a subtrahend not supported.
 
-        Returns:
-            Zonotope: Result of the Minkowski difference.
-        """
-        self._checkOtherOperand(other)
-        self._checkMode(mode)
+    #     Returns:
+    #         Zonotope: Result of the Minkowski difference.
+    #     """
+    #     self._checkOtherOperand(other)
+    #     self._checkMode(mode)
 
-        if isinstance(other, np.ndarray):
-            return self - other
+    #     if isinstance(other, np.ndarray):
+    #         return self - other
 
-        raise NotImplementedError
+    #     raise NotImplementedError
     
     # number of generators
     def number_generators(self) -> int:

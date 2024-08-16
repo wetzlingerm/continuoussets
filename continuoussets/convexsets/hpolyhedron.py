@@ -83,6 +83,15 @@ class HPolyhedron(IConvexSet):
         self.A = A.copy()
         self.b = b.copy()
 
+    # deep copy
+    def copy(self) -> HPolyhedron:
+        """Returns a deep copy of an HPolyhedron.
+
+        Returns:
+            HPolyhedron: Copied HPolyhedron.
+        """
+        return HPolyhedron(A = self.A.copy(), b = self.b.copy(), validate = False)
+
     # display
     def __repr__(self):
         """Representation on the command window.
@@ -354,38 +363,38 @@ class HPolyhedron(IConvexSet):
             
         return True
 
-    # Cartesian product
-    def cartesian_product(self, other: Union[IConvexSet, np.ndarray], *, mode: str = 'exact') -> HPolyhedron:
-        """Cartesian product of an HPolyhedron HP and another set or vector S.
-        Defined as {[a^T s^T]^T | a in HP, s in S}.
+    # # Cartesian product
+    # def cartesian_product(self, other: Union[IConvexSet, np.ndarray], *, mode: str = 'exact') -> HPolyhedron:
+    #     """Cartesian product of an HPolyhedron HP and another set or vector S.
+    #     Defined as {[a^T s^T]^T | a in HP, s in S}.
 
-        Args:
-            other (Union[IConvexSet, np.ndarray]): Set or vector.
-            mode (str, optional): Approximation of the evaluation: 'inner', 'exact', 'outer'. Defaults to 'exact'.
+    #     Args:
+    #         other (Union[IConvexSet, np.ndarray]): Set or vector.
+    #         mode (str, optional): Approximation of the evaluation: 'inner', 'exact', 'outer'. Defaults to 'exact'.
 
-        Returns:
-            HPolyhedron: Result of the Cartesian product.
-        """
-        self._checkMode(mode)
+    #     Returns:
+    #         HPolyhedron: Result of the Cartesian product.
+    #     """
+    #     self._checkMode(mode)
 
-        # convert other sets to Hpolyhedron
-        if isinstance(other, np.ndarray):
-            A_other, b_other = halfspace_representation_from_vector(other)
-            other = HPolyhedron(A = A_other, b = b_other)
+    #     # convert other sets to Hpolyhedron
+    #     if isinstance(other, np.ndarray):
+    #         A_other, b_other = halfspace_representation_from_vector(other)
+    #         other = HPolyhedron(A = A_other, b = b_other)
         
-        if not isinstance(other, HPolyhedron):
-            other = HPolyhedron(**other.hpolyhedron(mode = 'exact'))
+    #     if not isinstance(other, HPolyhedron):
+    #         other = HPolyhedron(**other.hpolyhedron(mode = 'exact'))
 
-        # block-concatenation of constraint matrices, stack constraint offsets
-        n1 = self.dimension
-        n2 = other.dimension
-        h1 = self.number_constraints()
-        h2 = other.number_constraints()
-        A_new = np.vstack((np.hstack((self.A, np.zeros((h1, n2)))),
-                           np.hstack((np.zeros((h2, n1)), other.A))))
-        b_new = np.hstack((self.b, other.b))
+    #     # block-concatenation of constraint matrices, stack constraint offsets
+    #     n1 = self.dimension
+    #     n2 = other.dimension
+    #     h1 = self.number_constraints()
+    #     h2 = other.number_constraints()
+    #     A_new = np.vstack((np.hstack((self.A, np.zeros((h1, n2)))),
+    #                        np.hstack((np.zeros((h2, n1)), other.A))))
+    #     b_new = np.hstack((self.b, other.b))
 
-        return HPolyhedron(A = A_new, b = b_new, validate = False)
+    #     return HPolyhedron(A = A_new, b = b_new, validate = False)
 
     # center
     def center(self) -> np.ndarray:
@@ -489,51 +498,51 @@ class HPolyhedron(IConvexSet):
         
     #     return True
 
-    # convex hull
-    def convex_hull(self, other: Union[IConvexSet, np.ndarray], *, mode: str = 'exact') -> HPolyhedron:
-        """Convex hull of an HPolyhedron HP and another set or vector S.
-        Defined as {lambda*h + (1-lambda)*s | h in HP, s in S, lambda in [0,1]}
+    # # convex hull
+    # def convex_hull(self, other: Union[IConvexSet, np.ndarray], *, mode: str = 'exact') -> HPolyhedron:
+    #     """Convex hull of an HPolyhedron HP and another set or vector S.
+    #     Defined as {lambda*h + (1-lambda)*s | h in HP, s in S, lambda in [0,1]}
 
-        Args:
-            other (Union[IConvexSet, np.ndarray]): Set or vector.
-            mode (str, optional): Approximation of the evaluation: 'inner', 'exact', 'outer'. Defaults to 'exact'.
+    #     Args:
+    #         other (Union[IConvexSet, np.ndarray]): Set or vector.
+    #         mode (str, optional): Approximation of the evaluation: 'inner', 'exact', 'outer'. Defaults to 'exact'.
 
-        Raises:
-            NotImplementedError: Convex hull with vector not supported.
-            NotImplementedError: mode in ['inner', 'exact'] not supported.
+    #     Raises:
+    #         NotImplementedError: Convex hull with vector not supported.
+    #         NotImplementedError: mode in ['inner', 'exact'] not supported.
 
-        Returns:
-            HPolyhedron: Result of the convex hull.
-        """
-        self._checkOtherOperand(other)
-        self._checkMode(mode)
+    #     Returns:
+    #         HPolyhedron: Result of the convex hull.
+    #     """
+    #     self._checkOtherOperand(other)
+    #     self._checkMode(mode)
 
-        if isinstance(other, np.ndarray):
-            A_other, b_other = halfspace_representation_from_vector(other)
-            other = HPolyhedron(A = A_other, b = b_other)
+    #     if isinstance(other, np.ndarray):
+    #         A_other, b_other = halfspace_representation_from_vector(other)
+    #         other = HPolyhedron(A = A_other, b = b_other)
         
-        if mode in ['inner', 'exact']:
-            raise NotImplementedError
+    #     if mode in ['inner', 'exact']:
+    #         raise NotImplementedError
         
-        h = self.number_constraints()
+    #     h = self.number_constraints()
         
-        # 'outer': compute support function of self+other, take larger value, additional constraints from box
-        A_new = np.vstack((self.A, np.eye(self.dimension), -np.eye(self.dimension)))
-        b_new = np.zeros(h + 2*self.dimension)
+    #     # 'outer': compute support function of self+other, take larger value, additional constraints from box
+    #     A_new = np.vstack((self.A, np.eye(self.dimension), -np.eye(self.dimension)))
+    #     b_new = np.zeros(h + 2*self.dimension)
 
-        # for the first constraints, we already have the value computed for the HPolyhedron
-        for i in range(h):
-            # compute support function value of other set
-            value_other = other.support_function(self.A[i])[0]
-            b_new[i] = self.b[i] if self.b[i] > value_other else value_other
+    #     # for the first constraints, we already have the value computed for the HPolyhedron
+    #     for i in range(h):
+    #         # compute support function value of other set
+    #         value_other = other.support_function(self.A[i])[0]
+    #         b_new[i] = self.b[i] if self.b[i] > value_other else value_other
 
-        # for the remaining constraints, we also have to evaluate the support function for the HPolyhedron
-        for i in range(2*self.dimension):
-            value_polyhedron = self.support_function(A_new[h+i])[0]
-            value_other = other.support_function(A_new[h+i])[0]
-            b_new[h+i] = value_polyhedron if value_polyhedron > value_other else value_other
+    #     # for the remaining constraints, we also have to evaluate the support function for the HPolyhedron
+    #     for i in range(2*self.dimension):
+    #         value_polyhedron = self.support_function(A_new[h+i])[0]
+    #         value_other = other.support_function(A_new[h+i])[0]
+    #         b_new[h+i] = value_polyhedron if value_polyhedron > value_other else value_other
 
-        return HPolyhedron(A = A_new, b = b_new, validate = False)
+    #     return HPolyhedron(A = A_new, b = b_new, validate = False)
     
     # degeneracy
     def degenerate(self, *, rtol: float = 1e-5, atol: float = 1e-8) -> bool:
@@ -595,31 +604,31 @@ class HPolyhedron(IConvexSet):
 
         return {'A': self.A, 'b': self.b}
     
-    # intersection
-    def intersection(self, other: Union[IConvexSet, np.ndarray], mode: str = 'exact') -> HPolyhedron:
-        """Computation of the intersection of an HPolyhedron HP and another set or vector S.
+    # # intersection
+    # def intersection(self, other: Union[IConvexSet, np.ndarray], mode: str = 'exact') -> HPolyhedron:
+    #     """Computation of the intersection of an HPolyhedron HP and another set or vector S.
 
-        Args:
-            other (Union[IConvexSet, np.ndarray]): Set or vector.
-            mode (str, optional): Approximation of the evaluation: 'inner', 'exact', 'outer'. Defaults to 'exact'.
+    #     Args:
+    #         other (Union[IConvexSet, np.ndarray]): Set or vector.
+    #         mode (str, optional): Approximation of the evaluation: 'inner', 'exact', 'outer'. Defaults to 'exact'.
 
-        Returns:
-            HPolyhedron: Result of the intersection.
-        """
-        self._checkOtherOperand(other)
-        self._checkMode(mode)
+    #     Returns:
+    #         HPolyhedron: Result of the intersection.
+    #     """
+    #     self._checkOtherOperand(other)
+    #     self._checkMode(mode)
 
-        if isinstance(other, np.ndarray):
-            A_other, b_other = halfspace_representation_from_vector(other)
-            return self.intersection(HPolyhedron(A = A_other, b = b_other))
+    #     if isinstance(other, np.ndarray):
+    #         A_other, b_other = halfspace_representation_from_vector(other)
+    #         return self.intersection(HPolyhedron(A = A_other, b = b_other))
             
-        # convert all other sets to HPolyhedron
-        if not isinstance(other, HPolyhedron):
-            other = HPolyhedron(**other.hpolyhedron(mode = mode))
+    #     # convert all other sets to HPolyhedron
+    #     if not isinstance(other, HPolyhedron):
+    #         other = HPolyhedron(**other.hpolyhedron(mode = mode))
 
-        return HPolyhedron(A = np.vstack((self.A, other.A)),
-                           b = np.hstack((self.b, other.b)),
-                           validate = False)
+    #     return HPolyhedron(A = np.vstack((self.A, other.A)),
+    #                        b = np.hstack((self.b, other.b)),
+    #                        validate = False)
     
     # intersection check
     # def intersects(self, other: Union[IConvexSet, np.ndarray], *, rtol: float = 1e-5, atol: float = 1e-8) -> bool:
@@ -767,75 +776,75 @@ class HPolyhedron(IConvexSet):
         P = P.matmul(U)
         return P
 
-    # Minkowski sum
-    def minkowski_sum(self, other: Union[IConvexSet, np.ndarray], *, mode: str = 'exact') -> HPolyhedron:
-        """Minkowski sum of an HPolyhedron HP and another set or vector S.
-        Defined as {a + s | a in HP, s in S}.
+    # # Minkowski sum
+    # def minkowski_sum(self, other: Union[IConvexSet, np.ndarray], *, mode: str = 'exact') -> HPolyhedron:
+    #     """Minkowski sum of an HPolyhedron HP and another set or vector S.
+    #     Defined as {a + s | a in HP, s in S}.
 
-        Args:
-            other (Union[IConvexSet, np.ndarray]): Summand.
-            mode (str, optional): Approximation of the evaluation: 'inner', 'exact', 'outer'. Defaults to 'exact'.
+    #     Args:
+    #         other (Union[IConvexSet, np.ndarray]): Summand.
+    #         mode (str, optional): Approximation of the evaluation: 'inner', 'exact', 'outer'. Defaults to 'exact'.
 
-        Returns:
-            HPolyhedron: Result of the Minkowski sum.
-        """
-        self._checkOtherOperand(other)
-        self._checkMode(mode)
+    #     Returns:
+    #         HPolyhedron: Result of the Minkowski sum.
+    #     """
+    #     self._checkOtherOperand(other)
+    #     self._checkMode(mode)
 
-        if isinstance(other, np.ndarray):
-            return self + other
+    #     if isinstance(other, np.ndarray):
+    #         return self + other
         
-        n = self.dimension
-        h = self.number_constraints()
+    #     n = self.dimension
+    #     h = self.number_constraints()
 
-        if mode == 'outer':
-            # addition of support function evaluation
-            A_new = np.vstack((self.A, np.eye(n), -np.eye(n)))
-            b_new = np.hstack((self.b, np.zeros(2*n)))
+    #     if mode == 'outer':
+    #         # addition of support function evaluation
+    #         A_new = np.vstack((self.A, np.eye(n), -np.eye(n)))
+    #         b_new = np.hstack((self.b, np.zeros(2*n)))
         
-            # first h constraints: only compute support function of other
-            for i in range(h):
-                b_new[i] += other.support_function(A_new[i])[0]
+    #         # first h constraints: only compute support function of other
+    #         for i in range(h):
+    #             b_new[i] += other.support_function(A_new[i])[0]
 
-            # remaining 2n constraints: also compute support function of self
-            for i in range(2*n):
-                b_new[h+i] = self.support_function(A_new[h+i])[0] + other.support_function(A_new[h+i])[0]
+    #         # remaining 2n constraints: also compute support function of self
+    #         for i in range(2*n):
+    #             b_new[h+i] = self.support_function(A_new[h+i])[0] + other.support_function(A_new[h+i])[0]
 
-            return HPolyhedron(A = A_new, b = b_new, validate = False)
+    #         return HPolyhedron(A = A_new, b = b_new, validate = False)
         
-        if not isinstance(other, HPolyhedron):
-            other = HPolyhedron(**other.hpolyhedron(mode = 'exact'))
+    #     if not isinstance(other, HPolyhedron):
+    #         other = HPolyhedron(**other.hpolyhedron(mode = 'exact'))
         
-        # 2. concatenation/lifting
-        HP_lifted = self.cartesian_product(other)
+    #     # 2. concatenation/lifting
+    #     HP_lifted = self.cartesian_product(other)
 
-        # 3. projection onto first n dimensions
-        M = np.hstack((np.eye(n), np.eye(n)))
-        return HP_lifted.matmul(M)
+    #     # 3. projection onto first n dimensions
+    #     M = np.hstack((np.eye(n), np.eye(n)))
+    #     return HP_lifted.matmul(M)
     
-    # Minkowski difference
-    def minkowski_difference(self, other: Union[IConvexSet, np.ndarray], *, mode: str = 'exact') -> HPolyhedron:
-        """Minkowski difference between an HPolyhedron HP and another set or vector S.
-        Defined as {s | s + S in HP}.
+    # # Minkowski difference
+    # def minkowski_difference(self, other: Union[IConvexSet, np.ndarray], *, mode: str = 'exact') -> HPolyhedron:
+    #     """Minkowski difference between an HPolyhedron HP and another set or vector S.
+    #     Defined as {s | s + S in HP}.
 
-        Args:
-            other (Union[IConvexSet, np.ndarray]): Set or vector.
-            mode (str, optional): Approximation of the evaluation: 'inner', 'exact', 'outer'. Defaults to 'exact'.
+    #     Args:
+    #         other (Union[IConvexSet, np.ndarray]): Set or vector.
+    #         mode (str, optional): Approximation of the evaluation: 'inner', 'exact', 'outer'. Defaults to 'exact'.
 
-        Returns:
-            HPolyhedron: Result of the Minkowski difference.
-        """
-        self._checkOtherOperand(other)
-        self._checkMode(mode)
+    #     Returns:
+    #         HPolyhedron: Result of the Minkowski difference.
+    #     """
+    #     self._checkOtherOperand(other)
+    #     self._checkMode(mode)
 
-        if isinstance(other, np.ndarray):
-            return self - other
+    #     if isinstance(other, np.ndarray):
+    #         return self - other
 
-        b_new = self.b.copy()
-        for i in range(self.number_constraints()):
-            b_new[i] -= other.support_function(self.A[i])[0]
+    #     b_new = self.b.copy()
+    #     for i in range(self.number_constraints()):
+    #         b_new[i] -= other.support_function(self.A[i])[0]
 
-        return HPolyhedron(A = self.A.copy(), b = b_new)
+    #     return HPolyhedron(A = self.A.copy(), b = b_new)
     
     # number of constraints
     def number_constraints(self) -> int:

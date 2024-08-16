@@ -10,13 +10,13 @@ if TYPE_CHECKING:
 import continuoussets.convexsets.vpolytope as vpolytope
 import continuoussets.convexsets.hpolyhedron as hpolyhedron
 
-from continuoussets.unary_operations.convert import Convert
-
 from continuoussets.utils.auxiliary import SetPair, remove_duplicate_points, sort_rows
 from continuoussets.utils.exceptions import EmptySetError, UnboundedSetError
 
+if __name__ == '__main__':
+    print('This is the Represents class.')
 
-# class for all equality checks
+
 class Represents(IUnaryOperation):
 
     strategies: Dict[Tuple[str, str], Callable] = dict()
@@ -69,9 +69,9 @@ def _represents_interval_other(I, rtol, atol) -> bool:
 def _represents_zonotope_point(Z, rtol, atol) -> bool:
     if Z.number_generators() == 0:
         return True
-    # compute size of box around generators
-    I = Convert(Z, 'Interval', mode = 'outer')()
-    return np.allclose(I.ub - I.lb, 0., rtol = rtol, atol = atol)
+    # estimate size of zonotope
+    d = np.sum(np.abs(Z.G), axis = 0)
+    return np.allclose(d, 0., rtol = rtol, atol = atol)
 
 
 @Represents.register_strategy(SetPair('Zonotope', 'Interval'))

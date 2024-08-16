@@ -15,6 +15,7 @@ import continuoussets.binary_operations.intersects as op_intersects
 import continuoussets.binary_operations.equals as op_equals
 import continuoussets.binary_operations.cartesian_product as op_cartesian_product
 import continuoussets.binary_operations.convex_hull as op_convex_hull
+import continuoussets.binary_operations.intersection as op_intersection
 import continuoussets.binary_operations.minkowski_difference as op_minkowski_difference
 import continuoussets.binary_operations.minkowski_sum as op_minkowski_sum
 
@@ -37,7 +38,7 @@ def cartesian_product(S1: Union['IConvexSet', np.ndarray],
         mode (str, optional): Approximation of the result: 'inner', 'exact', 'outer'. Defaults to 'exact'.
 
     Returns:
-        IConvexSet: Cartesian product of S1 and S2, of type S1 (unless S1 is np.ndarray, then of type S2).
+        IConvexSet: Cartesian product of S1 and S2.
     """
     # call implementation
     return op_cartesian_product.CartesianProduct(S1, S2, mode = mode)()
@@ -55,10 +56,28 @@ def convex_hull(S1: Union['IConvexSet', np.ndarray],
         mode (str, optional): Approximation of the result: 'inner', 'exact', 'outer'. Defaults to 'exact'.
 
     Returns:
-        IConvexSet: Convex hull of S1 and S2, of type S1 (unless S1 is np.ndarray, then of type S2).
+        IConvexSet: Convex hull of S1 and S2.
     """
     # call implementation
     return op_convex_hull.ConvexHull(S1, S2, mode = mode)()
+
+
+def intersection(S1: Union['IConvexSet', np.ndarray],
+                 S2: Union['IConvexSet', np.ndarray],
+                 mode: str = 'exact') -> 'IConvexSet':
+    """Intersection of two IConvexSet or vectors S1 and S2.
+    Defined as: {s | s in S2, s in S2}.
+
+    Args:
+        S1 (Union[IConvexSet, np.ndarray]): Set or vector.
+        S2 (Union[IConvexSet, np.ndarray]): Set or vector.
+        mode (str, optional): Approximation of the result: 'inner', 'exact', 'outer'. Defaults to 'exact'.
+
+    Returns:
+        IConvexSet: Intersection of S1 and S2.
+    """
+    # call implementation
+    return op_intersection.Intersection(S1, S2, mode = mode)()
 
 
 def minkowski_difference(S1: Union['IConvexSet', np.ndarray],
@@ -73,7 +92,7 @@ def minkowski_difference(S1: Union['IConvexSet', np.ndarray],
         mode (str, optional): Approximation of the result:: 'inner', 'exact', 'outer'. Defaults to 'exact'.
 
     Returns:
-        IConvexSet: Minkowski difference of S1 and S2, of type S1 (unless S1 is np.ndarray, then of type S2).
+        IConvexSet: Minkowski difference of S1 and S2.
     """
     # call implementation
     return op_minkowski_difference.MinkowskiDifference(S1, S2, mode = mode)()
@@ -91,7 +110,7 @@ def minkowski_sum(S1: Union['IConvexSet', np.ndarray],
         mode (str, optional): Approximation of the result: 'inner', 'exact', 'outer'. Defaults to 'exact'.
 
     Returns:
-        IConvexSet: Minkowski sum of S1 and S2, of type S1 (unless S1 is np.ndarray, then of type S2).
+        IConvexSet: Minkowski sum of S1 and S2.
     """
     # call implementation
     return op_minkowski_sum.MinkowskiSum(S1, S2, mode = mode)()

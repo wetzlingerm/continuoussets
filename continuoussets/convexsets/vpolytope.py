@@ -69,6 +69,15 @@ class VPolytope(IConvexSet):
         self.dimension = V.shape[1]
         self.V = V.copy()
 
+    # deep copy
+    def copy(self) -> VPolytope:
+        """Returns a deep copy of an VPolytope.
+
+        Returns:
+            VPolytope: Copied VPolytope.
+        """
+        return VPolytope(V = self.V.copy(), validate = False)
+
     # display
     def __repr__(self):
         """Representation on the command window.
@@ -233,29 +242,29 @@ class VPolytope(IConvexSet):
         """
         return True
 
-    # Cartesian product
-    def cartesian_product(self, other: Union[IConvexSet, np.ndarray], *, mode: str = 'exact') -> VPolytope:
-        """Cartesian product of a VPolytope VP and another set or vector S.
-        Defined as {[a^T s^T]^T | a in VP, s in S}.
+    # # Cartesian product
+    # def cartesian_product(self, other: Union[IConvexSet, np.ndarray], *, mode: str = 'exact') -> VPolytope:
+    #     """Cartesian product of a VPolytope VP and another set or vector S.
+    #     Defined as {[a^T s^T]^T | a in VP, s in S}.
 
-        Args:
-            other (Union[IConvexSet, np.ndarray]): Set or vector.
-            mode (str, optional): Approximation of the evaluation: 'inner', 'exact', 'outer'. Defaults to 'exact'.
+    #     Args:
+    #         other (Union[IConvexSet, np.ndarray]): Set or vector.
+    #         mode (str, optional): Approximation of the evaluation: 'inner', 'exact', 'outer'. Defaults to 'exact'.
 
-        Returns:
-            VPolytope: Result of the Cartesian product.
-        """
-        self._checkOtherOperand(other)
-        self._checkMode(mode)
+    #     Returns:
+    #         VPolytope: Result of the Cartesian product.
+    #     """
+    #     self._checkOtherOperand(other)
+    #     self._checkMode(mode)
 
-        # convert other set to VPolytope
-        if not isinstance(other, VPolytope):
-            other = VPolytope(**other.vpolytope(mode = mode))
+    #     # convert other set to VPolytope
+    #     if not isinstance(other, VPolytope):
+    #         other = VPolytope(**other.vpolytope(mode = mode))
 
-        # all potential combinations of vertices
-        V_product = np.hstack((np.tile(self.V, (other.number_vertices(), 1)),
-                               np.repeat(other.V, self.number_vertices(), axis = 0)))
-        return VPolytope(V = V_product, validate = False)
+    #     # all potential combinations of vertices
+    #     V_product = np.hstack((np.tile(self.V, (other.number_vertices(), 1)),
+    #                            np.repeat(other.V, self.number_vertices(), axis = 0)))
+    #     return VPolytope(V = V_product, validate = False)
 
     # center
     def center(self) -> np.ndarray:
@@ -356,26 +365,26 @@ class VPolytope(IConvexSet):
     #     # vector is contained if the LP is feasible
     #     return res.success
 
-    # convex hull
-    def convex_hull(self, other: Union[IConvexSet, np.ndarray], *, mode: str = 'exact') -> VPolytope:
-        """Convex hull of a VPolytope VP and another set or vector S.
-        Defined as {lambda*v + (1-lambda)*s | v in VP, s in S, lambda in [0,1]}
+    # # convex hull
+    # def convex_hull(self, other: Union[IConvexSet, np.ndarray], *, mode: str = 'exact') -> VPolytope:
+    #     """Convex hull of a VPolytope VP and another set or vector S.
+    #     Defined as {lambda*v + (1-lambda)*s | v in VP, s in S, lambda in [0,1]}
 
-        Args:
-            other (Union[IConvexSet, np.ndarray]): Set or vector.
-            mode (str, optional): Approximation of the evaluation: 'inner', 'exact', 'outer'. Defaults to 'exact'.
+    #     Args:
+    #         other (Union[IConvexSet, np.ndarray]): Set or vector.
+    #         mode (str, optional): Approximation of the evaluation: 'inner', 'exact', 'outer'. Defaults to 'exact'.
 
-        Returns:
-            VPolytope: Result of the convex hull.
-        """
-        self._checkOtherOperand(other)
-        self._checkMode(mode)
+    #     Returns:
+    #         VPolytope: Result of the convex hull.
+    #     """
+    #     self._checkOtherOperand(other)
+    #     self._checkMode(mode)
 
-        if not isinstance(other, VPolytope):
-            other = VPolytope(**other.vpolytope(mode = mode))
+    #     if not isinstance(other, VPolytope):
+    #         other = VPolytope(**other.vpolytope(mode = mode))
 
-        V_all = np.vstack((self.V, other.V))
-        return VPolytope(V = V_all, validate = False)
+    #     V_all = np.vstack((self.V, other.V))
+    #     return VPolytope(V = V_all, validate = False)
     
     # degeneracy
     def degenerate(self, *, tol: float = 1e-12) -> bool:
@@ -588,59 +597,59 @@ class VPolytope(IConvexSet):
         # simple linear transformation of all points
         return VPolytope(V = np.matmul(self.V, matrix.T), validate = False)
 
-    # Minkowski sum
-    def minkowski_sum(self, other: Union[IConvexSet, np.ndarray], *, mode: str = 'exact') -> VPolytope:
-        """Minkowski sum of a VPolytope VP and another set or vector S.
-        Defined as {a + s | a in VP, s in S}.
+    # # Minkowski sum
+    # def minkowski_sum(self, other: Union[IConvexSet, np.ndarray], *, mode: str = 'exact') -> VPolytope:
+    #     """Minkowski sum of a VPolytope VP and another set or vector S.
+    #     Defined as {a + s | a in VP, s in S}.
 
-        Args:
-            other (Union[IConvexSet, np.ndarray]): Summand.
-            mode (str, optional): Approximation of the evaluation: 'inner', 'exact', 'outer'. Defaults to 'exact'.
+    #     Args:
+    #         other (Union[IConvexSet, np.ndarray]): Summand.
+    #         mode (str, optional): Approximation of the evaluation: 'inner', 'exact', 'outer'. Defaults to 'exact'.
 
-        Returns:
-            VPolytope: Result of the Minkowski sum.
-        """
-        self._checkOtherOperand(other)
-        self._checkMode(mode)
+    #     Returns:
+    #         VPolytope: Result of the Minkowski sum.
+    #     """
+    #     self._checkOtherOperand(other)
+    #     self._checkMode(mode)
 
-        if isinstance(other, np.ndarray):
-            return self + other
-        elif not isinstance(other, VPolytope):
-            other = VPolytope(**other.vpolytope(mode = mode))
+    #     if isinstance(other, np.ndarray):
+    #         return self + other
+    #     elif not isinstance(other, VPolytope):
+    #         other = VPolytope(**other.vpolytope(mode = mode))
 
-        # add each combination
-        V_sum = np.zeros((self.number_vertices()*other.number_vertices(), self.dimension))
-        # todo: replace this by a faster method
-        for i in range(self.number_vertices()):
-            for j in range(other.number_vertices()):
-                V_sum[i * other.number_vertices() + j] = self.V[i] + other.V[j]
+    #     # add each combination
+    #     V_sum = np.zeros((self.number_vertices()*other.number_vertices(), self.dimension))
+    #     # todo: replace this by a faster method
+    #     for i in range(self.number_vertices()):
+    #         for j in range(other.number_vertices()):
+    #             V_sum[i * other.number_vertices() + j] = self.V[i] + other.V[j]
 
-        return VPolytope(V = V_sum, validate = False)
+    #     return VPolytope(V = V_sum, validate = False)
     
-    # Minkowski difference
-    def minkowski_difference(self, other: Union[IConvexSet, np.ndarray], *, mode: str = 'exact') -> VPolytope:
-        """Minkowski difference between a VPolytope VP and another set or vector S.
-        Defined as {s | s + S in VP}.
+    # # Minkowski difference
+    # def minkowski_difference(self, other: Union[IConvexSet, np.ndarray], *, mode: str = 'exact') -> VPolytope:
+    #     """Minkowski difference between a VPolytope VP and another set or vector S.
+    #     Defined as {s | s + S in VP}.
 
-        Args:
-            other (Union[IConvexSet, np.ndarray]): Subtrahend.
-            mode (str, optional): Approximation of the evaluation: 'inner', 'exact', 'outer'. Defaults to 'exact'.
+    #     Args:
+    #         other (Union[IConvexSet, np.ndarray]): Subtrahend.
+    #         mode (str, optional): Approximation of the evaluation: 'inner', 'exact', 'outer'. Defaults to 'exact'.
 
-        Raises:
-            NotImplementedError: Not implemented other than for single-point subtrahend.
+    #     Raises:
+    #         NotImplementedError: Not implemented other than for single-point subtrahend.
 
-        Returns:
-            VPolytope: Result of the Minkowski difference.
-        """
-        self._checkOtherOperand(other)
-        self._checkMode(mode)
+    #     Returns:
+    #         VPolytope: Result of the Minkowski difference.
+    #     """
+    #     self._checkOtherOperand(other)
+    #     self._checkMode(mode)
 
-        if isinstance(other, np.ndarray):
-            return self - other
-        elif isinstance(other, VPolytope) and other.number_vertices() == 1:
-            return self - np.reshape(other.V, (self.dimension, ))
+    #     if isinstance(other, np.ndarray):
+    #         return self - other
+    #     elif isinstance(other, VPolytope) and other.number_vertices() == 1:
+    #         return self - np.reshape(other.V, (self.dimension, ))
 
-        raise NotImplementedError
+    #     raise NotImplementedError
     
     # number of vertices
     def number_vertices(self) -> int:
