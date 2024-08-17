@@ -34,7 +34,7 @@ class ConvexHull(IBinaryOperation):
                  mode: str):
 
         # call superclass constructor
-        super().__init__(S1, S2, mode)
+        super().__init__(S1, S2, mode = mode)
 
         # get concrete implementation function
         strategy_key = self.get_strategy_key()
@@ -71,7 +71,7 @@ def _convex_hull_interval_point(I1, s2, mode) -> interval.Interval:
     
     if mode == 'outer':
         I2 = Convert(s2, 'Interval', mode = 'exact')()
-        return _convex_hull_interval_interval(I1, I2)
+        return _convex_hull_interval_interval(I1, I2, mode = mode)
 
 
 @ConvexHull.register_strategy(SetPair('Interval', 'Interval'))
@@ -157,7 +157,7 @@ def _convex_hull_hpolyhedron_other(HP1, S2, mode) -> hpolyhedron.HPolyhedron:
             VP1 = Convert(HP1, 'VPolytope', mode = 'exact')
         except (UnboundedSetError):
             raise NotImplementedError
-        return _convex_hull_vpolytope_other(VP1, S2)
+        return _convex_hull_vpolytope_other(VP1, S2, mode = mode)
     
     if mode == 'outer':
         h = HP1.number_constraints()

@@ -110,8 +110,11 @@ def _contains_vpolytope_point(VP1, s2, rtol, atol) -> bool:
                              SetPair('VPolytope', 'VPolytope'),
                              SetPair('VPolytope', 'HPolyhedron')))
 def _contains_vpolytope_other(VP1, S2, rtol, atol) -> bool:
-    S2 = Convert(S2, 'VPolytope', mode = 'exact')()
-    return VP1.equals(S2.convex_hull(VP1), rtol = rtol, atol = atol)
+    V = S2.vertices()
+    for i in range(V.shape[0]):
+        if not _contains_vpolytope_point(VP1, V[i], rtol = rtol, atol = atol):
+            return False
+    return True
 
 
 @Contains.register_strategy(SetPair('HPolyhedron', 'ndarray'))

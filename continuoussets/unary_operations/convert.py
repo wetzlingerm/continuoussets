@@ -82,7 +82,7 @@ def _convert_point_vpolytope(s, mode) -> vpolytope.VPolytope:
 def _convert_point_hpolyhedron(s, mode) -> hpolyhedron.HPolyhedron:
     A = np.vstack((-np.ones(s.size), np.eye(s.size)))
     b = np.matmul(A, s)
-    return hpolyhedron.HPolyhedron(A, b, validate = False)
+    return hpolyhedron.HPolyhedron(A = A, b = b, validate = False)
 
 
 @Convert.register_strategy((SetPair('Interval', 'ndarray'),

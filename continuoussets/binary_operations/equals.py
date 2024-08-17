@@ -57,6 +57,11 @@ class Equals(IBinaryOperation):
         return self.func(self.first_operand, self.second_operand, **self.kwargs)
 
 
+@Equals.register_strategy(SetPair('ndarray', 'ndarray'))
+def _equals_point_point(s1, s2, rtol, atol) -> bool:
+    return np.allclose(s1, s2, rtol = rtol, atol = atol)
+
+
 @Equals.register_strategy(SetPair('Interval', 'ndarray'))
 def _equals_interval_point(I1, s2, rtol, atol) -> bool:
     return _equals_interval_interval(I1, Convert(s2, 'Interval', mode = 'exact')(), rtol = rtol, atol = atol)

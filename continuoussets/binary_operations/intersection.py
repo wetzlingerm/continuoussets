@@ -33,7 +33,7 @@ class Intersection(IBinaryOperation):
                  mode: str):
 
         # call superclass constructor
-        super().__init__(S1, S2, mode)
+        super().__init__(S1, S2, mode = mode)
 
         # get concrete implementation function
         strategy_key = self.get_strategy_key()
@@ -49,9 +49,9 @@ class Intersection(IBinaryOperation):
 
 @Intersection.register_strategy(SetPair('ndarray', 'ndarray'))
 def _intersection_point_point(s1, s2, mode) -> np.ndarray:
-    if np.allclose(s1, s2, rtol = 1e-12, atol = 1e-12):
-        return s1
-    return EmptySetError
+    if not np.allclose(s1, s2, rtol = 1e-12, atol = 1e-12):
+        raise EmptySetError
+    return s1
 
 
 @Intersection.register_strategy((SetPair('Interval', 'ndarray'),
@@ -59,9 +59,9 @@ def _intersection_point_point(s1, s2, mode) -> np.ndarray:
                                  SetPair('VPolytope', 'ndarray'),
                                  SetPair('HPolyhedron', 'ndarray')))
 def _intersection_any_point(S1, s2, mode) -> np.ndarray:
-    if Contains(S1, s2, rtol = 1e-12, atol = 1e-12)():
-        return s2
-    return EmptySetError
+    if not Contains(S1, s2, rtol = 1e-12, atol = 1e-12)():
+        raise EmptySetError
+    return s2
 
 
 @Intersection.register_strategy(SetPair('Interval', 'Interval'))

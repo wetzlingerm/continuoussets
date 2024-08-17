@@ -27,7 +27,7 @@ import continuoussets.binary_operations.minkowski_sum as op_minkowski_sum
 
 # BINARY OPERATIONS
 def cartesian_product(S1: Union['IConvexSet', np.ndarray],
-                      S2: Union['IConvexSet', np.ndarray],
+                      S2: Union['IConvexSet', np.ndarray], *,
                       mode: str = 'exact') -> 'IConvexSet':
     """Cartesian product of two IConvexSet or vectors S1 and S2.
     Defined as: {[s1^T s2^T]^T | s1 in S1, s2 in S2}.
@@ -45,7 +45,7 @@ def cartesian_product(S1: Union['IConvexSet', np.ndarray],
 
 
 def convex_hull(S1: Union['IConvexSet', np.ndarray],
-                S2: Union['IConvexSet', np.ndarray],
+                S2: Union['IConvexSet', np.ndarray], *,
                 mode: str = 'exact') -> 'IConvexSet':
     """Convex hull of two IConvexSet or vectors S1 and S2.
     Defined as: {lambda*s1 + (1-lambda)*s2 | s1 in S2, s2 in S2, lambda in [0,1]}.
@@ -63,7 +63,7 @@ def convex_hull(S1: Union['IConvexSet', np.ndarray],
 
 
 def intersection(S1: Union['IConvexSet', np.ndarray],
-                 S2: Union['IConvexSet', np.ndarray],
+                 S2: Union['IConvexSet', np.ndarray], *,
                  mode: str = 'exact') -> 'IConvexSet':
     """Intersection of two IConvexSet or vectors S1 and S2.
     Defined as: {s | s in S2, s in S2}.
@@ -81,7 +81,7 @@ def intersection(S1: Union['IConvexSet', np.ndarray],
 
 
 def minkowski_difference(S1: Union['IConvexSet', np.ndarray],
-                         S2: Union['IConvexSet', np.ndarray],
+                         S2: Union['IConvexSet', np.ndarray], *,
                          mode: str = 'exact') -> 'IConvexSet':
     """Minkowski difference of two IConvexSet or vectors S1 and S2.
     Defined as {s | s + S2 in S1}.
@@ -99,7 +99,7 @@ def minkowski_difference(S1: Union['IConvexSet', np.ndarray],
 
 
 def minkowski_sum(S1: Union['IConvexSet', np.ndarray],
-                  S2: Union['IConvexSet', np.ndarray],
+                  S2: Union['IConvexSet', np.ndarray], *,
                   mode: str = 'exact') -> 'IConvexSet':
     """Minkowski sum of two IConvexSet or vectors S1 and S2.
     Defined as: {s1 + s2 | s1 in S1, s2 in S2}.

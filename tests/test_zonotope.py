@@ -1,11 +1,9 @@
 import unittest
 import numpy as np
 import matplotlib.pyplot as plt
-from continuoussets.utils import comparison, exceptions
+import continuoussets as cs
+from continuoussets.utils.comparison import compare_matrices
 from continuoussets.convexsets.zonotope import Zonotope
-from continuoussets.convexsets.interval import Interval
-from continuoussets.convexsets.vpolytope import VPolytope
-from continuoussets.convexsets.hpolyhedron import HPolyhedron
 
 
 class TestZonotope(unittest.TestCase):
@@ -82,9 +80,6 @@ class TestZonotope(unittest.TestCase):
         # cases:
         # - zonotope + vector
         # - zonotope + zonotope
-        # - zonotope + interval (error)
-        # - zonotope + vpolytope (error)
-        # - zonotope + hpolyhedron (error)
 
         # init zonotope and vector
         center = np.array([1., 0.])
@@ -99,17 +94,7 @@ class TestZonotope(unittest.TestCase):
         true_result1 = Zonotope(c = np.array([-1., 0.]), G = generators)
 
         # check results
-        assert result1 == true_result1
-
-        # call minkowski_sum instead of __add__
-        with self.assertRaises(exceptions.OtherFunctionError):
-            Z1 + Z1
-        with self.assertRaises(exceptions.OtherFunctionError):
-            Z1 + Interval(lb = np.array([1., 0.]), ub = np.array([2., 4.]))
-        with self.assertRaises(exceptions.OtherFunctionError):
-            Z1 + VPolytope(V = np.array([[1., 0.], [0., 1.]]))
-        with self.assertRaises(exceptions.OtherFunctionError):
-            Z1 + HPolyhedron(A = np.array([[1., 0.]]), b = np.array([1.]))
+        assert cs.equals(result1, true_result1)
 
     def test_radd(self):
         ''' Test for positive translation '''
@@ -129,7 +114,7 @@ class TestZonotope(unittest.TestCase):
         true_result1 = Zonotope(c = np.array([-1., 0.]), G = generators)
 
         # check results
-        assert result1 == true_result1
+        assert cs.equals(result1, true_result1)
 
     def test_neg(self):
         ''' Test for unary minus '''
@@ -152,8 +137,8 @@ class TestZonotope(unittest.TestCase):
         true_result2 = Zonotope(c = -center, G = generators)
 
         # check result
-        assert result1 == true_result1
-        assert result2 == true_result2
+        assert cs.equals(result1, true_result1)
+        assert cs.equals(result2, true_result2)
 
     def test_pos(self):
         ''' Test for unary plus '''
@@ -172,17 +157,14 @@ class TestZonotope(unittest.TestCase):
         result2 = +Z2
 
         # check result
-        assert result1 == Z1
-        assert result2 == Z2
+        assert cs.equals(result1, Z1)
+        assert cs.equals(result2, Z2)
 
     def test_sub(self):
         ''' Test for negative translation '''
         # cases:
         # - zonotope - vector
         # - zonotope - zonotope
-        # - zonotope - interval (error)
-        # - zonotope - vpolytope (error)
-        # - zonotope - hpolyhedron (error)
 
         # init zonotope and vector
         center = np.array([1., 0.])
@@ -194,20 +176,10 @@ class TestZonotope(unittest.TestCase):
         result1 = Z1 - v
 
         # manual computation
-        true_result1 = Zonotope(c = np.array([-1., 0.]), G = generators)
+        true_result1 = Zonotope(c = center - v, G = generators)
 
         # check results
-        assert result1 == true_result1
-
-        # call minkowski_difference insetead of __sub__ with two IConvexSet objects
-        with self.assertRaises(exceptions.OtherFunctionError):
-            Z1 - Z1
-        with self.assertRaises(exceptions.OtherFunctionError):
-            Z1 - Interval(lb = np.array([0., 1.]), ub = np.array([2., 4.]))
-        with self.assertRaises(exceptions.OtherFunctionError):
-            Z1 - VPolytope(V = np.array([[1., 0.], [0., 1.]]))
-        with self.assertRaises(exceptions.OtherFunctionError):
-            Z1 - HPolyhedron(A = np.array([[1., 0.], [-1., 1.], [-1., -1.]]), b = np.ones(3))
+        assert cs.equals(result1, true_result1)
 
     def test_rsub(self):
         ''' Test for negative translation '''
@@ -227,7 +199,7 @@ class TestZonotope(unittest.TestCase):
         true_result1 = Zonotope(c = np.array([1., 0.]), G = generators)
 
         # check results
-        assert result1 == true_result1
+        assert cs.equals(result1, true_result1)
 
     def test_basis_affine_hull(self):
         ''' Test for computation of basis of the affine hull '''
@@ -339,9 +311,9 @@ class TestZonotope(unittest.TestCase):
         # all-zero generators are removed
         assert result1.G.size == 0
         assert result2.G.size == 0
-        assert comparison.compare_matrices(result3.G, np.array([[1., 0.], [0., -1.]]), check_negation=True)
-        assert comparison.compare_matrices(result4.G, Z4.G, check_negation=True)
-        assert comparison.compare_matrices(result5.G, np.array([[2., -2.], [3., 0.], [0., 1.], [5., 2.5]]), check_negation=True)
+        assert compare_matrices(result3.G, np.array([[1., 0.], [0., -1.]]), check_negation=True)
+        assert compare_matrices(result4.G, Z4.G, check_negation=True)
+        assert compare_matrices(result5.G, np.array([[2., -2.], [3., 0.], [0., 1.], [5., 2.5]]), check_negation=True)
 
     def test_degenerate(self):
         ''' Test for degeneracy '''
@@ -396,10 +368,10 @@ class TestZonotope(unittest.TestCase):
         true_result4 = Zonotope(c = np.array([1.]), G = np.array([[-1.], [0.], [6.]]))
 
         # check results
-        assert result1 == true_result1
-        assert result2 == true_result2
-        assert result3 == true_result3
-        assert result4 == true_result4
+        assert cs.equals(result1, true_result1)
+        assert cs.equals(result2, true_result2)
+        assert cs.equals(result3, true_result3)
+        assert cs.equals(result4, true_result4)
 
     def test_plot(self):
         ''' Test for plotting '''
@@ -447,8 +419,8 @@ class TestZonotope(unittest.TestCase):
         true_result1 = Zonotope(c = np.array([1., -1.]))
         true_result2 = Zonotope(c = np.array([0., -1.]), G = np.array([[-1., 0.], [0., -1.], [-1., 2.]]))
         
-        assert result1 == true_result1
-        assert result2 == true_result2
+        assert cs.equals(result1, true_result1)
+        assert cs.equals(result2, true_result2)
 
     def test_project_affine_hull(self):
         ''' Test for projection on affine hull '''
@@ -476,13 +448,13 @@ class TestZonotope(unittest.TestCase):
         true_result4 = Zonotope(c = np.array([0.]),
                                 G = np.array([[2.449489742783179]]))
 
-        assert result1 == Z1
+        assert cs.equals(result1, Z1)
         assert np.array_equal(c1, np.zeros(2))
-        assert result2 == true_result2
+        assert cs.equals(result2, true_result2)
         assert np.allclose(c2, Z2.center())
-        assert result3 == true_result2
+        assert cs.equals(result3, true_result2)
         assert np.allclose(c3, Z3.center())
-        assert result4 == true_result4
+        assert cs.equals(result4, true_result4)
         assert np.allclose(c4, Z4.center())
 
     def test_reduce(self):
@@ -516,11 +488,11 @@ class TestZonotope(unittest.TestCase):
         true_result5 = Z3
 
         # check results
-        assert result1 == true_result1
-        assert result2 == true_result2
-        assert result3 == true_result3
-        assert result4 == true_result4
-        assert result5 == true_result5
+        assert cs.equals(result1, true_result1)
+        assert cs.equals(result2, true_result2)
+        assert cs.equals(result3, true_result3)
+        assert cs.equals(result4, true_result4)
+        assert cs.equals(result5, true_result5)
 
         # check exceptions
         with self.assertRaises(ValueError):
@@ -582,9 +554,9 @@ class TestZonotope(unittest.TestCase):
         true_result3 = np.array([[-1., -4.], [3., -4.], [5., 0.], [5., 2.], [3., 4.], [-1., 4.], [-3., 0.], [-3., -2.]])
 
         # check results
-        assert comparison.compare_matrices(result1, true_result1)
-        assert comparison.compare_matrices(result2, true_result2)
-        assert comparison.compare_matrices(result3, true_result3)
+        assert compare_matrices(result1, true_result1)
+        assert compare_matrices(result2, true_result2)
+        assert compare_matrices(result3, true_result3)
 
     def test_volume(self):
         ''' Test for volume computation '''
@@ -617,9 +589,9 @@ class TestZonotope(unittest.TestCase):
         true_result4 = 80.
 
         # check results
-        assert result1 == true_result1
-        assert result2 == true_result2
-        assert result3 == true_result3
+        assert np.isclose(result1, true_result1)
+        assert np.isclose(result2, true_result2)
+        assert np.isclose(result3, true_result3)
         assert np.isclose(result4, true_result4)
 
     def test_zonotope_norm(self):
@@ -650,10 +622,10 @@ class TestZonotope(unittest.TestCase):
         true_result4 = 1.
 
         # check results
-        assert result1 == true_result1
-        assert result2 == true_result2
-        assert result3 == true_result3
-        assert result4 == true_result4
+        assert np.isclose(result1, true_result1)
+        assert np.isclose(result2, true_result2)
+        assert np.isclose(result3, true_result3)
+        assert np.isclose(result4, true_result4)
 
         # check exceptions
         with self.assertRaises(NotImplementedError):

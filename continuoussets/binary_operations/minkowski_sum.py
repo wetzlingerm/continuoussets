@@ -31,7 +31,7 @@ class MinkowskiSum(IBinaryOperation):
                  mode: str):
 
         # call superclass constructor
-        super().__init__(S1, S2, mode)
+        super().__init__(S1, S2, mode = mode)
 
         # get concrete implementation function
         strategy_key = self.get_strategy_key()

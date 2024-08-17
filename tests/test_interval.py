@@ -1,11 +1,15 @@
 import unittest
 import numpy as np
 import matplotlib.pyplot as plt
-from continuoussets.utils import comparison, exceptions
-from continuoussets.convexsets.zonotope import Zonotope
+import continuoussets as cs
+from continuoussets.utils.comparison import compare_matrices
+from continuoussets.utils.exceptions import OutOfBoundsError
 from continuoussets.convexsets.interval import Interval
-from continuoussets.convexsets.vpolytope import VPolytope
-from continuoussets.convexsets.hpolyhedron import HPolyhedron
+# from continuoussets.convexsets.zonotope import Zonotope
+# from continuoussets.convexsets.vpolytope import VPolytope
+# from continuoussets.convexsets.hpolyhedron import HPolyhedron
+
+# todo: move __add__ errors to binary_operations
 
 
 class TestInterval(unittest.TestCase):
@@ -40,18 +44,24 @@ class TestInterval(unittest.TestCase):
         true_I7 = true_I6
 
         # check results
-        assert I1 == true_I1
-        assert I2 == true_I2
-        assert I3 == true_I3
-        assert I4 == true_I4
-        assert I5 == true_I5
-        assert I6 == true_I6
-        assert I7 == true_I7
+        assert cs.equals(I1, true_I1)
+        assert cs.equals(I2, true_I2)
+        assert cs.equals(I3, true_I3)
+        assert cs.equals(I4, true_I4)
+        assert cs.equals(I5, true_I5)
+        assert cs.equals(I6, true_I6)
+        assert cs.equals(I7, true_I7)
 
         # check exceptions
         with self.assertRaises(TypeError):
             # no arguments provided
             Interval()
+        with self.assertRaises(TypeError):
+            # wrong type provided
+            Interval(lb = 'lb', ub = 'ub')
+        with self.assertRaises(TypeError):
+            # wrong type provided
+            Interval(lb = -1., ub = 'ub')
         with self.assertRaises(ValueError):
             # lower bound is 2D array
             Interval(lb = np.array([[2., 1.],[-1., 2.]]), ub = np.array([4., 5.]))
@@ -94,11 +104,11 @@ class TestInterval(unittest.TestCase):
         true_result5 = Interval(lb = np.array([1., -2., 3., 6.]), ub = np.array([4., -2., 4., 7.]))
 
         # check results
-        assert result1 == true_result1
-        assert result2 == true_result2
-        assert result3 == true_result3
-        assert result4 == true_result4
-        assert result5 == true_result5
+        assert cs.equals(result1, true_result1)
+        assert cs.equals(result2, true_result2)
+        assert cs.equals(result3, true_result3)
+        assert cs.equals(result4, true_result4)
+        assert cs.equals(result5, true_result5)
 
     def test_setitem(self):
         ''' Test for setting indices '''
@@ -128,11 +138,11 @@ class TestInterval(unittest.TestCase):
         I5[0:4:2] = I_subspace
 
         # check results
-        assert I1[0] == I0
-        assert I2[1] == I0
-        assert I3[-1] == I0
-        assert I4[0:2] == I_subspace
-        assert I5[0:4:2] == I_subspace
+        assert cs.equals(I1[0], I0)
+        assert cs.equals(I2[1], I0)
+        assert cs.equals(I3[-1], I0)
+        assert cs.equals(I4[0:2], I_subspace)
+        assert cs.equals(I5[0:4:2], I_subspace)
 
     def test_repr(self):
         ''' Test for display on command window '''
@@ -165,9 +175,6 @@ class TestInterval(unittest.TestCase):
         # interval + int
         # interval + float
         # interval + list
-        # interval + zonotope (error)
-        # interval + vpolytope (error)
-        # interval + hpolyhedron (error)
 
         # init intervals
         lower1 = np.array([-2., 1., 0.])
@@ -181,10 +188,6 @@ class TestInterval(unittest.TestCase):
         scalar_int = 2
         scalar_float = -2.
         vector_list = [1., -2., 0.]
-        Z = Zonotope(c = np.array([1., 0., -1.]), G = np.array([[1., 0., 0.], [-1., 1., 1.]]))
-        VP = VPolytope(V = np.array([[1., 0., -1.], [0., 1., 1.], [-1., -1., 0.]]))
-        HP = HPolyhedron(A = np.array([[1., 0., 0.], [0., 1., 0.], [0., 0., 1.], [-1., -1., -1.]]),
-                         b = np.array([1., 1., 1., 1.]))
 
         # Minkowski sum
         result1 = I1 + vector
@@ -209,22 +212,15 @@ class TestInterval(unittest.TestCase):
         true_result9 = Interval(lb = np.array([-1., -1., 0.]), ub = np.array([3., -1., 4.]))
 
         # check results
-        assert result1 == true_result1
-        assert result2 == true_result2
-        assert result3 == true_result3
-        assert result4 == true_result4
-        assert result5 == true_result5
-        assert result6 == true_result6
-        assert result7 == true_result7
-        assert result8 == true_result8
-        assert result9 == true_result9
-
-        with self.assertRaises(TypeError):
-            I1 + Z
-        with self.assertRaises(TypeError):
-            I1 + VP
-        with self.assertRaises(TypeError):
-            I1 + HP
+        assert cs.equals(result1, true_result1)
+        assert cs.equals(result2, true_result2)
+        assert cs.equals(result3, true_result3)
+        assert cs.equals(result4, true_result4)
+        assert cs.equals(result5, true_result5)
+        assert cs.equals(result6, true_result6)
+        assert cs.equals(result7, true_result7)
+        assert cs.equals(result8, true_result8)
+        assert cs.equals(result9, true_result9)
 
     def test_radd(self):
         ''' Test for Minkowski sum '''
@@ -256,10 +252,10 @@ class TestInterval(unittest.TestCase):
         true_result4 = true_result3
 
         # check results
-        assert result1 == true_result1
-        assert result2 == true_result2
-        assert result3 == true_result3
-        assert result4 == true_result4
+        assert cs.equals(result1, true_result1)
+        assert cs.equals(result2, true_result2)
+        assert cs.equals(result3, true_result3)
+        assert cs.equals(result4, true_result4)
 
     def test_mul(self):
         ''' Test for elementwise multiplication '''
@@ -294,11 +290,11 @@ class TestInterval(unittest.TestCase):
         true_result5 = Interval(lb = np.array([0., 4., 1.]), ub = np.array([4., 16., 1.]))
 
         # check results
-        assert result1 == true_result1
-        assert result2 == true_result2
-        assert result3 == true_result3
-        assert result4 == true_result4
-        assert result5 == true_result5
+        assert cs.equals(result1, true_result1)
+        assert cs.equals(result2, true_result2)
+        assert cs.equals(result3, true_result3)
+        assert cs.equals(result4, true_result4)
+        assert cs.equals(result5, true_result5)
 
     def test_rmul(self):
         ''' Test for elementwise multiplication '''
@@ -330,10 +326,10 @@ class TestInterval(unittest.TestCase):
         true_result4 = true_result3
 
         # check results
-        assert result1 == true_result1
-        assert result2 == true_result2
-        assert result3 == true_result3
-        assert result4 == true_result4
+        assert cs.equals(result1, true_result1)
+        assert cs.equals(result2, true_result2)
+        assert cs.equals(result3, true_result3)
+        assert cs.equals(result4, true_result4)
 
     def test_neg(self):
         ''' Test for unary minus operator '''
@@ -352,7 +348,7 @@ class TestInterval(unittest.TestCase):
         true_result = Interval(lb = np.array([2., 0., -2., -6., -10.]), ub = np.array([3., 1., 0., -1., -4.]))
 
         # check result
-        assert result == true_result
+        assert cs.equals(result, true_result)
 
     def test_pos(self):
         ''' Test for unary minus operator '''
@@ -368,7 +364,7 @@ class TestInterval(unittest.TestCase):
         result = +I
 
         # check result
-        assert result == I
+        assert cs.equals(result, I)
 
     def test_pow(self):
         ''' Test for elementwise exponentiation '''
@@ -417,14 +413,14 @@ class TestInterval(unittest.TestCase):
                                 ub = np.array([-2., 9., 1., 9, 1.]))
 
         # check results
-        assert result1 == true_result1
-        assert result2 == true_result2
-        assert result3 == true_result3
-        assert result4 == true_result4
-        assert result5 == true_result5
-        assert result6 == true_result6
-        assert result7 == true_result7
-        assert result8 == true_result8
+        assert cs.equals(result1, true_result1)
+        assert cs.equals(result2, true_result2)
+        assert cs.equals(result3, true_result3)
+        assert cs.equals(result4, true_result4)
+        assert cs.equals(result5, true_result5)
+        assert cs.equals(result6, true_result6)
+        assert cs.equals(result7, true_result7)
+        assert cs.equals(result8, true_result8)
 
         # check exceptions
         with self.assertRaises(ValueError):
@@ -481,14 +477,14 @@ class TestInterval(unittest.TestCase):
         true_result8 = Interval(lb = np.array([-3., 3., 0.]), ub = np.array([1., 3., 4.]))
 
         # check results
-        assert result1 == true_result1
-        assert result2 == true_result2
-        assert result3 == true_result3
-        assert result4 == true_result4
-        assert result5 == true_result5
-        assert result6 == true_result6
-        assert result7 == true_result7
-        assert result8 == true_result8
+        assert cs.equals(result1, true_result1)
+        assert cs.equals(result2, true_result2)
+        assert cs.equals(result3, true_result3)
+        assert cs.equals(result4, true_result4)
+        assert cs.equals(result5, true_result5)
+        assert cs.equals(result6, true_result6)
+        assert cs.equals(result7, true_result7)
+        assert cs.equals(result8, true_result8)
 
     def test_rsub(self):
         ''' Test for Minkowski sum including *(-1) for second operand '''
@@ -520,10 +516,10 @@ class TestInterval(unittest.TestCase):
         true_result4 = true_result3
 
         # check results
-        assert result1 == true_result1
-        assert result2 == true_result2
-        assert result3 == true_result3
-        assert result4 == true_result4
+        assert cs.equals(result1, true_result1)
+        assert cs.equals(result2, true_result2)
+        assert cs.equals(result3, true_result3)
+        assert cs.equals(result4, true_result4)
 
     def test_truediv(self):
         ''' Test for elementwise division '''
@@ -561,11 +557,11 @@ class TestInterval(unittest.TestCase):
         true_result5 = Interval(lb = np.array([1., 0., -1., 0., 0.8]), ub = np.array([4., 0.5, 2., 1.5, 2.]))
 
         # check results
-        assert result1 == true_result1
-        assert result2 == true_result2
-        assert result3 == true_result3
-        assert result4 == true_result4
-        assert result5 == true_result5
+        assert cs.equals(result1, true_result1)
+        assert cs.equals(result2, true_result2)
+        assert cs.equals(result3, true_result3)
+        assert cs.equals(result4, true_result4)
+        assert cs.equals(result5, true_result5)
 
         # check exceptions
         with self.assertRaises(ZeroDivisionError):
@@ -576,7 +572,6 @@ class TestInterval(unittest.TestCase):
             # interval x interval: division by zero
             I1 = Interval(lb = -1., ub = 1.)
             I1 / 0.
-
 
     def test_rtruediv(self):
         ''' Test for elementwise division '''
@@ -608,10 +603,10 @@ class TestInterval(unittest.TestCase):
         true_result4 = true_result3
 
         # check results
-        assert result1 == true_result1
-        assert result2 == true_result2
-        assert result3 == true_result3
-        assert result4 == true_result4
+        assert cs.equals(result1, true_result1)
+        assert cs.equals(result2, true_result2)
+        assert cs.equals(result3, true_result3)
+        assert cs.equals(result4, true_result4)
 
     def test_absolute_value(self):
         ''' Test for absolute value '''
@@ -645,10 +640,10 @@ class TestInterval(unittest.TestCase):
         true_result4 = Interval(lb = np.array([1., 2., 0., 3.]), ub = np.array([1., 2., 0., 3.]))
 
         # check results
-        assert result1 == true_result1
-        assert result2 == true_result2
-        assert result3 == true_result3
-        assert result4 == true_result4
+        assert cs.equals(result1, true_result1)
+        assert cs.equals(result2, true_result2)
+        assert cs.equals(result3, true_result3)
+        assert cs.equals(result4, true_result4)
 
     def test_arccos(self):
         ''' Test for arccosine '''
@@ -667,14 +662,14 @@ class TestInterval(unittest.TestCase):
         true_result1 = Interval(lb = np.array([0., np.pi/2.]), ub = np.array([2.*np.pi/3., 5.*np.pi/6.]))
 
         # check results
-        assert result1 == true_result1
+        assert cs.equals(result1, true_result1)
 
         # check exceptions
-        with self.assertRaises(exceptions.OutOfBoundsError):
+        with self.assertRaises(OutOfBoundsError):
             # lower bound below -1
             I = Interval(lb = np.array([-1.5]), ub = np.array([0.5]))
             I.arccos()
-        with self.assertRaises(exceptions.OutOfBoundsError):
+        with self.assertRaises(OutOfBoundsError):
             # upper bound above 1
             I = Interval(lb = np.array([-0.5]), ub = np.array([1.5]))
             I.arccos()
@@ -696,14 +691,14 @@ class TestInterval(unittest.TestCase):
         true_result1 = Interval(lb = np.array([-np.pi/6., -np.pi/3.]), ub = np.array([np.pi/2., 0.]))
 
         # check results
-        assert result1 == true_result1
+        assert cs.equals(result1, true_result1)
 
         # check exceptions
-        with self.assertRaises(exceptions.OutOfBoundsError):
+        with self.assertRaises(OutOfBoundsError):
             # lower bound below -1
             I = Interval(lb = np.array([-1.5]), ub = np.array([0.5]))
             I.arcsin()
-        with self.assertRaises(exceptions.OutOfBoundsError):
+        with self.assertRaises(OutOfBoundsError):
             # upper bound above 1
             I = Interval(lb = np.array([-0.5]), ub = np.array([1.5]))
             I.arcsin()
@@ -725,7 +720,7 @@ class TestInterval(unittest.TestCase):
         true_result1 = Interval(lb = np.array([0., -np.pi/3.]), ub = np.array([np.pi/4., -np.pi/6.]))
 
         # check results
-        assert result1 == true_result1
+        assert cs.equals(result1, true_result1)
 
     def test_basis_affine_hull(self):
         ''' Test for computation of the basis of the affine hull '''
@@ -854,7 +849,7 @@ class TestInterval(unittest.TestCase):
         true_result1 = I
 
         # check results
-        assert result1 == true_result1
+        assert cs.equals(result1, true_result1)
 
     def test_cos(self):
         ''' Test for cosine '''
@@ -886,8 +881,8 @@ class TestInterval(unittest.TestCase):
         true_result2 = true_result1
 
         # check result
-        assert result1 == true_result1
-        assert result2 == true_result2
+        assert cs.equals(result1, true_result1)
+        assert cs.equals(result2, true_result2)
 
     def test_degenerate(self):
         ''' Test for degeneracy check '''
@@ -956,9 +951,9 @@ class TestInterval(unittest.TestCase):
         true_result3 = true_result2
 
         # check results
-        assert result1 == true_result1
-        assert result2 == true_result2
-        assert result3 == true_result3
+        assert cs.equals(result1, true_result1)
+        assert cs.equals(result2, true_result2)
+        assert cs.equals(result3, true_result3)
 
     def test_empty(self):
         ''' Test for emptiness check '''
@@ -992,11 +987,11 @@ class TestInterval(unittest.TestCase):
         true_result2 = Interval(lb = np.array([0., 2., 3.]), ub = np.array([1., 4., 5.]))
 
         # check results
-        assert result1 == true_result1
-        assert result2 == true_result2
+        assert cs.equals(result1, true_result1)
+        assert cs.equals(result2, true_result2)
 
         # check exceptions
-        with self.assertRaises(exceptions.OutOfBoundsError):
+        with self.assertRaises(OutOfBoundsError):
             # lower bound <= 0
             I = Interval(lb = np.array([-1.]), ub = np.array([1.]))
             I.log()
@@ -1022,11 +1017,11 @@ class TestInterval(unittest.TestCase):
         true_result2 = Interval(lb = np.array([0., 2., 3.]), ub = np.array([1., 4., 5.]))
 
         # check results
-        assert result1 == true_result1
-        assert result2 == true_result2
+        assert cs.equals(result1, true_result1)
+        assert cs.equals(result2, true_result2)
 
         # check exceptions
-        with self.assertRaises(exceptions.OutOfBoundsError):
+        with self.assertRaises(OutOfBoundsError):
             # lower bound <= 0
             I = Interval(lb = np.array([-1.]), ub = np.array([1.]))
             I.log10()
@@ -1059,9 +1054,9 @@ class TestInterval(unittest.TestCase):
         true_result3 = Interval(lb = np.array([12., -2., -16., -7.]), ub = np.array([23., 9., 20., -1.]))
 
         # check results
-        assert result1 == true_result1
-        assert result2 == true_result2
-        assert result3 == true_result3
+        assert cs.equals(result1, true_result1)
+        assert cs.equals(result2, true_result2)
+        assert cs.equals(result3, true_result3)
     
     def test_plot(self):
         ''' Test for plotting '''
@@ -1115,9 +1110,9 @@ class TestInterval(unittest.TestCase):
         true_result3 = Interval(lb = np.array([0.]), ub = np.array([5.]))
 
         # check results
-        assert result1 == true_result1
-        assert result2 == true_result2
-        assert result3 == true_result3
+        assert cs.equals(result1, true_result1)
+        assert cs.equals(result2, true_result2)
+        assert cs.equals(result3, true_result3)
 
     def test_project_affine_hull(self):
         ''' Test for projection onto the basis of the affine hull '''
@@ -1132,9 +1127,9 @@ class TestInterval(unittest.TestCase):
         
         true_result2 = Interval(lb = np.array([-2., 1.]), ub = np.array([1., 4.]))
 
-        assert result1 == I1
+        assert cs.equals(result1, I1)
         assert np.array_equal(c1, np.zeros(I1.dimension))
-        assert result2 == true_result2
+        assert cs.equals(result2, true_result2)
         assert np.array_equal(c2, np.array([0., 0., 0., 2.]))
 
     def test_reduce(self):
@@ -1152,7 +1147,7 @@ class TestInterval(unittest.TestCase):
         true_result1 = I
 
         # check results
-        assert result1 == true_result1
+        assert cs.equals(result1, true_result1)
 
     def test_sin(self):
         ''' Test for sine '''
@@ -1184,8 +1179,8 @@ class TestInterval(unittest.TestCase):
         true_result2 = true_result1
         
         # check result
-        assert result1 == true_result1
-        assert result2 == true_result2
+        assert cs.equals(result1, true_result1)
+        assert cs.equals(result2, true_result2)
 
     def test_sqrt(self):
         ''' Test for square root '''
@@ -1208,11 +1203,11 @@ class TestInterval(unittest.TestCase):
         true_result2 = Interval(lb = np.array([2., 4., 0.]), ub = np.array([3., 6., 4.]))
 
         # check results
-        assert result1 == true_result1
-        assert result2 == true_result2
+        assert cs.equals(result1, true_result1)
+        assert cs.equals(result2, true_result2)
 
         # check exceptions
-        with self.assertRaises(exceptions.OutOfBoundsError):
+        with self.assertRaises(OutOfBoundsError):
             # lower bound < 0
             I = Interval(lb = np.array([-1.]), ub = np.array([1.]))
             I.sqrt()
@@ -1240,8 +1235,8 @@ class TestInterval(unittest.TestCase):
         value5, vector5 = I3.support_function(np.array([1., 0.]))
         value6, vector6 = I3.support_function(np.array([0., -1.]))
 
-        assert value1 == 3 and I1.contains(vector1)
-        assert value2 == 6 and I1.contains(vector2)
+        assert value1 == 3 and cs.contains(I1, vector1)
+        assert value2 == 6 and cs.contains(I1, vector2)
         assert value3 == 7 and np.array_equal(vector3, upper)
         assert value4 == 2 and vector4[0] == -2
         assert value5 == -2 and np.array_equal(vector5, lower)
@@ -1278,9 +1273,9 @@ class TestInterval(unittest.TestCase):
                                 ub = np.array([3., 3., 1., 6.]))
 
         # check results
-        assert result1 == true_result1
-        assert result2 == true_result2
-        assert result3 == true_result3
+        assert cs.equals(result1, true_result1)
+        assert cs.equals(result2, true_result2)
+        assert cs.equals(result3, true_result3)
 
     def test_tan(self):
         ''' Test for tangent '''
@@ -1300,14 +1295,14 @@ class TestInterval(unittest.TestCase):
                                 ub = np.array([1., np.sqrt(3.)]))
 
         # check results
-        assert result1 == true_result1
+        assert cs.equals(result1, true_result1)
 
         # check exceptions
-        with self.assertRaises(exceptions.OutOfBoundsError):
+        with self.assertRaises(OutOfBoundsError):
             # diameter too large -> jump
             I = Interval(lb = np.array([0.]), ub = np.array([5.]))
             I.tan()
-        with self.assertRaises(exceptions.OutOfBoundsError):
+        with self.assertRaises(OutOfBoundsError):
             # tangent of upper < tangent of lower -> jump
             I = Interval(lb = np.array([1.5]), ub = np.array([2.]))
             I.tan()
@@ -1338,9 +1333,9 @@ class TestInterval(unittest.TestCase):
         true_result3 = lower
 
         # check result
-        assert comparison.compare_matrices(result1, true_result1)
-        assert comparison.compare_matrices(result2, true_result2)
-        assert comparison.compare_matrices(result3, true_result3)
+        assert compare_matrices(result1, true_result1)
+        assert compare_matrices(result2, true_result2)
+        assert compare_matrices(result3, true_result3)
 
     def test_volume(self):
         ''' Test for volume computation '''

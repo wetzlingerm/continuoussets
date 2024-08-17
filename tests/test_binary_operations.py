@@ -10,7 +10,7 @@ from continuoussets import (
 from continuoussets import (
     Interval, Zonotope, VPolytope, HPolyhedron
 )
-from continuoussets.utils.exceptions import EmptySetError, UnboundedSetError, ExactEvaluationImpossibleError
+from continuoussets.utils.exceptions import EmptySetError, UnboundedSetError, ExactEvaluationImpossibleError, OtherFunctionError
 from continuoussets.utils.comparison import compare_matrices
 
 
@@ -41,14 +41,14 @@ class TestBinaryOperations(unittest.TestCase):
                           b = np.array([1., 1., 1.]))
 
         # compute Cartesian product
-        result1 = I1.cartesian_product(I1)
-        result2 = I1.cartesian_product(lower)
-        result3 = I1.cartesian_product(Z1)
-        result4 = I1.cartesian_product(Z2, mode = 'outer')
-        result5 = I1.cartesian_product(VP1)
-        result6 = I1.cartesian_product(VP2)
-        result7 = I1.cartesian_product(HP1)
-        result8 = I1.cartesian_product(HP2, mode = 'outer')
+        result1 = cs.cartesian_product(I1, I1)
+        result2 = cs.cartesian_product(I1, lower)
+        result3 = cs.cartesian_product(I1, Z1)
+        result4 = cs.cartesian_product(I1, Z2, mode = 'outer')
+        result5 = cs.cartesian_product(I1, VP1)
+        result6 = cs.cartesian_product(I1, VP2)
+        result7 = cs.cartesian_product(I1, HP1)
+        result8 = cs.cartesian_product(I1, HP2, mode = 'outer')
 
         # manual computation
         true_result1 = Interval(lb = np.hstack((lower, lower)),\
@@ -68,24 +68,24 @@ class TestBinaryOperations(unittest.TestCase):
         true_result8 = Interval(lb = np.hstack((lower, np.array([-1., -2.]))),\
                                 ub = np.hstack((upper, np.array([1., 2.]))))
         
-        assert result1 == true_result1
-        assert result2 == true_result2
-        assert result3 == true_result3
-        assert result4 == true_result4
-        assert result5 == true_result5
-        assert result6 == true_result6
-        assert result7 == true_result7
-        assert result8 == true_result8
+        assert cs.equals(result1, true_result1)
+        assert cs.equals(result2, true_result2)
+        assert cs.equals(result3, true_result3)
+        assert cs.equals(result4, true_result4)
+        assert cs.equals(result5, true_result5)
+        assert cs.equals(result6, true_result6)
+        assert cs.equals(result7, true_result7)
+        assert cs.equals(result8, true_result8)
 
         with self.assertRaises(ExactEvaluationImpossibleError):
             # 'exact' not supported in general for Interval x Zonotope
-            I1.cartesian_product(Z2)
+            cs.cartesian_product(I1, Z2)
         with self.assertRaises(ExactEvaluationImpossibleError):
             # 'exact' not supported in general for Interval x VPolytope
-            I1.cartesian_product(VP3)
+            cs.cartesian_product(I1, VP3)
         with self.assertRaises(ExactEvaluationImpossibleError):
             # 'exact' not supported in general for Interval x HPolyhedron
-            I1.cartesian_product(HP2)
+            cs.cartesian_product(I1, HP2)
 
 
         # cases:
@@ -157,16 +157,16 @@ class TestBinaryOperations(unittest.TestCase):
                                     b = np.array([1., 1., 1., -1., 1., 1., 1.]))
 
         # check results
-        assert result1 == true_result1
-        assert result2 == true_result2
-        assert result3 == true_result3
-        assert result4 == true_result4
-        assert result5 == true_result5
-        assert result6 == true_result6
-        assert result7 == true_result7
-        assert result8.contains(true_result8)
-        assert result9 == true_result9
-        assert result10.contains(true_result10)
+        assert cs.equals(result1, true_result1)
+        assert cs.equals(result2, true_result2)
+        assert cs.equals(result3, true_result3)
+        assert cs.equals(result4, true_result4)
+        assert cs.equals(result5, true_result5)
+        assert cs.equals(result6, true_result6)
+        assert cs.equals(result7, true_result7)
+        assert cs.contains(result8, true_result8)
+        assert cs.equals(result9, true_result9)
+        assert cs.contains(result10, true_result10)
 
         with self.assertRaises(ExactEvaluationImpossibleError):
             Z3.cartesian_product(VP1)
@@ -191,25 +191,25 @@ class TestBinaryOperations(unittest.TestCase):
         true_result2 = HPolyhedron(A = np.array([[1., 0., 0.], [0., 1., 0.], [0., 0., 1.], [0., 0., -1.]]),
                                    b = np.array([1., 1., 3., 2.]))
         
-        assert result1 == true_result1
-        assert result2 == true_result2
-        assert result3 == true_result2
+        assert cs.equals(result1, true_result1)
+        assert cs.equals(result2, true_result2)
+        assert cs.equals(result3, true_result2)
 
 
         # cases:
         # - vpolytope x vpolytope
         # - vpolytope x interval
-        V_1 = np.array([[1.], [2.], [4.]])
-        V_2 = np.array([[-3.], [5.]])
-        VP_1 = VPolytope(V = V_1)
-        VP_2 = VPolytope(V = V_2)
-        I_2 = Interval(lb = -3, ub = 5)
+        V1 = np.array([[1.], [2.], [4.]])
+        V2 = np.array([[-3.], [5.]])
+        VP1 = VPolytope(V = V1)
+        VP2 = VPolytope(V = V2)
+        I2 = Interval(lb = -3, ub = 5)
 
         V1_V2 = np.array([[1., -3.], [1., 5.], [4., -3.], [4., 5.]])
 
-        VP1_VP2 = VP_1.cartesian_product(VP_2)
+        VP1_VP2 = VP1.cartesian_product(VP2)
         VP1_VP2 = VP1_VP2.compact()
-        VP1_I2 = VP_1.cartesian_product(I_2)
+        VP1_I2 = VP1.cartesian_product(I2)
         VP1_I2 = VP1_I2.compact()
 
         assert compare_matrices(VP1_VP2.V, V1_V2)
@@ -261,21 +261,21 @@ class TestBinaryOperations(unittest.TestCase):
         HP2 = HPolyhedron(A = np.array([[1., 0.]]), b = np.array([1.]))
 
         # check containment
-        assert I1.contains(I1)
-        assert I1.contains(I2)
-        assert not I1.contains(I3)
-        assert not I1.contains(I4)
-        assert I1.contains(lower + np.array([1., 0.]))
-        assert I1.contains(lower)
-        assert not I1.contains(lower + np.array([-1., 0.]))
-        assert I1.contains(Z1)
-        assert I1.contains(Z2)
-        assert not I1.contains(Z3)
-        assert not I1.contains(Z4)
-        assert I1.contains(VP1)
-        assert not I1.contains(VP2)
-        assert I1.contains(HP1)
-        assert not I1.contains(HP2)
+        assert cs.contains(I1, I1)
+        assert cs.contains(I1, I2)
+        assert not cs.contains(I1, I3)
+        assert not cs.contains(I1, I4)
+        assert cs.contains(I1, lower + np.array([1., 0.]))
+        assert cs.contains(I1, lower)
+        assert not cs.contains(I1, lower + np.array([-1., 0.]))
+        assert cs.contains(I1, Z1)
+        assert cs.contains(I1, Z2)
+        assert not cs.contains(I1, Z3)
+        assert not cs.contains(I1, Z4)
+        assert cs.contains(I1, VP1)
+        assert not cs.contains(I1, VP2)
+        assert cs.contains(I1, HP1)
+        assert not cs.contains(I1, HP2)
 
 
         # cases:
@@ -305,19 +305,19 @@ class TestBinaryOperations(unittest.TestCase):
         HP2 = HPolyhedron(A = np.array([[1., 0.], [-5., 1.], [-5., -1.]]), b = np.array([1., 1., 1.]))
 
         # check containment
-        assert Z1.contains(center)
-        assert not Z1.contains(np.array([2., 0.]))
-        assert Z2.contains(center)
-        assert Z2.contains(np.array([3., 1.]))
-        assert Z2.contains(np.array([4., 1.]))
-        assert Z2.contains(Z1)
-        assert Z2.contains(Z2)
-        assert Z2.contains(I1)
-        assert not Z2.contains(I2)
-        assert Z2.contains(VP1)
-        assert not Z2.contains(VP2)
-        assert Z2.contains(HP1)
-        assert not Z2.contains(HP2)
+        assert cs.contains(Z1, center)
+        assert not cs.contains(Z1, np.array([2., 0.]))
+        assert cs.contains(Z2, center)
+        assert cs.contains(Z2, np.array([3., 1.]))
+        assert cs.contains(Z2, np.array([4., 1.]))
+        assert cs.contains(Z2, Z1)
+        assert cs.contains(Z2, Z2)
+        assert cs.contains(Z2, I1)
+        assert not cs.contains(Z2, I2)
+        assert cs.contains(Z2, VP1)
+        assert not cs.contains(Z2, VP2)
+        assert cs.contains(Z2, HP1)
+        assert not cs.contains(Z2, HP2)
 
 
         # cases:
@@ -332,11 +332,11 @@ class TestBinaryOperations(unittest.TestCase):
         HP2 = HPolyhedron(A = np.array([[1., 0.], [1., 1.]]),
                           b = np.array([5., 3.]))
 
-        assert HP1.contains(v_inside)
-        assert HP1.contains(v_boundary)
-        assert HP1.contains(HP1)
-        assert HP2.contains(HP1)
-        assert not HP1.contains(HP2)
+        assert cs.contains(HP1, v_inside)
+        assert cs.contains(HP1, v_boundary)
+        assert cs.contains(HP1, HP1)
+        assert cs.contains(HP2, HP1)
+        assert not cs.contains(HP1, HP2)
 
 
         # cases:
@@ -348,9 +348,9 @@ class TestBinaryOperations(unittest.TestCase):
         v = np.array([0., 0.])
         I_2D = Interval(lb = np.array([-0.1, -0.1]), ub = np.array([0.1, 0.1]))
 
-        assert VP_2D.contains(v)
-        assert VP_2D.contains(VP_2D)
-        assert VP_2D.contains(I_2D)
+        assert cs.contains(VP_2D, v)
+        assert cs.contains(VP_2D, VP_2D)
+        assert cs.contains(VP_2D, I_2D)
 
     def test_ConvexHull(self):
         # cases:
@@ -383,16 +383,16 @@ class TestBinaryOperations(unittest.TestCase):
                           b = np.array([1., 1., 1.]))
 
         # compute convex hull
-        result1 = I1.convex_hull(I1)
-        result2 = I1.convex_hull(I1.center())
-        result3 = I1.convex_hull(lower)
-        result4 = I1.convex_hull(lower + v, mode = 'outer')
-        result5 = I1.convex_hull(I2, mode = 'outer')
-        result6 = I1.convex_hull(Z, mode = 'outer')
-        result7 = I1.convex_hull(VP1)
-        result8 = I1.convex_hull(VP2, mode = 'outer')
-        result9 = I1.convex_hull(HP1)
-        result10 = I1.convex_hull(HP2, mode = 'outer')
+        result1 = cs.convex_hull(I1, I1)
+        result2 = cs.convex_hull(I1, I1.center())
+        result3 = cs.convex_hull(I1, lower)
+        result4 = cs.convex_hull(I1, lower + v, mode = 'outer')
+        result5 = cs.convex_hull(I1, I2, mode = 'outer')
+        result6 = cs.convex_hull(I1, Z, mode = 'outer')
+        result7 = cs.convex_hull(I1, VP1)
+        result8 = cs.convex_hull(I1, VP2, mode = 'outer')
+        result9 = cs.convex_hull(I1, HP1)
+        result10 = cs.convex_hull(I1, HP2, mode = 'outer')
 
         # manual computation
         true_result1 = I1
@@ -407,35 +407,35 @@ class TestBinaryOperations(unittest.TestCase):
         true_result10 = true_result8
 
         # check results
-        assert result1 == true_result1
-        assert result2 == true_result2
-        assert result3 == true_result3
-        assert result4 == true_result4
-        assert result5 == true_result5
-        assert result6 == true_result6
-        assert result7 == true_result7
-        assert result8 == true_result8
-        assert result9 == true_result9
-        assert result10 == true_result10
+        assert cs.equals(result1, true_result1)
+        assert cs.equals(result2, true_result2)
+        assert cs.equals(result3, true_result3)
+        assert cs.equals(result4, true_result4)
+        assert cs.equals(result5, true_result5)
+        assert cs.equals(result6, true_result6)
+        assert cs.equals(result7, true_result7)
+        assert cs.equals(result8, true_result8)
+        assert cs.equals(result9, true_result9)
+        assert cs.equals(result10, true_result10)
 
         with self.assertRaises(ExactEvaluationImpossibleError):
             # exact convex hull with a point outside the interval
-            I1.convex_hull(lower + v)
+            cs.convex_hull(I1, lower + v)
         with self.assertRaises(ExactEvaluationImpossibleError):
             # exact convex hull of two intervals where one is not contained in the other
-            I1.convex_hull(I2)
+            cs.convex_hull(I1, I2)
         with self.assertRaises(NotImplementedError):
             # inner convex hull of two intervals not supported
-            I1.convex_hull(I2, mode = 'inner')
+            cs.convex_hull(I1, I2, mode = 'inner')
         with self.assertRaises(ExactEvaluationImpossibleError):
             # exact convex hull with a zonotope that is not contained in the interval
-            I1.convex_hull(Z)
+            cs.convex_hull(I1, Z)
         with self.assertRaises(ExactEvaluationImpossibleError):
             # exact convex hull with a vpolytope that is not contained in the interval
-            I1.convex_hull(VP2)
+            cs.convex_hull(I1, VP2)
         with self.assertRaises(ExactEvaluationImpossibleError):
             # exact convex hull with a hpolyhedron that is not contained in the interval
-            I1.convex_hull(HP2)
+            cs.convex_hull(I1, HP2)
 
         
         # cases:
@@ -462,15 +462,15 @@ class TestBinaryOperations(unittest.TestCase):
         HP = HPolyhedron(A = np.array([[1., 0.], [-1., 1.], [-1., -1.]]), b = np.array([-2., 5., 3.]))
 
         # compute linear combination
-        result1 = Z1.convex_hull(Z2, mode = 'outer')  # also 'exact'
-        result2 = Z2.convex_hull(Z1, mode = 'outer')  # also 'exact'
-        result3 = Z3.convex_hull(Z2, mode = 'outer')
-        result4 = Z2.convex_hull(Z3, mode = 'outer')
-        result5 = Z3.convex_hull(Z4, mode = 'outer')
-        result6 = Z4.convex_hull(Z3, mode = 'outer')
-        result7 = Z1.convex_hull(I, mode = 'outer')
-        result8 = Z3.convex_hull(VP, mode = 'outer')
-        result9 = Z3.convex_hull(HP, mode = 'outer')
+        result1 = cs.convex_hull(Z1, Z2, mode = 'outer')  # also 'exact'
+        result2 = cs.convex_hull(Z2, Z1, mode = 'outer')  # also 'exact'
+        result3 = cs.convex_hull(Z3, Z2, mode = 'outer')
+        result4 = cs.convex_hull(Z2, Z3, mode = 'outer')
+        result5 = cs.convex_hull(Z3, Z4, mode = 'outer')
+        result6 = cs.convex_hull(Z4, Z3, mode = 'outer')
+        result7 = cs.convex_hull(Z1, I, mode = 'outer')
+        result8 = cs.convex_hull(Z3, VP, mode = 'outer')
+        result9 = cs.convex_hull(Z3, HP, mode = 'outer')
 
         # manual computation
         true_result1 = Zonotope(c = np.array([0., 1.]), G = np.array([[1., -1.]]))
@@ -485,25 +485,25 @@ class TestBinaryOperations(unittest.TestCase):
         true_result9 = VPolytope(V = np.array([[-4., 1.], [-2., 3.], [-1., -3.], [1., -3.], [7., 1.], [3., 3.], [-5., -1.]]))
 
         # check results
-        assert result1 == true_result1
-        assert result2 == true_result2
-        assert result3 == true_result3
-        assert result4 == true_result4
-        assert result5 == true_result5
-        assert result6 == true_result6
-        assert result7 == true_result7
-        assert result8.contains(true_result8)
-        assert result9.contains(true_result9)
+        assert cs.equals(result1, true_result1)
+        assert cs.equals(result2, true_result2)
+        assert cs.equals(result3, true_result3)
+        assert cs.equals(result4, true_result4)
+        assert cs.equals(result5, true_result5)
+        assert cs.equals(result6, true_result6)
+        assert cs.equals(result7, true_result7)
+        assert cs.contains(result8, true_result8)
+        assert cs.contains(result9, true_result9)
 
         # check exceptions
         with self.assertRaises(NotImplementedError):
-            Z1.convex_hull(Z2, mode = 'inner')  # should work
+            cs.convex_hull(Z1, Z2, mode = 'inner')  # should work
         with self.assertRaises(NotImplementedError):
-            Z2.convex_hull(Z3, mode = 'exact')  # should work
+            cs.convex_hull(Z2, Z3, mode = 'exact')  # should work
         with self.assertRaises(NotImplementedError):
-            Z2.convex_hull(VP)
+            cs.convex_hull(Z2, VP)
         with self.assertRaises(NotImplementedError):
-            Z2.convex_hull(HP)
+            cs.convex_hull(Z2, HP)
 
 
         # cases:
@@ -513,48 +513,48 @@ class TestBinaryOperations(unittest.TestCase):
         HP2 = HPolyhedron(A = np.array([[-1., 0.], [0., -1.], [1., 1.]]), b = np.array([0., 0., 1.]))
         v = np.array([2., 1.])
 
-        result1 = HP1.convex_hull(HP2, mode = 'outer')
-        result2 = HP2.convex_hull(HP1, mode = 'outer')
-        result3 = HP1.convex_hull(v, mode = 'outer')
+        result1 = cs.convex_hull(HP1, HP2, mode = 'outer')
+        result2 = cs.convex_hull(HP2, HP1, mode = 'outer')
+        result3 = cs.convex_hull(HP1, v, mode = 'outer')
 
         true_result1 = HPolyhedron(A = np.array([[1., 1.], [-1., 1.], [-1., -1.], [1., -1.]]),
                                    b = np.array([1., 1., 1., 1.]))
         true_result3 = HPolyhedron(A = np.array([[1., -1.], [-1., 3.], [-1., -1.]]),
                                    b = np.array([1., 1., 1.]))
         
-        assert result1.contains(HP1)
-        assert result1.contains(HP2)
-        assert result2.contains(HP1)
-        assert result2.contains(HP2)
-        assert result1.contains(true_result1)
-        assert result2.contains(true_result1)
-        assert result3.contains(true_result3)
+        assert cs.contains(result1, HP1)
+        assert cs.contains(result1, HP2)
+        assert cs.contains(result2, HP1)
+        assert cs.contains(result2, HP2)
+        assert cs.contains(result1, true_result1)
+        assert cs.contains(result2, true_result1)
+        assert cs.contains(result3, true_result3)
 
         with self.assertRaises(NotImplementedError):
-            HP1.convex_hull(HP2)
+            cs.convex_hull(HP1, HP2)
 
 
         # cases:
         # - single vertex x single vertex
         # - vpolytope x vpolytope
         # - vpolytope x zonotope
-        VP_1 = VPolytope(V = np.array([1., 1.]))
-        VP_2 = VPolytope(V = np.array([0., 1.]))
-        VP_3 = VPolytope(V = np.array([[-1., 0.], [0., 0.], [0., -1.]]))
-        VP_4 = VPolytope(V = np.array([[1., 0.], [0., 0.], [0., 1.]]))
+        VP1 = VPolytope(V = np.array([1., 1.]))
+        VP2 = VPolytope(V = np.array([0., 1.]))
+        VP3 = VPolytope(V = np.array([[-1., 0.], [0., 0.], [0., -1.]]))
+        VP4 = VPolytope(V = np.array([[1., 0.], [0., 0.], [0., 1.]]))
         Z = Zonotope(c = [1., 1.])
 
-        result_1 = VP_1.convex_hull(VP_2)
-        result_2 = VP_3.convex_hull(VP_4)
-        result_3 = VP_3.convex_hull(Z)
+        result1 = VP1.convex_hull(VP2)
+        result2 = VP3.convex_hull(VP4)
+        result3 = VP3.convex_hull(Z)
 
-        true_result_1 = VPolytope(V = np.array([[1., 1.], [0., 1.]]))
-        true_result_2 = VPolytope(V = np.array([[1., 0.], [0., 1.], [-1., 0.], [0., -1.]]))
-        true_result_3 = VPolytope(V = np.array([[1., 1.], [-1., 0.], [0., -1.]]))
+        true_result1 = VPolytope(V = np.array([[1., 1.], [0., 1.]]))
+        true_result2 = VPolytope(V = np.array([[1., 0.], [0., 1.], [-1., 0.], [0., -1.]]))
+        true_result3 = VPolytope(V = np.array([[1., 1.], [-1., 0.], [0., -1.]]))
 
-        assert result_1 == true_result_1
-        assert result_2 == true_result_2
-        assert result_3 == true_result_3
+        assert cs.equals(result1, true_result1)
+        assert cs.equals(result2, true_result2)
+        assert cs.equals(result3, true_result3)
 
     def test_Equals(self):
         ''' Test for set equality '''
@@ -588,21 +588,21 @@ class TestBinaryOperations(unittest.TestCase):
         HP2 = HPolyhedron(A = np.array([[1., 0.], [0., 1.], [-1., 0.], [0., -1.]]),
                             b = np.array([1., 1., 1., 1.01]))
 
-        assert I1 == I1
-        assert I1.__eq__(I1, rtol = 0., atol = 0.)
-        assert not I1 == I2
-        assert not I1 == lower
-        assert not I3 == (lower + np.array([1., 0.]))
-        assert I3 == lower
-        assert not I1 == I4
-        assert I1 == Z1
-        assert not I1 == Z2
-        assert I1 == VP1
-        assert not I1 == VP2
-        assert I1.__eq__(VP2, rtol = 0.1)
-        assert I1 == HP1
-        assert not I1 == HP2
-        assert I1.__eq__(HP1, rtol = 0.1)
+        assert cs.equals(I1, I1)
+        assert cs.equals(I1, I1, rtol = 0., atol = 0.)
+        assert not cs.equals(I1, I2)
+        assert not cs.equals(I1, lower)
+        assert not cs.equals(I3, (lower + np.array([1., 0.])))
+        assert cs.equals(I3, lower)
+        assert not cs.equals(I1, I4)
+        assert cs.equals(I1, Z1)
+        assert not cs.equals(I1, Z2)
+        assert cs.equals(I1, VP1)
+        assert not cs.equals(I1, VP2)
+        assert cs.equals(I1, VP2, rtol = 0.1)
+        assert cs.equals(I1, HP1)
+        assert not cs.equals(I1, HP2)
+        assert cs.equals(I1, HP1, rtol = 0.1)
 
 
         # cases:
@@ -640,17 +640,17 @@ class TestBinaryOperations(unittest.TestCase):
                          b = np.array([1., 1., 1., 1., 1., 1.]))
 
         # check set equality
-        assert Z1 == center
-        assert Z1 == Z2
-        assert Z3 == Z3
-        assert Z3 == Z4
-        assert Z3 == Z5
-        assert not Z1 == Z6
-        assert not Z1 == Z7
-        assert Z8 == Z9
-        assert Z1 == I
-        assert Z3 == VP
-        assert Z3 == HP
+        assert cs.equals(Z1, center)
+        assert cs.equals(Z1, Z2)
+        assert cs.equals(Z3, Z3)
+        assert cs.equals(Z3, Z4)
+        assert cs.equals(Z3, Z5)
+        assert not cs.equals(Z1, Z6)
+        assert not cs.equals(Z1, Z7)
+        assert cs.equals(Z8, Z9)
+        assert cs.equals(Z1, I)
+        assert cs.equals(Z3, VP)
+        assert cs.equals(Z3, HP)
 
 
         # cases:
@@ -670,11 +670,11 @@ class TestBinaryOperations(unittest.TestCase):
         HP4 = HPolyhedron(A = np.array([[1., 0.], [-1., 1.], [-1., -1.], [0., -1.]]),
                           b = np.array([1., 1., 1., 0.5]))
         
-        assert HP1 == v1
-        assert not HP1 == v2
-        assert HP2 == HP2
-        assert HP2 == HP3
-        assert not HP2 == HP4
+        assert cs.equals(HP1, v1)
+        assert not cs.equals(HP1, v2)
+        assert cs.equals(HP2, HP2)
+        assert cs.equals(HP2, HP3)
+        assert not cs.equals(HP2, HP4)
 
 
         # cases:
@@ -683,16 +683,15 @@ class TestBinaryOperations(unittest.TestCase):
 
         V1 = np.array([[2., 1.], [-1., -0.5], [0., 0.5]])
         V2 = np.array([[-3., 0.5], [1., 1.]])
-        VP_1 = VPolytope(V = V1)
-        VP_2 = VPolytope(V = V2)
+        VP1 = VPolytope(V = V1)
+        VP2 = VPolytope(V = V2)
 
         I = Interval(lb = np.array([-2., -1.]), ub = np.array([4., 0.]))
-        V_I = np.array([[-2., -1.], [-2., 0.], [4., -1.], [4., 0.]])
-        VP_I = VPolytope(V = V_I)
+        VP_interval = VPolytope(V = np.array([[-2., -1.], [-2., 0.], [4., -1.], [4., 0.]]))
 
-        assert VP_1 == VP_1
-        assert not VP_1 == VP_2
-        assert VP_I == I
+        assert cs.equals(VP1, VP1)
+        assert not cs.equals(VP1, VP2)
+        assert cs.equals(VP_interval, I)
 
     def test_Intersection(self):
         # cases:
@@ -705,21 +704,23 @@ class TestBinaryOperations(unittest.TestCase):
         HP2 = HPolyhedron(A = np.array([[1., 1.], [1., -1.]]), b = np.array([1., 1.]))
         I = Interval(lb = np.array([-2., 0.]), ub = np.array([0., 1.]))
 
-        result1 = HP1.intersection(np.array([0., 0.]))
-        result2 = HP1.intersection(HP2)
-        result3 = HP2.intersection(HP1)
-        result4 = HP1.intersection(I)
+        result1 = cs.intersection(HP1, np.array([0., 0.]))
+        result2 = cs.intersection(HP1, HP2)
+        result3 = cs.intersection(HP2, HP1)
+        result4 = cs.intersection(HP1, I)
 
         true_result2 = HPolyhedron(A = np.array([[1., 1.], [-1., 1.], [-1., -1.], [1., -1.]]),
                                    b = np.array([1., 1., 1., 1.]))
         true_result4 = HPolyhedron(A = np.array([[1., 0.], [0., -1.], [-1., 1.]]),
                                    b = np.array([0., 0., 1.]))
 
-        assert result1 == np.array([0., 0.])
-        assert HP1.intersection(np.array([10., 5.])).empty()
-        assert result2 == true_result2
-        assert result2 == result3
-        assert result4 == true_result4
+        assert cs.equals(result1, np.array([0., 0.]))
+        assert cs.equals(result2, true_result2)
+        assert cs.equals(result2, result3)
+        assert cs.equals(result4, true_result4)
+        
+        with self.assertRaises(EmptySetError):
+            cs.intersection(HP1, np.array([10., 5.]))
 
     def test_Intersects(self):
         # cases:
@@ -768,21 +769,21 @@ class TestBinaryOperations(unittest.TestCase):
                           b = np.array([5., 1., 1., -3.]))
         
         # check intersection
-        assert I.intersects(vector)
-        assert not I.intersects(vector_outside)
-        assert I.intersects(I)
-        assert not I.intersects(I_below)
-        assert I.intersects(I_intersects_below)
-        assert I.intersects(I_contained)
-        assert I.intersects(I_intersects_above)
-        assert not I.intersects(I_above)
+        assert cs.intersects(I, vector)
+        assert not cs.intersects(I, vector_outside)
+        assert cs.intersects(I, I)
+        assert not cs.intersects(I, I_below)
+        assert cs.intersects(I, I_intersects_below)
+        assert cs.intersects(I, I_contained)
+        assert cs.intersects(I, I_intersects_above)
+        assert not cs.intersects(I, I_above)
         
-        assert I.intersects(Z1)
-        assert not I.intersects(Z2)
-        assert I.intersects(VP1)
-        assert not I.intersects(VP2)
-        assert I.intersects(HP1)
-        assert not I.intersects(HP2)
+        assert cs.intersects(I, Z1)
+        assert not cs.intersects(I, Z2)
+        assert cs.intersects(I, VP1)
+        assert not cs.intersects(I, VP2)
+        assert cs.intersects(I, HP1)
+        assert not cs.intersects(I, HP2)
 
 
          # cases:
@@ -819,20 +820,20 @@ class TestBinaryOperations(unittest.TestCase):
         HP2 = HPolyhedron(A = np.array([[1., 0.], [-1., 1.], [-1., -1.]]), b = np.array([-2., 10., -2.]))
 
         # check results
-        assert Z1.intersects(center1)
-        assert Z1.intersects(np.array([3., 3.]))
-        assert not Z1.intersects(np.array([4., 2.]))
-        assert Z1.intersects(I1)
-        assert not Z1.intersects(I2)
-        assert Z1.intersects(Z2)
-        assert not Z1.intersects(Z3)
-        assert Z1.intersects(Z4)
-        assert Z4.intersects(Z1)
-        assert Z1.intersects(VP1)
-        assert Z1.intersects(VP2)
-        assert not Z1.intersects(VP3)
-        assert Z1.intersects(HP1)
-        assert not Z1.intersects(HP2)
+        assert cs.intersects(Z1, center1)
+        assert cs.intersects(Z1, np.array([3., 3.]))
+        assert not cs.intersects(Z1, np.array([4., 2.]))
+        assert cs.intersects(Z1, I1)
+        assert not cs.intersects(Z1, I2)
+        assert cs.intersects(Z1, Z2)
+        assert not cs.intersects(Z1, Z3)
+        assert cs.intersects(Z1, Z4)
+        assert cs.intersects(Z4, Z1)
+        assert cs.intersects(Z1, VP1)
+        assert cs.intersects(Z1, VP2)
+        assert not cs.intersects(Z1, VP3)
+        assert cs.intersects(Z1, HP1)
+        assert not cs.intersects(Z1, HP2)
 
 
         # cases:
@@ -852,16 +853,16 @@ class TestBinaryOperations(unittest.TestCase):
         VP1 = VPolytope(V = np.array([[-1., -1.], [0., 0.], [-2., 2.]]))
         VP2 = VPolytope(V = np.array([[1.5, -2.], [3., 0.], [1., 4.]]))
 
-        assert HP1.intersects(np.array([0., 0.]))
-        assert not HP1.intersects(np.array([10., 5.]))
-        assert HP1.intersects(HP2)
-        assert HP2.intersects(HP1)
-        assert HP1.intersects(I1)
-        assert not HP1.intersects(I2)
-        assert HP1.intersects(Z1)
-        assert not HP1.intersects(Z2)
-        assert HP1.intersects(VP1)
-        assert not HP1.intersects(VP2)
+        assert cs.intersects(HP1, np.array([0., 0.]))
+        assert not cs.intersects(HP1, np.array([10., 5.]))
+        assert cs.intersects(HP1, HP2)
+        assert cs.intersects(HP2, HP1)
+        assert cs.intersects(HP1, I1)
+        assert not cs.intersects(HP1, I2)
+        assert cs.intersects(HP1, Z1)
+        assert not cs.intersects(HP1, Z2)
+        assert cs.intersects(HP1, VP1)
+        assert not cs.intersects(HP1, VP2)
 
 
         # cases:
@@ -872,29 +873,29 @@ class TestBinaryOperations(unittest.TestCase):
         # - vpolytope x interval
         # - vpolytope x zonotope
         # - vpolytope x hpolyhedron
-        VP_1 = VPolytope(V = np.array([[-1., 0.], [1., 1.], [0., -1.]]))
-        VP_2 = VPolytope(V = np.array([[1., 0.], [0., 0.], [0., 1.]]))
-        VP_3 = VPolytope(V = np.array([0.25, 0.25]))
-        I_1 = Interval(lb = [-1., 0.], ub = [0., 1.])
-        I_2 = Interval(lb = [0.75, -1.], ub = [1., 0.])
+        VP1 = VPolytope(V = np.array([[-1., 0.], [1., 1.], [0., -1.]]))
+        VP2 = VPolytope(V = np.array([[1., 0.], [0., 0.], [0., 1.]]))
+        VP3 = VPolytope(V = np.array([0.25, 0.25]))
+        I1 = Interval(lb = [-1., 0.], ub = [0., 1.])
+        I2 = Interval(lb = [0.75, -1.], ub = [1., 0.])
         Z_1 = Zonotope(c = np.array([1., -1.]), G = np.array([[1., -1.], [0.5, 0.]]))
         Z_2 = Zonotope(c = np.array([1., -1.]), G = np.array([[1., 1.], [0.5, 0.]]))
         HP_1 = HPolyhedron(A = np.array([[0., 1.]]), b = np.array([-0.5]))
         HP_2 = HPolyhedron(A = np.array([[-1., 1.]]), b = np.array([-1.1]))
 
-        assert VP_1.intersects(np.array([0., 0.]))
-        assert VP_1.intersects(np.array([1., 1.]))
-        assert VP_1.intersects(VP_1)
-        assert VP_1.intersects(VP_2)
-        assert VP_2.intersects(VP_1)
-        assert VP_1.intersects(VP_3)
-        assert VP_3.intersects(VP_1)
-        assert VP_1.intersects(I_1)
-        assert not VP_1.intersects(I_2)
-        assert VP_1.intersects(Z_1)
-        assert not VP_1.intersects(Z_2)
-        assert VP_1.intersects(HP_1)
-        assert not VP_1.intersects(HP_2)
+        assert cs.intersects(VP1, np.array([0., 0.]))
+        assert cs.intersects(VP1, np.array([1., 1.]))
+        assert cs.intersects(VP1, VP1)
+        assert cs.intersects(VP1, VP2)
+        assert cs.intersects(VP2, VP1)
+        assert cs.intersects(VP1, VP3)
+        assert cs.intersects(VP3, VP1)
+        assert cs.intersects(VP1, I1)
+        assert not cs.intersects(VP1, I2)
+        assert cs.intersects(VP1, Z_1)
+        assert not cs.intersects(VP1, Z_2)
+        assert cs.intersects(VP1, HP_1)
+        assert not cs.intersects(VP1, HP_2)
 
     def test_MinkowskiDifference(self):
         ''' Test for Minkowski difference '''
@@ -927,11 +928,11 @@ class TestBinaryOperations(unittest.TestCase):
                           b = np.array([1., 1., 1., 1.]))
 
         # Minkowski difference
-        result1 = I1.minkowski_difference(vector)
-        result2 = I1.minkowski_difference(I2)
-        result3 = I1.minkowski_difference(Z)
-        result4 = I1.minkowski_difference(VP1)
-        result5 = I1.minkowski_difference(HP1)
+        result1 = cs.minkowski_difference(I1, vector)
+        result2 = cs.minkowski_difference(I1, I2)
+        result3 = cs.minkowski_difference(I1, Z)
+        result4 = cs.minkowski_difference(I1, VP1)
+        result5 = cs.minkowski_difference(I1, HP1)
 
         # manual computation
         true_result1 = Interval(lb = np.array([-3., 5., -4.]),\
@@ -945,20 +946,20 @@ class TestBinaryOperations(unittest.TestCase):
         true_result5 = true_result4
         
         # check results
-        assert result1 == true_result1
-        assert result2 == true_result2
-        assert result3 == true_result3
-        assert result4 == true_result4
-        assert result5 == true_result5
+        assert cs.equals(result1, true_result1)
+        assert cs.equals(result2, true_result2)
+        assert cs.equals(result3, true_result3)
+        assert cs.equals(result4, true_result4)
+        assert cs.equals(result5, true_result5)
 
         # subtrahend too large -> empty set
         with self.assertRaises(EmptySetError):
             I2 = I1.matmul(2*np.eye(I1.dimension))
-            I1.minkowski_difference(I2)
+            cs.minkowski_difference(I1, I2)
         with self.assertRaises(EmptySetError):
-            I1.minkowski_difference(VP2)
+            cs.minkowski_difference(I1, VP2)
         with self.assertRaises(EmptySetError):
-            I1.minkowski_difference(HP2)
+            cs.minkowski_difference(I1, HP2)
 
 
         # cases:
@@ -974,25 +975,39 @@ class TestBinaryOperations(unittest.TestCase):
         Z = Zonotope(c = center, G = generators)
 
         # compute Minkowski difference
-        result1 = Z.minkowski_difference(center)
+        result1 = cs.minkowski_difference(Z, center)
 
         # manual computation
         true_result1 = Zonotope(c = np.array([0., 0.]), G = generators)
 
         # check results
-        assert result1 == true_result1
+        assert cs.equals(result1, true_result1)
 
         # Minkowski difference between sets not implemented
         with self.assertRaises(NotImplementedError):
-            Z.minkowski_difference(Z)
+            cs.minkowski_difference(Z, Z)
         with self.assertRaises(NotImplementedError):
-            Z.minkowski_difference(Interval(lb = np.array([0., 0.]), ub = np.array([1., 2.])))
+            cs.minkowski_difference(Z, Interval(lb = np.array([0., 0.]), ub = np.array([1., 2.])))
         with self.assertRaises(NotImplementedError):
-            Z.minkowski_difference(VPolytope(V = np.array([[1., 0.], [0., 1.]])))
+            cs.minkowski_difference(Z, VPolytope(V = np.array([[1., 0.], [0., 1.]])))
         with self.assertRaises(NotImplementedError):
-            Z.minkowski_difference(HPolyhedron(A = np.array([[1., 0.], [-1., 1.], [-1., -1.]]),
+            cs.minkowski_difference(Z, HPolyhedron(A = np.array([[1., 0.], [-1., 1.], [-1., -1.]]),
                                                b = np.array([1., 1., 1.])))
            
+
+        center = np.array([1., 0.])
+        generators = np.array([[1., -1.], [2., 0.], [2., -1.]])
+        Z1 = Zonotope(c = center, G = generators)
+        # call minkowski_difference insetead of __sub__ with two IConvexSet objects
+        with self.assertRaises(OtherFunctionError):
+            Z1 - Z1
+        with self.assertRaises(OtherFunctionError):
+            Z1 - Interval(lb = np.array([0., 1.]), ub = np.array([2., 4.]))
+        with self.assertRaises(OtherFunctionError):
+            Z1 - VPolytope(V = np.array([[1., 0.], [0., 1.]]))
+        with self.assertRaises(OtherFunctionError):
+            Z1 - HPolyhedron(A = np.array([[1., 0.], [-1., 1.], [-1., -1.]]), b = np.ones(3))
+
         
         # cases:
         # - hpolyhedron - interval
@@ -1002,35 +1017,44 @@ class TestBinaryOperations(unittest.TestCase):
         I = Interval(lb = np.array([-0.1, -0.2]), ub = np.array([0.2, 0.3]))
         v = np.array([2., -1.])
 
-        result1 = HP.minkowski_difference(I)
-        result2 = HP.minkowski_difference(v)
+        result1 = cs.minkowski_difference(HP, I)
+        result2 = cs.minkowski_difference(HP, v)
 
         true_result1 = HPolyhedron(A = np.array([[1., 0.], [-1., 1.], [-1., -1.]]),
                                    b = np.array([0.8, 0.6, 0.7]))
         true_result2 = HPolyhedron(A = np.array([[1., 0.], [-1., 1.], [-1., -1.]]),
                                    b = np.array([-1., 4., 2.]))
         
-        assert result1 == true_result1
-        assert result2 == true_result2
+        assert cs.equals(result1, true_result1)
+        assert cs.equals(result2, true_result2)
+
+        with self.assertRaises(OtherFunctionError):
+            HP1 - HP1
 
 
         # cases:
         # - vpolytope - vector
         # - vpolytope - vpolytope (vector)
         # - vpolytope - vpolytope
-        VP_1 = VPolytope(V = np.array([[2., 0.], [-1., -1.], [-2., 1.]]))
-        VP_2 = VPolytope(V = np.array([1., -1.]))
-        VP_3 = VPolytope(V = np.array([[2., 0.], [-1., 1.]]))
+        VP1 = VPolytope(V = np.array([[2., 0.], [-1., -1.], [-2., 1.]]))
+        VP2 = VPolytope(V = np.array([1., -1.]))
+        VP3 = VPolytope(V = np.array([[2., 0.], [-1., 1.]]))
 
-        result_1 = VP_1.minkowski_difference(np.array([1., -1.]))
-        result_2 = VP_1.minkowski_difference(VP_2)
+        result1 = cs.minkowski_difference(VP1, np.array([1., -1.]))
+        result2 = cs.minkowski_difference(VP1, VP2)
 
-        true_result_1 = VPolytope(V = np.array([[1., 1.], [-2., 0.], [-3., 2.]]))
+        true_result1 = VPolytope(V = np.array([[1., 1.], [-2., 0.], [-3., 2.]]))
 
-        assert result_1 == true_result_1
-        assert result_2 == true_result_1
+        assert cs.equals(result1, true_result1)
+        assert cs.equals(result2, true_result1)
         with self.assertRaises(NotImplementedError):
-            VP_1.minkowski_difference(VP_3)
+            cs.minkowski_difference(VP1, VP3)
+
+
+        # check exceptions
+        with self.assertRaises(OtherFunctionError):
+            # call minkowski_difference instead of __sub__
+            VP1 - VP1
 
     def test_MinkowskiSum(self):
         # cases:
@@ -1061,11 +1085,11 @@ class TestBinaryOperations(unittest.TestCase):
 
 
         # Minkowski sum
-        result1 = I1.minkowski_sum(vector)
-        result2 = I1.minkowski_sum(I2)
-        result3 = I1.minkowski_sum(Z, mode = 'outer')
-        result4 = I1.minkowski_sum(VP, mode = 'outer')
-        result5 = I1.minkowski_sum(HP1, mode = 'outer')
+        result1 = cs.minkowski_sum(I1, vector)
+        result2 = cs.minkowski_sum(I1, I2)
+        result3 = cs.minkowski_sum(I1, Z, mode = 'outer')
+        result4 = cs.minkowski_sum(I1, VP, mode = 'outer')
+        result5 = cs.minkowski_sum(I1, HP1, mode = 'outer')
 
         # manual computation
         true_result1 = Interval(lb = np.array([-1., 1., 4.]),\
@@ -1079,20 +1103,34 @@ class TestBinaryOperations(unittest.TestCase):
         true_result5 = true_result4
 
         # check results
-        assert result1 == true_result1
-        assert result2 == true_result2
-        assert result3 == true_result3
-        assert result4 == true_result4
-        assert result5 == true_result5
+        assert cs.equals(result1, true_result1)
+        assert cs.equals(result2, true_result2)
+        assert cs.equals(result3, true_result3)
+        assert cs.equals(result4, true_result4)
+        assert cs.equals(result5, true_result5)
 
         with self.assertRaises(ExactEvaluationImpossibleError):
-            I1.minkowski_sum(Z)
+            cs.minkowski_sum(I1, Z)
         with self.assertRaises(ExactEvaluationImpossibleError):
-            I1.minkowski_sum(VP)
+            cs.minkowski_sum(I1, VP)
         with self.assertRaises(ExactEvaluationImpossibleError):
-            I1.minkowski_sum(HP1)
+            cs.minkowski_sum(I1, HP1)
         with self.assertRaises(UnboundedSetError):
-            I1.minkowski_sum(HP2, mode = 'outer')
+            cs.minkowski_sum(I1, HP2, mode = 'outer')
+
+
+        I1 = Interval(lb = np.array([-2., 1., 0.]), ub = np.array([2., 1., 4.]))
+        Z = Zonotope(c = np.array([1., 0., -1.]), G = np.array([[1., 0., 0.], [-1., 1., 1.]]))
+        VP = VPolytope(V = np.array([[1., 0., -1.], [0., 1., 1.], [-1., -1., 0.]]))
+        HP = HPolyhedron(A = np.array([[1., 0., 0.], [0., 1., 0.], [0., 0., 1.], [-1., -1., -1.]]),
+                         b = np.array([1., 1., 1., 1.]))
+
+        with self.assertRaises(OtherFunctionError):
+            I1 + Z
+        with self.assertRaises(OtherFunctionError):
+            I1 + VP
+        with self.assertRaises(OtherFunctionError):
+            I1 + HP
 
 
         # cases:
@@ -1121,12 +1159,12 @@ class TestBinaryOperations(unittest.TestCase):
                           b = np.ones(6))
 
         # compute Minkowski sums
-        result1 = Z1.minkowski_sum(Z2)
-        result2 = Z1.minkowski_sum(v)
-        result3 = Z1.minkowski_sum(I)
-        result4 = Z3.minkowski_sum(Z1)
-        result5 = Z1.minkowski_sum(VP1, mode = 'outer')
-        result6 = Z1.minkowski_sum(HP1, mode = 'outer')
+        result1 = cs.minkowski_sum(Z1, Z2)
+        result2 = cs.minkowski_sum(Z1, v)
+        result3 = cs.minkowski_sum(Z1, I)
+        result4 = cs.minkowski_sum(Z3, Z1)
+        result5 = cs.minkowski_sum(Z1, VP1, mode = 'outer')
+        result6 = cs.minkowski_sum(Z1, HP1, mode = 'outer')
 
         # manual computation
         true_result1 = Zonotope(c = np.array([0., 1.]),\
@@ -1145,22 +1183,36 @@ class TestBinaryOperations(unittest.TestCase):
                                    b = np.ones(13))
 
         # check results
-        assert result1 == true_result1
-        assert result2 == true_result2
-        assert result3 == true_result3
-        assert result4 == true_result4
-        assert result5.contains(true_result5)
-        assert result6.contains(true_result6)
+        assert cs.equals(result1, true_result1)
+        assert cs.equals(result2, true_result2)
+        assert cs.equals(result3, true_result3)
+        assert cs.equals(result4, true_result4)
+        assert cs.contains(result5, true_result5)
+        assert cs.contains(result6, true_result6)
 
         # exact evaluations currently not implemented, sometimes impossible
         with self.assertRaises(ExactEvaluationImpossibleError):
-            Z1.minkowski_sum(VP1)
+            cs.minkowski_sum(Z1, VP1)
         with self.assertRaises(NotImplementedError):
-            Z1.minkowski_sum(VP2)
+            cs.minkowski_sum(Z1, VP2)
         with self.assertRaises(ExactEvaluationImpossibleError):
-            Z1.minkowski_sum(HP1)
+            cs.minkowski_sum(Z1, HP1)
         with self.assertRaises(NotImplementedError):
-            Z1.minkowski_sum(HP2)
+            cs.minkowski_sum(Z1, HP2)
+
+
+        # call minkowski_sum instead of __add__
+        center = np.array([1., 0.])
+        generators = np.array([[1., -1.], [2., 0.], [2., -1.]])
+        Z1 = Zonotope(c = center, G = generators)
+        with self.assertRaises(OtherFunctionError):
+            Z1 + Z1
+        with self.assertRaises(OtherFunctionError):
+            Z1 + Interval(lb = np.array([1., 0.]), ub = np.array([2., 4.]))
+        with self.assertRaises(OtherFunctionError):
+            Z1 + VPolytope(V = np.array([[1., 0.], [0., 1.]]))
+        with self.assertRaises(OtherFunctionError):
+            Z1 + HPolyhedron(A = np.array([[1., 0.]]), b = np.array([1.]))
 
 
         # cases:
@@ -1172,11 +1224,11 @@ class TestBinaryOperations(unittest.TestCase):
         v = np.array([2., -1.])
         I = Interval(lb = np.array([-1., 0.]), ub = np.array([3., 1.]))
 
-        result1 = HP1.minkowski_sum(v)
-        result2 = HP1.minkowski_sum(HP1)
-        result3 = HP1.minkowski_sum(HP1, mode = 'outer')
-        result4 = HP1.minkowski_sum(I)
-        result5 = HP1.minkowski_sum(I, mode = 'outer')
+        result1 = cs.minkowski_sum(HP1, v)
+        result2 = cs.minkowski_sum(HP1, HP1)
+        result3 = cs.minkowski_sum(HP1, HP1, mode = 'outer')
+        result4 = cs.minkowski_sum(HP1, I)
+        result5 = cs.minkowski_sum(HP1, I, mode = 'outer')
 
         true_result1 = HPolyhedron(A = np.array([[1., 0.], [-1., 1.], [-1., -1.]]),
                                    b = np.array([3., -2., 0.]))
@@ -1185,11 +1237,15 @@ class TestBinaryOperations(unittest.TestCase):
         true_result4 = HPolyhedron(A = np.array([[0., 1.], [0., -1.], [1., 0.], [-1., 0.], [-1./np.sqrt(2), 1./np.sqrt(2)], [-1./np.sqrt(2), -1./np.sqrt(2)]]),
                                    b = np.array([3., 2., 4., 2., 2.121320343559643, np.sqrt(2)]))
         
-        assert result1 == true_result1
-        assert result2 == true_result2
-        assert result3.contains(true_result2)
-        assert result4 == true_result4
-        assert result5.contains(true_result4)
+        assert cs.equals(result1, true_result1)
+        assert cs.equals(result2, true_result2)
+        assert cs.contains(result3, true_result2)
+        assert cs.equals(result4, true_result4)
+        assert cs.contains(result5, true_result4)
+
+
+        with self.assertRaises(OtherFunctionError):
+            HP1 + HP1
 
 
         # cases:
@@ -1197,22 +1253,33 @@ class TestBinaryOperations(unittest.TestCase):
         # - single vertex + multiple vertices
         # - multiple vertices + vector
         # - vpolytope + zonotope
-        VP_1 = VPolytope(V = np.array([2., 1.]))
-        VP_2 = VPolytope(V = np.array([-1., 4.]))
-        VP_3 = VPolytope(V = np.array([[1., 0.], [-1., -1.], [-1., 1.]]))
+        VP1 = VPolytope(V = np.array([2., 1.]))
+        VP2 = VPolytope(V = np.array([-1., 4.]))
+        VP3 = VPolytope(V = np.array([[1., 0.], [-1., -1.], [-1., 1.]]))
         Z = Zonotope(c = np.array([2., 1.]))
 
-        result_1 = VP_1.minkowski_sum(VP_2)
-        result_2 = VP_2.minkowski_sum(VP_1)
-        result_3 = VP_1.minkowski_sum(VP_3)
-        result_4 = VP_3.minkowski_sum(np.array([2., 1.]))
-        result_5 = VP_3.minkowski_sum(Z)
+        result1 = cs.minkowski_sum(VP1, VP2)
+        result2 = cs.minkowski_sum(VP2, VP1)
+        result3 = cs.minkowski_sum(VP1, VP3)
+        result4 = cs.minkowski_sum(VP3, np.array([2., 1.]))
+        result5 = cs.minkowski_sum(VP3, Z)
 
-        VP_12 = VPolytope(V = np.array([1., 5.]))
-        VP_13 = VPolytope(V = np.array([[3., 1.], [1., 0.], [1., 2.]]))
+        VP12 = VPolytope(V = np.array([1., 5.]))
+        VP13 = VPolytope(V = np.array([[3., 1.], [1., 0.], [1., 2.]]))
 
-        assert result_1 == VP_12
-        assert result_2 == VP_12
-        assert result_3 == VP_13
-        assert result_4 == VP_13
-        assert result_5 == VP_13
+        assert cs.equals(result1, VP12)
+        assert cs.equals(result2, VP12)
+        assert cs.equals(result3, VP13)
+        assert cs.equals(result4, VP13)
+        assert cs.equals(result5, VP13)
+
+
+        # check exceptions
+        with self.assertRaises(OtherFunctionError):
+            # call minkowski_sum instead of __add__
+            VP1 + VP1
+
+
+if __name__ == '__main__':
+    unittest.main()
+    

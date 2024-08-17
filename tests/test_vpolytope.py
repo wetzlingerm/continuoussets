@@ -1,8 +1,10 @@
 import unittest
 import numpy as np
 #import matplotlib.pyplot as plt
-from continuoussets.utils import comparison, exceptions
+import continuoussets as cs
+from continuoussets.utils.comparison import compare_matrices
 from continuoussets.convexsets.vpolytope import VPolytope
+
 
 class TestVPolytope(unittest.TestCase):
 
@@ -83,13 +85,8 @@ class TestVPolytope(unittest.TestCase):
         true_result2 = VPolytope(V = np.array([[-1., -1.], [0., 0.], [0., -1.]]))
 
         # check results
-        assert result1 == true_result1
-        assert result2 == true_result2
-
-        # check exceptions
-        with self.assertRaises(exceptions.OtherFunctionError):
-            # call minkowski_sum instead of __add__
-            VP_1 + VP_1
+        assert cs.equals(result1, true_result1)
+        assert cs.equals(result2, true_result2)
 
     def test_neg(self):
         ''' Test for unary minus '''
@@ -138,13 +135,8 @@ class TestVPolytope(unittest.TestCase):
         true_result2 = VPolytope(V = np.array([[3., -1.], [4., 0.], [4., -1.]]))
 
         # check results
-        assert result1 == true_result1
-        assert result2 == true_result2
-
-        # check exceptions
-        with self.assertRaises(exceptions.OtherFunctionError):
-            # call minkowski_difference instead of __sub__
-            VP_1 - VP_1
+        assert cs.equals(result1, true_result1)
+        assert cs.equals(result2, true_result2)
 
     def test_basis_affine_hull(self):
         ''' Test for basis of affine hull '''
@@ -177,6 +169,7 @@ class TestVPolytope(unittest.TestCase):
         result1 = VP_2D.boundary_point(np.array([0., -1.]))
         result2 = VP_2D.boundary_point(np.array([1., 1.]))
         result3 = VP_2D.boundary_point(np.array([-1., -1.]))
+        result4 = VP_far.boundary_point(np.array([1., 0.]))
 
         true_result1 = np.array([0., -1.])
         true_result2 = np.array([0.5, 0.5])
@@ -185,12 +178,11 @@ class TestVPolytope(unittest.TestCase):
         assert np.allclose(result1, true_result1)
         assert np.allclose(result2, true_result2)
         assert np.allclose(result3, true_result3)
+        assert result4 is None
 
-        # vpolytope degenerate / does not contain the origin
+        # vpolytope degenerate
         with self.assertRaises(NotImplementedError):
             VP_singlevertex.boundary_point(np.array([-1., 0.]))
-        with self.assertRaises(NotImplementedError):
-            VP_far.boundary_point(np.array([1., 0.]))
 
     def test_bounded(self):
         ''' Test for boundedness '''
@@ -221,7 +213,7 @@ class TestVPolytope(unittest.TestCase):
         c_2D = VP_2D.center()
 
         assert np.array_equal(c_single, np.reshape(V_singlevertex, (2,)))
-        assert VP_2D.contains(c_2D)
+        assert cs.contains(VP_2D, c_2D)
 
     def test_compact(self):
         ''' Test for minimal representation '''
@@ -249,9 +241,9 @@ class TestVPolytope(unittest.TestCase):
         result_1D = VP_1D.compact()
 
         assert np.array_equal(V_singlevertex, result_singlevertex.V)
-        assert comparison.compare_matrices(V_multiple_no_red, result_multiple_no_red.V)
-        assert comparison.compare_matrices(V_multiple_no_red, result_multiple_red.V)
-        assert comparison.compare_matrices(np.array([[-1.], [2.]]), result_1D.V)
+        assert compare_matrices(V_multiple_no_red, result_multiple_no_red.V)
+        assert compare_matrices(V_multiple_no_red, result_multiple_red.V)
+        assert compare_matrices(np.array([[-1.], [2.]]), result_1D.V)
     
     def test_degenerate(self):
         ''' Test for degeneracy '''
@@ -292,14 +284,14 @@ class TestVPolytope(unittest.TestCase):
         M1 = np.array([[2., 1.], [-1., 0.]])
         M2 = np.array([[1., -1.]])
 
-        result_1 = VP_1.matmul(M1)
-        result_2 = VP_2.matmul(M2)
+        result1 = VP_1.matmul(M1)
+        result2 = VP_2.matmul(M2)
 
-        true_result_1 = VPolytope(V = np.array([4., -1.]))
-        true_result_2 = VPolytope(V = np.array([[-1.], [-1.], [1.]]))
+        true_result1 = VPolytope(V = np.array([4., -1.]))
+        true_result2 = VPolytope(V = np.array([[-1.], [-1.], [1.]]))
 
-        assert result_1 == true_result_1
-        assert result_2 == true_result_2
+        assert cs.equals(result1, true_result1)
+        assert cs.equals(result2, true_result2)
 
     def test_project(self):
         ''' Test for projection '''
@@ -314,8 +306,8 @@ class TestVPolytope(unittest.TestCase):
         VP_1_proj = VPolytope(V = np.array([[2., -1.]]))
         VP_2_proj = VPolytope(V = np.array([[0., -1.], [-1., 0.], [1., 2.], [-1., 1.], [1., 1.], [2., 0.]]))
 
-        assert VP_1_proj == VP_1.project(axis = (0, 3))
-        assert VP_2_proj == VP_2.project(axis = (1, 2))
+        assert cs.equals(VP_1_proj, VP_1.project(axis = (0, 3)))
+        assert cs.equals(VP_2_proj, VP_2.project(axis = (1, 2)))
 
     def test_project_affine_hull(self):
         ''' Test for projection onto affine hull '''
@@ -337,9 +329,9 @@ class TestVPolytope(unittest.TestCase):
                                                [-8.485281374238570, 0.],
                                                [-4.242640687119286, 2.449489742783178]]))
 
-        assert result1 == VP1
+        assert cs.equals(result1, VP1)
         assert np.array_equal(c1, np.zeros(2))
-        assert result2 == true_result2
+        assert cs.equals(result2, true_result2)
         assert np.allclose(c2, np.array([2., -1., 1.]))
 
     def test_reduce(self):
@@ -377,8 +369,8 @@ class TestVPolytope(unittest.TestCase):
         V2 = np.array([[2., 1.], [-1., 2.], [0., -4.]])
         VP_2 = VPolytope(V = V2)
 
-        assert comparison.compare_matrices(VP_1.vertices(), V1)
-        assert comparison.compare_matrices(VP_2.vertices(), V2)
+        assert compare_matrices(VP_1.vertices(), V1)
+        assert compare_matrices(VP_2.vertices(), V2)
 
     def test_volume(self):
         ''' Test for volume computation '''
@@ -390,8 +382,8 @@ class TestVPolytope(unittest.TestCase):
         VP_2 = VPolytope(V = np.array([[1., 0.], [0., 1.], [-1., 2.]]))
         VP_3 = VPolytope(V = np.array([[2., 1.], [-1., 2.], [0., -4.]]))
 
-        assert VP_1.volume() == 0
-        assert VP_2.volume() == 0
+        assert VP_1.volume() == 0.
+        assert VP_2.volume() == 0.
 
         with self.assertRaises(NotImplementedError):
             VP_3.volume()

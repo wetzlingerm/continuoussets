@@ -1,11 +1,11 @@
 import unittest
 import numpy as np
 #import matplotlib.pyplot as plt
-from continuoussets.utils import comparison, exceptions, auxiliary
+import continuoussets as cs
+from continuoussets.utils.comparison import compare_matrices
+from continuoussets.utils.exceptions import UnboundedSetError, EmptySetError
 from continuoussets.convexsets.hpolyhedron import HPolyhedron
-from continuoussets.convexsets.vpolytope import VPolytope
-from continuoussets.convexsets.interval import Interval
-from continuoussets.convexsets.zonotope import Zonotope
+
 
 class TestHPolyhedron(unittest.TestCase):
 
@@ -78,7 +78,6 @@ class TestHPolyhedron(unittest.TestCase):
         ''' Test for positive translation '''
         # cases:
         # - HPolyhedron x vector
-        # - HPolyhedron x HPolyhedron (error)
         HP1 = HPolyhedron(A = np.array([[1., 0.], [0., 1.], [-1., -1.]]), b = np.array([2., 1., 3.]))
         vector = np.array([2., 1.])
 
@@ -86,10 +85,7 @@ class TestHPolyhedron(unittest.TestCase):
 
         true_result1 = HPolyhedron(A = np.array([[1., 0.], [0., 1.], [-1., -1.]]), b = np.array([4., 2., 0.]))
 
-        assert result1 == true_result1
-
-        with self.assertRaises(exceptions.OtherFunctionError):
-            HP1 + HP1
+        assert cs.equals(result1, true_result1)
 
     def test_neg(self):
         ''' Test for unary minus '''
@@ -101,7 +97,7 @@ class TestHPolyhedron(unittest.TestCase):
 
         true_result1 = HPolyhedron(A = np.array([[-1., 0.], [0., -1.], [1., 1.]]), b = np.array([2., 1., 3.]))
 
-        assert result1 == true_result1
+        assert cs.equals(result1, true_result1)
 
     def test_pos(self):
         ''' Test for unary plus '''
@@ -110,14 +106,12 @@ class TestHPolyhedron(unittest.TestCase):
         HP1 = HPolyhedron(A = np.array([[1., 0.], [0., 1.], [-1., -1.]]), b = np.array([2., 1., 3.]))
         result1 = +HP1
 
-        #assert result1 == HP1
-        assert True
+        assert cs.equals(result1, HP1)
 
     def test_sub(self):
         ''' Test for negative translation '''
         # cases:
         # - HPolyhedron x vector
-        # - HPolyhedron x HPolyhedron (error)
         HP1 = HPolyhedron(A = np.array([[1., 0.], [0., 1.], [-1., -1.]]), b = np.array([2., 1., 3.]))
         vector = np.array([2., 1.])
 
@@ -125,10 +119,7 @@ class TestHPolyhedron(unittest.TestCase):
 
         true_result1 = HPolyhedron(A = np.array([[1., 0.], [0., 1.], [-1., -1.]]), b = np.array([0., 0., 6.]))
 
-        assert result1 == true_result1
-
-        with self.assertRaises(exceptions.OtherFunctionError):
-            HP1 - HP1
+        assert cs.equals(result1, true_result1)
 
     def test_basis_affine_hull(self):
         ''' Test for basis of affine hull '''
@@ -152,9 +143,9 @@ class TestHPolyhedron(unittest.TestCase):
 
         assert np.array_equal(result1, np.eye(2))
         assert r1 == 2
-        assert comparison.compare_matrices(result2, true_result2)
+        assert compare_matrices(result2, true_result2)
         assert r2 == 1
-        assert comparison.compare_matrices(result3, true_result2)
+        assert compare_matrices(result3, true_result2)
         assert r3 == 1
 
     def test_boundary_point(self):
@@ -187,7 +178,7 @@ class TestHPolyhedron(unittest.TestCase):
 
         with self.assertRaises(NotImplementedError):
             HP_noorigin.boundary_point(np.array([1., 0.]))
-        with self.assertRaises(exceptions.UnboundedSetError):
+        with self.assertRaises(UnboundedSetError):
             HP_unbounded.boundary_point(np.array([-1., 0., 1.]))
         with self.assertRaises(NotImplementedError):
             HP_deg.boundary_point(np.array([1., 0.]))
@@ -221,9 +212,9 @@ class TestHPolyhedron(unittest.TestCase):
         HP3 = HPolyhedron(A = np.array([[1., 1.], [-1., 1.], [-1., -1.], [1., -1.]]),
                           b = np.array([1., 1., 1., 1.]))
         
-        with self.assertRaises(exceptions.EmptySetError):
+        with self.assertRaises(EmptySetError):
             HP1.center()
-        with self.assertRaises(exceptions.UnboundedSetError):
+        with self.assertRaises(UnboundedSetError):
             HP2.center()
         assert np.array_equal(HP3.center(), np.zeros(2))
 
@@ -248,13 +239,13 @@ class TestHPolyhedron(unittest.TestCase):
         result4 = HP4.compact()
 
         assert result1.number_constraints() == 3
-        assert result1 == HP1
+        assert cs.equals(result1, HP1)
         assert result2.number_constraints() == 3
-        assert result2 == HP2
+        assert cs.equals(result2, HP2)
         assert result3.number_constraints() == 1
-        assert result3 == HP3
+        assert cs.equals(result3, HP3)
         assert result4.number_constraints() == 3
-        assert result4 == HP4
+        assert cs.equals(result4, HP4)
 
     def test_degenerate(self):
         ''' Test for degeneracy check '''
@@ -330,10 +321,10 @@ class TestHPolyhedron(unittest.TestCase):
         true_result4 = HPolyhedron(A = np.array([[-0.5, -0.5], [0.5, 1.], [-0.5, -1.], [0.5, 0.5]]),
                                    b = np.ones(4))
 
-        assert result1 == HP1
-        assert result2 == true_result2
-        assert result3 == true_result3
-        assert result4 == true_result4
+        assert cs.equals(result1, HP1)
+        assert cs.equals(result2, true_result2)
+        assert cs.equals(result3, true_result3)
+        assert cs.equals(result4, true_result4)
 
         with self.assertRaises(NotImplementedError):
             HP1.matmul(M5)
@@ -348,7 +339,7 @@ class TestHPolyhedron(unittest.TestCase):
 
         true_result1 = HPolyhedron(A = np.array([[1.], [-1.]]), b = np.array([1., 1.]))
 
-        assert result1 == true_result1
+        assert cs.equals(result1, true_result1)
 
     def test_project_affine_hull(self):
         ''' Test for projection onto the basis of the affine hull '''
@@ -370,10 +361,10 @@ class TestHPolyhedron(unittest.TestCase):
 
         true_result2 = HPolyhedron(A = np.array([[1.], [-1.]]), b = np.array([0., np.sqrt(2.)]))
 
-        assert result1 == HP1
+        assert cs.equals(result1, HP1)
         assert np.array_equal(c1, np.zeros(2))
-        assert result2 == true_result2
-        assert result3 == true_result2
+        assert cs.equals(result2, true_result2)
+        assert cs.equals(result3, true_result2)
 
     def test_reduce(self):
         ''' Test for reduction of the set representation size '''
@@ -398,7 +389,7 @@ class TestHPolyhedron(unittest.TestCase):
         (value2, vector2) = HP2.support_function(np.array([1., 1.]))
         (value3, vector3) = HP3.support_function(np.array([1., 0.]))
 
-        assert value1 == 3.
+        assert np.isclose(value1, 3.)
         assert np.array_equal(vector1, np.array([2., 1.]))
         assert value2 == np.inf
         assert value3 == -np.inf
@@ -425,12 +416,12 @@ class TestHPolyhedron(unittest.TestCase):
         true_result1 = np.array([[-1., 0.], [1., -2.], [1., 2.]])
         true_result2 = np.array([[5.5, -2.5], [6.5, -1.5]])
 
-        assert comparison.compare_matrices(V1, true_result1)
-        assert comparison.compare_matrices(V2, true_result2)
+        assert compare_matrices(V1, true_result1)
+        assert compare_matrices(V2, true_result2)
         
-        with self.assertRaises(exceptions.EmptySetError):
+        with self.assertRaises(EmptySetError):
             HP3.vertices()
-        with self.assertRaises(exceptions.UnboundedSetError):
+        with self.assertRaises(UnboundedSetError):
             V4 = HP4.vertices()
 
     def test_volume(self):

@@ -33,7 +33,7 @@ class CartesianProduct(IBinaryOperation):
                  mode: str):
 
         # call superclass constructor
-        super().__init__(S1, S2, mode)
+        super().__init__(S1, S2, mode = mode)
 
         # get concrete implementation function
         strategy_key = self.get_strategy_key()
@@ -68,13 +68,13 @@ def _cartesian_product_point_zonotope(s1, Z2, mode) -> zonotope.Zonotope:
 
 @CartesianProduct.register_strategy(SetPair('ndarray', 'VPolytope'))
 def _cartesian_product_point_vpolytope(s1, VP2, mode) -> vpolytope.VPolytope:
-    VP1 = Convert(s1, 'VPolytope', mode = 'exact')
+    VP1 = Convert(s1, 'VPolytope', mode = 'exact')()
     return _cartesian_product_vpolytope_vpolytope(VP1, VP2, mode = mode)
 
 
 @CartesianProduct.register_strategy(SetPair('ndarray', 'HPolyhedron'))
 def _cartesian_product_point_hpolyhedron(s1, HP2, mode) -> hpolyhedron.HPolyhedron:
-    HP1 = Convert(s1, 'VPolytope', mode = 'exact')
+    HP1 = Convert(s1, 'VPolytope', mode = 'exact')()
     return _cartesian_product_hpolyhedron_hpolyhedron(HP1, HP2, mode = mode)
 
 
@@ -97,9 +97,9 @@ def _cartesian_product_interval_interval(I1, I2, mode) -> interval.Interval:
                                      SetPair('Interval', 'HPolyhedron')))
 def _cartesian_product_interval_zonotope(I1, S2, mode) -> interval.Interval:
     try:
-        I2 = Convert(S2, 'Interval', mode = mode)
+        I2 = Convert(S2, 'Interval', mode = mode)()
     except (UnboundedSetError):
-        HP1 = Convert(I1, 'HPolyhedron', mode = 'exact')
+        HP1 = Convert(I1, 'HPolyhedron', mode = 'exact')()
         return CartesianProduct(HP1, S2, mode = mode)()
     except (ExactEvaluationImpossibleError, NotImplementedError):  # mode = 'exact
         S1 = Convert(I1, type(S2).__name__, mode = mode)()
@@ -149,7 +149,7 @@ def _cartesian_product_zonotope_vpolytope(Z1, VP2, mode) -> zonotope.Zonotope:
 @CartesianProduct.register_strategy(SetPair('Zonotope', 'HPolyhedron'))
 def _cartesian_product_zonotope_hpolyhedron(Z1, HP2, mode) -> zonotope.Zonotope:
     if HP2.dimension == 1 and not HP2.empty() and HP2.bounded():
-        Z2 = Convert(HP2, 'Zonotope', mode = mode)
+        Z2 = Convert(HP2, 'Zonotope', mode = mode)()
         return _cartesian_product_zonotope_zonotope(Z1, Z2, mode = mode)
     elif Represents(HP2, 'ndarray', rtol = 1e-12, atol = 1e-12)():
         return _cartesian_product_zonotope_point(Z1, HP2.center(), mode = mode)

@@ -7,9 +7,7 @@ from typing import Union
 import numpy as np
 
 from continuoussets.convexsets.interface_convexset import IConvexSet
-from continuoussets.utils.exceptions import OutOfBoundsError
-
-# todo: remove all functions that are in binary_operations (handled via superclass)
+from continuoussets.utils.exceptions import OutOfBoundsError, OtherFunctionError
 
 
 if __name__ == '__main__':
@@ -32,12 +30,21 @@ class Interval(IConvexSet):
         Returns:
             Interval: Bounded, closed, continuous interval.
         """
+        # if only one bound given, use it for lower and upper
         if lb is None:
-            # use upper bound as lower bound
             lb = ub
         elif ub is None:
-            # use lower bound as upper bound
             ub = lb
+
+        if self.validate and validate:
+            if (not isinstance(lb, int) and not isinstance(lb, float)
+                    and not isinstance(lb, list) and not isinstance(lb, np.ndarray)):
+                raise TypeError('Interval:__init__',
+                                'Lower bound must be int, float, list or np.ndarray')
+            if (not isinstance(ub, int) and not isinstance(ub, float)
+                    and not isinstance(ub, list) and not isinstance(ub, np.ndarray)):
+                raise TypeError('Interval:__init__',
+                                'Upper bound must be int, float, list or np.ndarray.')
 
         # convert to numpy with list of floats (if possible)
         if not isinstance(lb, np.ndarray):
@@ -90,78 +97,6 @@ class Interval(IConvexSet):
         """
         return Interval(lb = self.lb.copy(), ub = self.ub.copy(), validate = False)
 
-    # todo: decide whether to keep this method...
-    # conversion from vector/zonotope/vpolytope/hpolyhedron
-    # @classmethod
-    # def convert(S: Union[IConvexSet, np.ndarray], *, mode: str = 'exact') -> Interval:
-    #     """Conversion of a set or vector to an Interval.
-
-    #     Args:
-    #         S (Union[IConvexSet, np.ndarray]): Set or vector.
-    #         mode (str, optional): Approxmation of the conversion: 'inner', 'exact', 'outer'. Defaults to 'exact'.
-
-    #     Returns:
-    #         Interval: Converted set or vector.
-    #     """
-    #     # todo: check mode
-    #     if isinstance(S, np.ndarray):
-    #         return _convert_from_vector(S, mode = mode)
-    #     elif type(S).__name__ == 'Zonotope':
-    #         return _convert_from_zonotope(S, mode = mode)
-    #     elif type(S).__name__ == 'VPolytope':
-    #         return _convert_from_vpolytope(S, mode = mode)
-    #     elif type(S).__name__ == 'HPolyhedron':
-    #         return _convert_from_hpolyhedron(S, mode = mode)
-    #     else:
-    #         NotImplementedError
-
-    # # conversion to zonotope
-    # def zonotope(self, *, mode: str = 'exact') -> dict:
-    #     """Conversion to a Zonotope Z.
-
-    #     Args:
-    #         mode (str, optional): Approximation of conversion: 'inner', 'exact', 'outer'. Defaults to 'exact'.
-
-    #     Returns:
-    #         dict: keyword arguments for instantiation of a Zonotope object
-    #     """
-    #     self._checkMode(mode)
-
-    #     # every interval is a zonotope, so all modes 'exact', 'outer', 'inner' yield the same result
-    #     generators = np.diag(self.diameter())
-    #     generators = 0.5*generators[~np.all(generators == 0, axis=0), :]
-    #     return {'c': self.center(), 'G': generators}
-
-    # # conversion to hpolyhedron
-    # def hpolyhedron(self, *, mode: str = 'exact') -> dict:
-    #     """Conversion of an Interval I to an HPolyhedron HP.
-
-    #     Args:
-    #         mode (str, optional): Approximation of conversion: 'inner', 'exact', 'outer'. Defaults to 'exact'.
-
-    #     Returns:
-    #         dict: keyword arguments for instantiation of a HPolyhedron object
-    #     """
-    #     self._checkMode(mode)
-
-    #     # for consistency, support modes 'exact', 'outer', 'inner'
-    #     return {'A': np.vstack((np.eye(self.dimension), -np.eye(self.dimension))),
-    #             'b': np.hstack((self.ub, -self.lb))}
-    
-    # # conversion to vpolytope
-    # def vpolytope(self, *, mode: str = 'exact') -> dict:
-    #     """Conversion to a VPolytope VP.
-
-    #     Args:
-    #         mode (str, optional): Approximation of the conversion: 'inner', 'exact', 'outer'. Defaults to 'exact'.
-
-    #     Returns:
-    #         dict: Keyword arguments for instantiation of a VPolytope object.
-    #     """
-    #     self._checkMode(mode)
-
-    #     return {'V': self.vertices()}
-
     # indexing
     def __getitem__(self, key: Union[int, slice]):
         """Read out the i-th dimension(s) of an Interval I.
@@ -173,7 +108,7 @@ class Interval(IConvexSet):
             Interval: Composed of the selected dimensions.
         """
         # exception handling done in numpy
-        return Interval(lb = self.lb[key], ub = self.ub[key], validate=False)
+        return Interval(lb = self.lb[key], ub = self.ub[key], validate = False)
 
     # set index
     def __setitem__(self, index: Union[slice, int], value: Interval):
@@ -207,7 +142,7 @@ class Interval(IConvexSet):
         return f'dimension: {self.dimension}{newline}lower bound: {self.lb}{newline}upper bound: {self.ub}'
 
     # ----------
-    # DUNDER METHODS FOR INTERVAL ARITHMETIC
+    # (DUNDER) METHODS FOR INTERVAL ARITHMETIC
     # ----------
 
     def __array_ufunc__(self, ufunc, method: str, *args, **kwargs) -> Interval:
@@ -229,7 +164,7 @@ class Interval(IConvexSet):
             return args[1] * args[0]
         elif ufunc.__name__ == "divide":
             # should be __rtruediv__ -> init interval and call __truediv__
-            return Interval(lb = args[0], ub = args[0], validate=False) / args[1]
+            return Interval(lb = args[0], ub = args[0], validate = False) / args[1]
         elif ufunc.__name__ == 'add':
             # should be __radd__ -> re-order and call __add__
             return args[1] + args[0]
@@ -254,11 +189,13 @@ class Interval(IConvexSet):
         if isinstance(other, Interval):
             lower = self.lb + other.lb
             upper = self.ub + other.ub
+        elif isinstance(other, IConvexSet):
+            raise OtherFunctionError((self, other), 'minkowski_sum')
         else:
             lower = self.lb + other
             upper = self.ub + other
 
-        return Interval(lb = lower, ub = upper, validate=False)
+        return Interval(lb = lower, ub = upper, validate = False)
 
     # Minkowski sum
     def __radd__(self, other: Union[np.ndarray, list, int, float]) -> Interval:
@@ -271,32 +208,6 @@ class Interval(IConvexSet):
             Interval: Result of the Minkowski sum.
         """
         return self + other
-
-    # # set equality
-    # def __eq__(self, other: Union[IConvexSet, np.ndarray], *, rtol: float = 1e-5, atol: float = 1e-8) -> bool:
-    #     """Set equality of an Interval I with another set or vector S.
-    #     Defined as forall i in I: i in S and forall s in S: s in I?
-
-    #     Args:
-    #         other (Union[IConvexSet, np.ndarray]): Set or vector.
-    #         rtol (float, optional): Relative tolerance. Defaults to 1e-5.
-    #         atol (float, optional): Absolute tolerance. Defaults to 1e-8.
-
-    #     Returns:
-    #         bool: Set equality.
-    #     """
-    #     self._checkOtherOperand(other, check_dimension = False)
-
-    #     if ((isinstance(other, IConvexSet) and self.dimension != other.dimension)
-    #             or (isinstance(other, np.ndarray) and self.dimension != other.shape[0])):
-    #         return False
-    #     elif isinstance(other, np.ndarray):
-    #         return self.__eq__(Interval(lb = other, ub = other), rtol = rtol, atol = atol)
-    #     elif isinstance(other, Interval):
-    #         return np.allclose(self.lb, other.lb, rtol = rtol, atol = atol) and \
-    #             np.allclose(self.ub, other.ub, rtol = rtol, atol = atol)
-    #     elif isinstance(other, IConvexSet):
-    #         return other.__eq__(self, rtol = rtol, atol = atol)
 
     # element-wise multiplication
     def __mul__(self, other: Union[Interval, np.ndarray, list, int, float]) -> Interval:
@@ -319,9 +230,9 @@ class Interval(IConvexSet):
             possible_values = np.vstack((other * self.lb,
                                          other * self.ub))
 
-        lower = np.min(possible_values, axis=0)
-        upper = np.max(possible_values, axis=0)
-        return Interval(lb = lower, ub = upper, validate=False)
+        lower = np.min(possible_values, axis = 0)
+        upper = np.max(possible_values, axis = 0)
+        return Interval(lb = lower, ub = upper, validate = False)
 
     # element-wise multiplication
     def __rmul__(self, other: Union[np.ndarray, list, int, float]) -> Interval:
@@ -342,7 +253,7 @@ class Interval(IConvexSet):
         Returns:
             Interval: Input Interval times -1.
         """
-        return Interval(lb = -self.ub, ub = -self.lb, validate=False)
+        return Interval(lb = -self.ub, ub = -self.lb, validate = False)
 
     # unary plus
     def __pos__(self) -> Interval:
@@ -351,7 +262,7 @@ class Interval(IConvexSet):
         Returns:
             Interval: Same as input Interval.
         """
-        return Interval(lb = self.lb, ub = self.ub, validate=False)
+        return Interval(lb = self.lb, ub = self.ub, validate = False)
 
     # exponentiation
     def __pow__(self, power: Union[np.ndarray, list, float, int]) -> Interval:
@@ -373,9 +284,9 @@ class Interval(IConvexSet):
             power = np.array(power)
 
         if np.all(power == 0):
-            return Interval(lb = np.ones(self.dimension), ub = np.ones(self.dimension), validate=False)
+            return Interval(lb = np.ones(self.dimension), ub = np.ones(self.dimension), validate = False)
         elif np.all(power == 1):
-            return Interval(lb = self.lb, ub = self.ub, validate=False)
+            return Interval(lb = self.lb, ub = self.ub, validate = False)
 
         # init bounds
         lower = np.zeros(self.dimension)
@@ -383,7 +294,7 @@ class Interval(IConvexSet):
 
         # base contains zero and exponent is negative -> Inf
         if np.any(np.all(np.vstack((self.lb <= np.zeros(self.dimension), self.ub >= np.zeros(self.dimension), power < 0)),
-                         axis=0)):
+                         axis = 0)):
             raise ValueError('Interval:__pow__',
                              'Exponentiation of 0 with a negative exponent.')
 
@@ -395,7 +306,7 @@ class Interval(IConvexSet):
 
         # non-integer exponents
         index_noninteger = np.logical_and(remaining_indices, np.mod(power, 1) != 0)
-        if np.any(np.all(np.vstack((index_noninteger, self.lb < 0)), axis=0)):
+        if np.any(np.all(np.vstack((index_noninteger, self.lb < 0)), axis = 0)):
             raise ValueError('Interval:__pow__',
                              'Exponentiation with non-integer number and negative base.')
         lower[index_noninteger] = self.lb[index_noninteger] ** power[index_noninteger]
@@ -413,7 +324,7 @@ class Interval(IConvexSet):
         lower[index_odd] = self.lb[index_odd] ** power[index_odd]
         upper[index_odd] = self.ub[index_odd] ** power[index_odd]
 
-        return Interval(lb = lower, ub = upper, validate=False)
+        return Interval(lb = lower, ub = upper, validate = False)
 
     # interval arithmetic subtraction (not Minkowski difference!)
     def __sub__(self, other: Union[Interval, np.ndarray, list, int, float]) -> Interval:
@@ -436,7 +347,7 @@ class Interval(IConvexSet):
             lower = self.lb - other
             upper = self.ub - other
 
-        return Interval(lb = lower, ub = upper, validate=False)
+        return Interval(lb = lower, ub = upper, validate = False)
 
     # interval arithmetic subtraction (not Minkowski difference!)
     def __rsub__(self, other: Union[np.ndarray, list, int, float]) -> Interval:
@@ -454,7 +365,7 @@ class Interval(IConvexSet):
             other = np.repeat(other, self.dimension)
         elif isinstance(other, list):
             other = np.array(other)
-        minuend = Interval(lb = other, ub = other, validate=False)
+        minuend = Interval(lb = other, ub = other, validate = False)
         return minuend - self
 
     # division
@@ -474,15 +385,15 @@ class Interval(IConvexSet):
         self._checkIntervalArithmetic(other)
 
         if isinstance(other, Interval):
-            if np.any(other.contains(np.zeros(other.dimension))):
+            if other._contains_origin():
                 raise ZeroDivisionError
 
             stacked_result = np.vstack((self.lb / other.lb,
                                         self.lb / other.ub,
                                         self.ub / other.lb,
                                         self.ub / other.ub))
-            lower = np.min(stacked_result, axis=0)
-            upper = np.max(stacked_result, axis=0)
+            lower = np.min(stacked_result, axis = 0)
+            upper = np.max(stacked_result, axis = 0)
         else:
             if np.any(np.isclose(other, 0)):
                 raise ZeroDivisionError
@@ -496,10 +407,10 @@ class Interval(IConvexSet):
                     upper = self.ub / other
             else:  # other is list or np.ndarray
                 stacked_result = np.vstack((self.lb / other, self.ub / other))
-                lower = np.min(stacked_result, axis=0)
-                upper = np.max(stacked_result, axis=0)
+                lower = np.min(stacked_result, axis = 0)
+                upper = np.max(stacked_result, axis = 0)
 
-        return Interval(lb = lower, ub = upper, validate=False)
+        return Interval(lb = lower, ub = upper, validate = False)
 
     # division
     def __rtruediv__(self, other: Union[np.ndarray, list, int, float]) -> Interval:
@@ -517,10 +428,9 @@ class Interval(IConvexSet):
             other = np.repeat(other, self.dimension)
         elif isinstance(other, list):
             other = np.array(other)
-        dividend = Interval(lb = other, ub = other, validate=False)
+        dividend = Interval(lb = other, ub = other, validate = False)
         return dividend / self
 
-    # INTERVAL ARITHMETIC OPERATIONS
     # absolute value
     def absolute_value(self) -> Interval:
         """Absolute value of an Interval I.
@@ -530,8 +440,8 @@ class Interval(IConvexSet):
             Interval: Absolute value of the Interval.
         """
         stacked_abs = np.vstack((np.abs(self.lb), np.abs(self.ub)))
-        return Interval(lb = np.min(stacked_abs, axis=0),
-                        ub = np.max(stacked_abs, axis=0), validate=False)
+        return Interval(lb = np.min(stacked_abs, axis = 0),
+                        ub = np.max(stacked_abs, axis = 0), validate = False)
 
     # arccosine
     def arccos(self) -> Interval:
@@ -550,7 +460,7 @@ class Interval(IConvexSet):
                                    given_range = (self.lb[dim], self.ub[dim]),
                                    valid_range = f"{(-1, 1)}")
 
-        return Interval(lb = np.arccos(self.ub), ub = np.arccos(self.lb), validate=False)
+        return Interval(lb = np.arccos(self.ub), ub = np.arccos(self.lb), validate = False)
 
     # arcsine
     def arcsin(self) -> Interval:
@@ -569,7 +479,7 @@ class Interval(IConvexSet):
                                    given_range = (self.lb[dim], self.ub[dim]),
                                    valid_range = f"{(-1, 1)}")
 
-        return Interval(lb = np.arcsin(self.lb), ub = np.arcsin(self.ub), validate=False)
+        return Interval(lb = np.arcsin(self.lb), ub = np.arcsin(self.ub), validate = False)
 
     # arctangent
     def arctan(self) -> Interval:
@@ -578,7 +488,7 @@ class Interval(IConvexSet):
         Returns:
             Interval: Range of the arctangent over the Interval.
         """
-        return Interval(lb = np.arctan(self.lb), ub = np.arctan(self.ub), validate=False)
+        return Interval(lb = np.arctan(self.lb), ub = np.arctan(self.ub), validate = False)
 
     # cosine
     def cos(self) -> Interval:
@@ -590,7 +500,7 @@ class Interval(IConvexSet):
 
         lower = -((self - np.pi)._maxcos())
         upper = self._maxcos()
-        return Interval(lb = lower, ub = upper, validate=False)
+        return Interval(lb = lower, ub = upper, validate = False)
 
     def _maxcos(self) -> np.ndarray:
         """Adrian's magic helper function for the evaluation of the cosine over an Interval.
@@ -638,9 +548,9 @@ class Interval(IConvexSet):
                                          self.ub * other.lb,
                                          self.ub * other.ub))
 
-        lower = np.sum(np.min(possible_values, axis=0))
-        upper = np.sum(np.max(possible_values, axis=0))
-        return Interval(lb = np.array([lower]), ub = np.array([upper]), validate=False)
+        lower = np.sum(np.min(possible_values, axis = 0))
+        upper = np.sum(np.max(possible_values, axis = 0))
+        return Interval(lb = np.array([lower]), ub = np.array([upper]), validate = False)
 
     # natural logarithm
     def log(self) -> Interval:
@@ -656,7 +566,7 @@ class Interval(IConvexSet):
                                    given_range = (self.lb[dim], self.ub[dim]),
                                    valid_range = f"{(np.finfo(np.float64).eps, np.inf)}")
 
-        return Interval(lb = np.log(self.lb), ub = np.log(self.ub), validate=False)
+        return Interval(lb = np.log(self.lb), ub = np.log(self.ub), validate = False)
 
     # logarithm with base 10
     def log10(self) -> Interval:
@@ -672,7 +582,7 @@ class Interval(IConvexSet):
                                    given_range = (self.lb[dim], self.ub[dim]),
                                    valid_range = f"{(np.finfo(np.float64).eps, np.inf)}")
 
-        return Interval(lb = np.log10(self.lb), ub = np.log10(self.ub), validate=False)
+        return Interval(lb = np.log10(self.lb), ub = np.log10(self.ub), validate = False)
 
     # sine
     def sin(self) -> Interval:
@@ -697,7 +607,7 @@ class Interval(IConvexSet):
                                    given_range = (self.lb[dim], self.ub[dim]),
                                    valid_range = f"{(0, np.inf)}")
 
-        return Interval(lb = np.sqrt(self.lb), ub = np.sqrt(self.ub), validate=False)
+        return Interval(lb = np.sqrt(self.lb), ub = np.sqrt(self.ub), validate = False)
 
     # tangent
     def tan(self) -> Interval:
@@ -726,7 +636,7 @@ class Interval(IConvexSet):
                                    given_range = (self.lb[dim], self.ub[dim]),
                                    valid_range = "Any whole-number multiple of (0, 2*pi)")
 
-        return Interval(lb = lower_tan, ub = upper_tan, validate=False)
+        return Interval(lb = lower_tan, ub = upper_tan, validate = False)
 
     # ----------
     # SET OPERATIONS
@@ -763,10 +673,9 @@ class Interval(IConvexSet):
         self._checkOtherOperand(direction)
 
         # limit to intervals containing the origin for now...
-        if not self.contains(np.zeros(self.dimension)):
+        if not self._contains_origin():
             raise NotImplementedError
-        elif np.any(np.isclose(self.diameter(), 0.)):
-            # exclude degenerate for now...
+        elif self.degenerate():
             raise NotImplementedError
 
         # normalize direction
@@ -789,36 +698,6 @@ class Interval(IConvexSet):
         """
         return True
 
-    # # Cartesian product
-    # def cartesian_product(self, other: Union[IConvexSet, np.ndarray], *, mode: str = 'exact') -> Interval:
-    #     """Cartesian product of an Interval I and another set or vector S.
-    #     Defined as {[a^T s^T]^T | a in I, s in S}.
-
-    #     Args:
-    #         other (Union[IConvexSet, np.ndarray]): Set or vector.
-    #         mode (str, optional): Approximation of the evaluation: 'inner', 'exact', 'outer'. Defaults to 'exact'.
-
-    #     Raises:
-    #         NotImplementedError: Inner approximation not implemented unless other represents an Interval.
-    #         ExactEvaluationImpossibleError: Exact Cartesian product only representable by an Interval in special cases.
-
-    #     Returns:
-    #         Interval: Result of the Cartesian product.
-    #     """
-    #     self._checkMode(mode)
-
-    #     if isinstance(other, Interval):
-    #         return Interval(lb = np.hstack((self.lb, other.lb)),
-    #                         ub = np.hstack((self.ub, other.ub)), validate=False)
-    #     elif isinstance(other, np.ndarray):
-    #         return Interval(lb = np.hstack((self.lb, other)),
-    #                         ub = np.hstack((self.ub, other)), validate=False)
-    #     elif isinstance(other, IConvexSet):
-    #         # try converting to an interval according to the given mode
-    #         # note: operation below may throw ExactEvaluationImpossibleError!
-    #         other = Interval(**other.interval(mode = mode), validate=False)
-    #         return self.cartesian_product(other)
-
     # center
     def center(self) -> np.ndarray:
         """Center of an Interval I.
@@ -840,69 +719,18 @@ class Interval(IConvexSet):
             Interval: Same as input Interval.
         """
         return Interval(lb = self.lb, ub = self.ub)
+    
+    # specific containment check
+    def _contains_origin(self, *, atol: float = 1e-12) -> bool:
+        """Checks if the origin is contained in an Interval.
 
-    # # containment check
-    # def contains(self, other: Union[IConvexSet, np.ndarray], *, rtol: float = 1e-5, atol: float = 1e-8) -> bool:
-    #     """Checks containment of a set or vector S in an Interval I.
-    #     Defined as forall s in S: s in I?
+        Args:
+            atol (float, optional): Absolute tolerance. Defaults to 1e-12.
 
-    #     Args:
-    #         other (Union[IConvexSet, np.ndarray]): Set or vector.
-    #         rtol (float, optional): Relative tolerance. Defaults to 1e-5.
-    #         atol (float, optional): Absolute tolerance. Defaults to 1e-8.
-
-    #     Returns:
-    #         bool: Containment status.
-    #     """
-    #     self._checkOtherOperand(other)
-
-    #     if isinstance(other, Interval):
-    #         # todo: use tolerances
-    #         return np.all(self.lb <= other.lb) and np.all(self.ub >= other.ub)
-    #     elif isinstance(other, IConvexSet):
-    #         try:
-    #             other = Interval(**other.interval(mode = 'outer'), validate=False)
-    #         except (UnboundedSetError):
-    #             return False
-    #         return self.contains(other, rtol = rtol, atol = atol)
-    #     else:
-    #         # todo: use tolerances
-    #         return np.all(self.lb <= other) and np.all(self.ub >= other)
-
-    # # convex hull
-    # def convex_hull(self, other: Union[IConvexSet, np.ndarray], *, mode: str = 'exact') -> Interval:
-    #     """Convex hull of an Interval I and another set or vector S.
-    #     Defined as {lambda*a + (1-lambda)*s | a in I, s in S, lambda in [0,1]}
-
-    #     Args:
-    #         other (Union[IConvexSet, np.ndarray]): Set or vector.
-    #         mode (str, optional): Approximation of the evaluation: 'inner', 'exact', 'outer'. Defaults to 'exact'.
-
-    #     Raises:
-    #         NotImplementedError: Inner approximation and exact evaluation not implemented in the general case.
-
-    #     Returns:
-    #         Interval: Result of the convex hull.
-    #     """
-    #     self._checkOtherOperand(other)
-    #     self._checkMode(mode)
-
-    #     if mode in ['inner', 'exact'] and \
-    #             not (self.contains(other) or (isinstance(other, Interval) and other.contains(self))):
-    #         if mode == 'inner':
-    #             raise NotImplementedError
-    #         elif mode == 'exact':
-    #             raise ExactEvaluationImpossibleError
-
-    #     # mode = 'outer' from here on out... (covers exact cases if conditions are met)
-    #     if isinstance(other, Interval):
-    #         return Interval(lb = np.minimum(self.lb, other.lb),
-    #                         ub = np.maximum(self.ub, other.ub), validate=False)
-    #     elif isinstance(other, IConvexSet):
-    #         return self.convex_hull(Interval(**other.interval(mode = 'outer'), validate=False), mode = 'outer')
-    #     else:
-    #         return Interval(lb = np.minimum(self.lb, other),
-    #                         ub = np.maximum(self.ub, other), validate=False)
+        Returns:
+            bool: Origin contained in Interval.
+        """
+        return np.all(np.logical_and(self.lb - atol < 0, self.ub + atol > 0))
         
     # degeneracy
     def degenerate(self, *, rtol: float = 1e-5, atol: float = 1e-8) -> bool:
@@ -925,28 +753,6 @@ class Interval(IConvexSet):
             bool: Emptiness.
         """
         return False
-
-    # intersection check
-    # def intersects(self, other: Union[IConvexSet, np.ndarray], *, rtol: float = 1e-5, atol: float = 1e-8) -> bool:
-    #     """Checks if an Interval I intersects another set or vector S.
-    #     Defined as exists s in I: s in S?
-
-    #     Args:
-    #         other (Union[IConvexSet, np.ndarray]): Set or vector.
-    #         rtol (float, optional): Relative tolerance. Defaults to 1e-5.
-    #         atol (float, optional): Absolute tolerance. Defaults to 1e-8.
-
-    #     Returns:
-    #         bool: Result of the intersection check.
-    #     """
-    #     self._checkOtherOperand(other)
-
-    #     if isinstance(other, np.ndarray):
-    #         return self.contains(other)
-    #     elif isinstance(other, Interval):
-    #         return np.any(np.logical_not(np.any(np.vstack((other.ub <= self.lb + atol, other.lb >= self.ub - atol)), axis=0)))
-    #     else:
-    #         return other.intersects(self, rtol = rtol, atol = atol)
     
     # conversion to interval
     def interval(self, *, mode: str = 'exact') -> dict:
@@ -978,74 +784,10 @@ class Interval(IConvexSet):
         if isinstance(matrix, np.ndarray):
             matrix_lb = matrix * self.lb
             matrix_ub = matrix * self.ub
-            lower = np.sum(np.minimum(matrix_lb, matrix_ub), axis=1)
-            upper = np.sum(np.maximum(matrix_lb, matrix_ub), axis=1)
+            lower = np.sum(np.minimum(matrix_lb, matrix_ub), axis = 1)
+            upper = np.sum(np.maximum(matrix_lb, matrix_ub), axis = 1)
 
-        return Interval(lb = lower, ub = upper, validate=False)
-
-    # # Minkowski sum
-    # def minkowski_sum(self, other: Union[IConvexSet, np.ndarray], *, mode: str = 'exact') -> Interval:
-    #     """Minkowski sum of an Interval I and another set or vector S.
-    #     Defined as {a + s | a in I, s in S}.
-
-    #     Args:
-    #         other (Union[IConvexSet, np.ndarray]): Summand.
-    #         mode (str, optional): Approximation of the result: 'inner', 'exact', 'outer'. Defaults to 'exact'.
-
-    #     Returns:
-    #         Interval: Result of the Minkowski sum.
-    #     """
-    #     self._checkOtherOperand(other)
-    #     self._checkMode(mode)
-
-    #     if isinstance(other, np.ndarray):
-    #         lower = self.lb + other
-    #         upper = self.ub + other
-    #     elif isinstance(other, Interval):
-    #         lower = self.lb + other.lb
-    #         upper = self.ub + other.ub
-    #     else:
-    #         # convert other set to interval (may throw UnboundedSetError)
-    #         other = Interval(**other.interval(mode = mode), validate=False)
-    #         return self + other
-
-    #     return Interval(lb = lower, ub = upper, validate=False)
-
-    # # Minkowski difference
-    # def minkowski_difference(self, other: Union[IConvexSet, np.ndarray], *, mode: str = 'exact') -> Interval:
-    #     """Minkowski difference between an Interval I and another set or vector S.
-    #     Defined as {s | s + S in I}.
-
-    #     Args:
-    #         other (Union[IConvexSet, np.ndarray]): Set or vector.
-    #         mode (str, optional): Approximation of the result: 'inner', 'exact', 'outer'. Defaults to 'exact'.
-
-    #     Raises:
-    #         EmptySetError: Result is the empty set.
-
-    #     Returns:
-    #         Interval: Result of the Minkowski difference.
-    #     """
-    #     self._checkOtherOperand(other)
-    #     self._checkMode(mode)
-
-    #     # special case: Minkowski difference with a vector
-    #     if isinstance(other, np.ndarray):
-    #         return self - other
-
-    #     # convert subtrahend to interval
-    #     # note: outer approximative conversion still yields exact result
-    #     if not isinstance(other, Interval):
-    #         other = Interval(**other.interval(mode = 'outer'))
-
-    #     # check diameters
-    #     other_diameter = other.diameter()
-    #     if np.any(self.diameter() < other_diameter):
-    #         raise EmptySetError
-
-    #     other_center = other.center()
-    #     return Interval(lb = self.lb - other_center + 0.5*other_diameter,
-    #                     ub = self.ub - other_center - 0.5*other_diameter, validate = False)
+        return Interval(lb = lower, ub = upper, validate = False)
 
     # projection onto subspace
     def project(self, *, axis: tuple) -> Interval:
@@ -1060,7 +802,7 @@ class Interval(IConvexSet):
         self._checkSubspace(axis)
 
         # convert tuples to lists for indexing
-        return Interval(lb = self.lb[list(axis)], ub = self.ub[list(axis)], validate=False)
+        return Interval(lb = self.lb[list(axis)], ub = self.ub[list(axis)], validate = False)
 
     # projection onto its own affine hull
     def project_affine_hull(self) -> tuple:
@@ -1088,26 +830,7 @@ class Interval(IConvexSet):
         Returns:
             Interval: Interval with reduced set representation size.
         """
-        return Interval(lb = self.lb, ub = self.ub, validate=False)
-
-    # # representation by other set representation
-    # def represents(self, set_class: str, *, rtol: float = 1e-5, atol: float = 1e-8) -> bool:
-    #     """Check if an interval I can also be equivalently represented using another IConvexSet class.
-
-    #     Args:
-    #         set_class (str): Name of another IConvexSet class or 'Point'.
-    #         rtol (float, optional): Relative tolerance. Defaults to 1e-5.
-    #         atol (float, optional): Absolute tolerance. Defaults to 1e-8.
-
-    #     Returns:
-    #         bool: Representation possible.
-    #     """
-    #     self._checkSetClass(set_class)
-
-    #     if set_class == 'Point':
-    #         return np.allclose(self.diameter(), 0., rtol = rtol, atol = atol)
-
-    #     return True
+        return Interval(lb = self.lb, ub = self.ub, validate = False)
 
     # support function evaluation
     def support_function(self, direction: np.ndarray) -> tuple[float, np.ndarray]:
@@ -1139,8 +862,8 @@ class Interval(IConvexSet):
         Returns:
             Interval: Enclosing symmetric Interval.
         """
-        bound = np.max(np.vstack((np.abs(self.lb), np.abs(self.ub))), axis=0)
-        return Interval(lb = -bound, ub = bound, validate=False)
+        bound = np.max(np.vstack((np.abs(self.lb), np.abs(self.ub))), axis = 0)
+        return Interval(lb = -bound, ub = bound, validate = False)
 
     # vertex enumeration
     def vertices(self) -> np.ndarray:
@@ -1191,97 +914,3 @@ class Interval(IConvexSet):
                     and not isinstance(other, np.ndarray) and not isinstance(other, Interval)):
                 raise TypeError(f'{self.__class__.__name__}.{inspect.stack()[1].function}: '
                                 f'Other operand must be of type int, float, list, np.ndarray or Interval')
-
-
-# def _convert_from_vector(s: np.ndarray, *, mode: str = 'exact') -> Interval:
-#     return Interval(lb = s, ub = s)
-
-
-# def _convert_from_zonotope(Z: 'Zonotope', *, mode: str = 'exact') -> Interval:
-#     """
-#     Raises:
-#         NotImplementedError: Mode 'inner' only supported if the zonotope represents an interval.
-#         ExactEvaluationImpossibleError: Mode 'exact' only supported if the zonotope represents an interval.
-#     """
-#     if mode == 'inner':
-#         if not Z.represents('Interval'):
-#             raise NotImplementedError
-#         else:
-#             return _convert_from_zonotope(Z, mode = 'outer')
-    
-#     if mode == 'exact':
-#         if not Z.represents('Interval'):
-#             raise ExactEvaluationImpossibleError
-#         else:
-#             return _convert_from_zonotope(Z, mode = 'outer')
-
-#     if mode == 'outer':
-#         radius = np.sum(np.abs(Z.G), axis = 0)
-#         return Interval(lb = Z.c - radius, ub = Z.c + radius, validate = False)
-
-
-# def _convert_from_vpolytope(VP: 'VPolytope', *, mode: str = 'exact') -> Interval:
-#     """
-#     Raises:
-#         NotImplementedError: Conversion to inner approximation not supported.
-#         ExactEvaluationImpossibleError: Exact conversion only possible in special cases.
-#     """
-#     if mode == 'inner':
-#         if not VP.represents('Interval'):
-#             raise NotImplementedError
-#         else:
-#             return _convert_from_vpolytope(VP, mode = 'outer')
-    
-#     if mode == 'exact':
-#         if not VP.represents('Interval'):
-#             raise ExactEvaluationImpossibleError
-#         else:
-#             return _convert_from_vpolytope(VP, mode = 'exact')
-
-#     if mode == 'outer':
-#         return Interval(lb = np.min(VP.V, axis = 0), ub = np.max(VP.V, axis = 0), validate = False)
-
-
-# def _convert_from_hpolyhedron(HP: 'HPolyhedron', *, mode: str = 'exact') -> Interval:
-#     """
-#     Raises:
-#             NotImplementedError: mode = 'inner' not supported unless HP represents an interval.
-#             ExactEvaluationImpossibleError: mode = 'exact' not supported unless HP represents an interval.
-#             UnboundedSetError: HPolyhedron is unbounded.
-#             EmptySetError: HPolyhedron is empty.
-#     """
-#     if mode == 'inner':
-#         if not HP.represents(set_class = 'Interval'):
-#             raise NotImplementedError
-#         else:
-#             return _convert_from_hpolyhedron(HP, mode = 'outer')
-
-#     if mode == 'exact':
-#         if not HP.represents(set_class = 'Interval'):
-#             raise ExactEvaluationImpossibleError
-#         else:
-#             return _convert_from_hpolyhedron(HP, mode = 'outer')
-    
-#     if mode == 'outer':
-#         # idea: loop over all 2n -+ basis vectors and use support function value
-#         n = HP.dimension
-#         lower_bound = np.zeros(n)
-#         upper_bound = np.zeros(n)
-
-#         basis_vector = np.zeros(n)
-#         for i in range(n):
-#             for s in [-1., 1.]:
-#                 basis_vector[i] = s
-#                 value = HP.support_function(basis_vector)[0]
-#                 basis_vector[i] = 0.
-
-#                 if value == np.inf:
-#                     raise UnboundedSetError
-#                 elif value == -np.inf:
-#                     raise EmptySetError
-#                 elif s == -1.:
-#                     lower_bound[i] = -value
-#                 else:  # s == 1.
-#                     upper_bound[i] = value
-    
-#         return Interval(lb = lower_bound, ub = upper_bound, validate = False)

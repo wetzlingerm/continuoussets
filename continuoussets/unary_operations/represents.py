@@ -117,7 +117,7 @@ def _represents_vpolytope_interval(VP, rtol, atol) -> bool:
     # 1: [lb, ..., lb, ub, ..., ub, lb, ..., lb, ub, ..., ub]
     # 2: [lb, ..., lb, ub, ..., ub, lb, ..., lb, ub, ..., ub, ...(repeat)]
     counter = 1
-    for i in VP.dimension:
+    for i in range(VP.dimension):
         # check if dimension is degenerate
         if np.allclose(V[:, i], V[0, i], rtol = rtol, atol = atol):
             # dimension is degenerate, do not increment counter
@@ -182,7 +182,7 @@ def _represents_hpolyhedron_interval(HP, rtol, atol) -> bool:
     HP = HP.compact(rtol = rtol)
     n, h = HP.dimension, HP.number_constraints()
     if h < 2*n:
-        return False
+        return _represents_hpolyhedron_point(HP, rtol = rtol, atol = atol)
     
     # keep indices for redundancy and for which dimensions are bounded
     index_keep_for_i = np.full((h,), True)
@@ -225,7 +225,7 @@ def _represents_hpolyhedron_zonotope(HP, rtol, atol) -> bool:
     HP = HP.compact(rtol = rtol)
     n, h = HP.dimension, HP.number_constraints()
     if h < 2*n or h % 2 != 0 or not HP.bounded():
-        return False
+        return _represents_hpolyhedron_point(HP, rtol = rtol, atol = atol)
 
     # normalize the constraints
     A_sorted = HP.A / np.reshape(np.linalg.norm(HP.A, ord = 2, axis = 1), (h, 1))
@@ -238,3 +238,8 @@ def _represents_hpolyhedron_zonotope(HP, rtol, atol) -> bool:
 @Represents.register_strategy(SetPair('HPolyhedron', 'VPolytope'))
 def _represents_hpolyhedron_vpolytope(HP, rtol, atol) -> bool:
     return HP.bounded()
+
+
+@Represents.register_strategy(SetPair('HPolyhedron', 'HPolyhedron'))
+def _represents_hpolyhedron_hpolyhedron(HP, rtol, atol) -> bool:
+    return True

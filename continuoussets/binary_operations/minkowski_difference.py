@@ -33,7 +33,7 @@ class MinkowskiDifference(IBinaryOperation):
                  mode: str):
 
         # call superclass constructor
-        super().__init__(S1, S2, mode)
+        super().__init__(S1, S2, mode = mode)
 
         # get concrete implementation function
         strategy_key = self.get_strategy_key()
@@ -86,7 +86,7 @@ def _minkowski_difference_interval_other(I1, S2, mode) -> interval.Interval:
     except (UnboundedSetError):
         raise EmptySetError
 
-    return _minkowski_difference_interval_interval(I1, I2)
+    return _minkowski_difference_interval_interval(I1, I2, mode = mode)
 
 
 @MinkowskiDifference.register_strategy((SetPair('Zonotope', 'Interval'),
