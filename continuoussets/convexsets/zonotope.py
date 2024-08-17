@@ -5,12 +5,11 @@ from typing import Union
 
 import numpy as np
 from scipy.optimize import linprog
-from scipy.spatial import ConvexHull
 
 from continuoussets.convexsets.interface_convexset import IConvexSet
 from continuoussets.utils import comparison
-from continuoussets.utils.exceptions import OtherFunctionError  # , ExactEvaluationImpossibleError
-from continuoussets.utils.auxiliary import number_singular_values
+from continuoussets.utils.exceptions import OtherFunctionError
+from continuoussets.utils.auxiliary import number_singular_values, convex_hull
 
 if __name__ == '__main__':
     print('This is the Zonotope class.')
@@ -256,10 +255,10 @@ class Zonotope(IConvexSet):
             Zonotope: Zonotope in minimal representation.
         """
         # remove all-zero generators
-        generators = self.G[np.any(self.G, axis=1), :]
+        generators = self.G[np.any(self.G, axis = 1), :]
 
         # check for aligned generators
-        index_aligned = comparison.find_aligned_generators(generators, rtol=rtol)
+        index_aligned = comparison.find_aligned_generators(generators, rtol = rtol)
         if index_aligned:
             # init array for new generators
             new_generators = np.zeros((len(index_aligned), self.dimension))
@@ -268,9 +267,9 @@ class Zonotope(IConvexSet):
                 mask = np.logical_not(np.sign(generators[aligned_tuples, :])
                                       == np.reshape(np.sign(generators[aligned_tuples[0], :]), (1, self.dimension))) * -2. + 1.
                 # add generators
-                new_generators[row, :] = np.reshape(np.sum(generators[aligned_tuples, :] * mask, axis=0), (1, self.dimension))
+                new_generators[row, :] = np.reshape(np.sum(generators[aligned_tuples, :] * mask, axis = 0), (1, self.dimension))
             # replace aligned generators by new ones
-            generators = np.vstack((np.delete(generators, index_aligned, axis=0), new_generators))
+            generators = np.vstack((np.delete(generators, index_aligned, axis = 0), new_generators))
 
         return Zonotope(c = self.c, G = generators, validate = False)
     
@@ -387,7 +386,7 @@ class Zonotope(IConvexSet):
             # corresponds to conversion to interval (unless fewer generators than self.dimension)
             if self_generators <= self.dimension:
                 return Zonotope(c = self.c, G = self.G, validate = False)
-            return Zonotope(c = self.c, G = np.diag(np.sum(np.abs(self.G), axis=0)), validate = False)
+            return Zonotope(c = self.c, G = np.diag(np.sum(np.abs(self.G), axis = 0)), validate = False)
         elif order * self.dimension >= self_generators:
             # order is too large to cause any reduction
             return Zonotope(c = self.c, G = self.G)
@@ -397,13 +396,13 @@ class Zonotope(IConvexSet):
         number_reduced_generators = int(self_generators - number_remaining_generators)
 
         # compute Girard's metric for all generators
-        girard_metric = np.linalg.norm(self.G, axis=1, ord=1) - np.linalg.norm(self.G, axis=1, ord=np.inf)
+        girard_metric = np.linalg.norm(self.G, axis = 1, ord=1) - np.linalg.norm(self.G, axis = 1, ord=np.inf)
 
         # indices ascending in value of girard metric
         indices = np.argpartition(girard_metric, number_reduced_generators)
 
         # enclose selected generators by a box
-        reduced_generators = np.diag(np.sum(np.abs(self.G[indices[:number_reduced_generators], :]), axis=0))
+        reduced_generators = np.diag(np.sum(np.abs(self.G[indices[:number_reduced_generators], :]), axis = 0))
 
         return Zonotope(c = self.c,
                         G = np.vstack((self.G[indices[number_reduced_generators:], :], reduced_generators)),
@@ -447,22 +446,20 @@ class Zonotope(IConvexSet):
         Returns:
             np.ndarray: 2D array containing vertices as rows.
         """
-        # remove all-zero generators
+        # ensure linearly independent generators
         Z = self.compact()
+        n = Z.dimension
 
-        # init vertices by center
-        V = np.reshape(self.c, (1, self.dimension))
-        if Z.number_generators() == 0:
-            return V
-        # add first generator
-        V = np.vstack((self.c + Z.G[0, :], self.c - Z.G[0, :]))
+        # todo: check if necessary... ConvexHull cannot deal with 1D
+        if n == 1:
+            return np.vstack((Z.c + Z.G[0], Z.c - Z.G[0]))
 
-        # loop over all remaining generators
-        for row in range(1, Z.number_generators()):
-            # add next generator to all vertices
+        # init vertices by center, loop over remaining generators
+        V = np.reshape(Z.c, (1, n))        
+        for row in range(Z.number_generators()):
             V = np.vstack((V + Z.G[row, :], V - Z.G[row, :]))
             # compute convex hull and extract vertices
-            V = V[ConvexHull(V).vertices, :]
+            V = convex_hull(V)
 
         return V
 

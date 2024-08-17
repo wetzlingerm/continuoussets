@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import numpy as np
 from itertools import product
+from scipy.spatial import ConvexHull
+from scipy.linalg import svd
 
 if __name__ == '__main__':
     "This is a utilities file for auxiliary computations"
@@ -33,23 +35,6 @@ class SetPair:
 
     def __hash__(self) -> int:
         return hash(self.sets[0]) + hash(self.sets[1])
-
-
-# halfspace representation for a single vector
-# def halfspace_representation_from_vector(v: np.ndarray) -> tuple:
-#     """Initialization of the halfspace representation from a single given vector.
-
-#     Args:
-#         v (np.ndarray): Vector.
-
-#     Returns:
-#         tuple: Set of inequalities A, b fulfilling Ax <= b for the given vector x.
-#     """
-#     n = v.size
-#     A = np.vstack((-np.ones(n), np.eye(n)))
-#     b = np.matmul(A, v)
-
-#     return (A, b)
 
 
 # n-dimensional cross product
@@ -192,3 +177,52 @@ def sort_rows(A: np.ndarray) -> np.ndarray:
         np.ndarray: Sorted matrix.
     """
     return A[np.lexsort(A.T[::-1])]
+
+
+# convex hull for degenerate cases
+def convex_hull(V: np.ndarray) -> np.ndarray:
+    """Computes the convex hull of a set of a potentially degenerate or one-dimensional vertices.
+    Made necessary since scipy.spatial.ConvexHull cannot deal with these additional cases.
+
+    Args:
+        V (np.ndarray): 2D matrix with vertices.
+
+    Returns:
+        np.ndarray: Convex hull of vertices.
+    """
+    # helper function for 1D case
+    def convex_hull_1D(V):
+        V_min = np.min(V, axis = 0)
+        V_max = np.max(V, axis = 0)
+        if np.isclose(V_min, V_max):
+            return np.reshape(V_min, (1, ))
+        return np.vstack((V_min, V_max))
+
+    # we have m vertices of dimension n
+    m, n = V.shape
+    if m == 1:
+        return V.copy()
+    elif n == 1:
+        return convex_hull_1D(V)
+
+    # we want to use the ConvexHull function... special handling for degenerate sets
+    try:
+        V = V[ConvexHull(V).vertices, :]
+    except Exception:
+        # one of multiple cases:
+        # 1. not enough points(<=n) to construct initial simplex (need n+1)
+        # 2. Initial simplex is flat (facet k is coplanar with the interior point)
+        # ...project onto its affine hull and compute vertices there, then project back
+        c = np.mean(V, axis = 0)
+        V_shifted = (V - c).T
+        U, S, _ = svd(V_shifted)
+        r = number_singular_values(S)
+
+        V_subspace = np.matmul(np.matmul(np.hstack((np.eye(r), np.zeros((r, n-r)))), U.T), V_shifted)
+        if V_subspace.shape[0] == 1:  # 1D
+            V_subspace = convex_hull_1D(V_subspace.T).T
+        else:
+            V_subspace = V_subspace[:, ConvexHull(V_subspace.T).vertices]
+        V = np.matmul(np.matmul(U, np.vstack((np.eye(r), np.zeros((n-r, r))))), V_subspace).T + c
+
+    return V

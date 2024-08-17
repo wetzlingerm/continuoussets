@@ -4,11 +4,10 @@ from typing import Union
 
 import numpy as np
 from scipy.optimize import linprog
-from scipy.spatial import ConvexHull
 
 from continuoussets.convexsets.interface_convexset import IConvexSet
 from continuoussets.utils.exceptions import OtherFunctionError
-from continuoussets.utils.auxiliary import number_singular_values
+from continuoussets.utils.auxiliary import number_singular_values, convex_hull
 
 if __name__ == '__main__':
     print('This is the VPolytope class.')
@@ -243,30 +242,8 @@ class VPolytope(IConvexSet):
         Returns:
             VPolytope: VPolytope in minimal representation.
         """
-        # todo: degenerate
-        # for ConvexHull function, we need at least n+1 vertices
-        if self.number_vertices() == 1:
-            # single vertex
-            return VPolytope(V = self.V, validate = False)
-        
-        elif self.dimension == 1:
-            # just take min and max
-            return VPolytope(V = np.vstack((np.min(self.V, axis = 0), np.max(self.V, axis = 0))), validate = False)
-        
-        elif self.number_vertices() <= self.dimension:
-            # check manually for duplicates
-            index_nonduplicate = np.ones(self.number_vertices(), dtype = bool)
-            for j in range(self.number_vertices()):
-                other_vertices = np.vstack((self.V[0:j, :], self.V[j+1:-1, :]))
-                this_vertex = self.V[j, :]
-                if np.any(np.isclose(np.linalg.norm(other_vertices - this_vertex), 0, rtol = rtol)):
-                    index_nonduplicate[j] = False
-            # remove duplicates
-            return VPolytope(V = self.V[index_nonduplicate, :], validate = False)
-
-        else:
-            # note: ConvexHull expects vertices as rows
-            return VPolytope(V = self.V[ConvexHull(self.V).vertices, :], validate = False)
+        V_minimal = convex_hull(self.V)
+        return VPolytope(V = V_minimal, validate = False)        
     
     # degeneracy
     def degenerate(self, *, tol: float = 1e-12) -> bool:

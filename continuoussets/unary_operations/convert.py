@@ -116,7 +116,11 @@ def _convert_interval_zonotope(I, mode) -> zonotope.Zonotope:
                             SetPair('Zonotope', 'VPolytope'),
                             SetPair('HPolyhedron', 'VPolytope')))
 def _convert_other_vpolytope(S, mode) -> vpolytope.VPolytope:
-    return vpolytope.VPolytope(V = S.vertices(), validate = False)
+    try:
+        VP = vpolytope.VPolytope(V = S.vertices(), validate = False)
+    except (UnboundedSetError):
+        raise ExactEvaluationImpossibleError
+    return VP
 
 
 @Convert.register_strategy(SetPair('Interval', 'HPolyhedron'))
@@ -199,7 +203,7 @@ def _convert_vpolytope_interval(VP, mode) -> interval.Interval:
     if mode == 'exact':
         if not Represents(VP, 'Interval', rtol = 1e-12, atol = 1e-12)():
             raise ExactEvaluationImpossibleError
-        return _convert_vpolytope_interval(VP, mode = 'exact')
+        return _convert_vpolytope_interval(VP, mode = 'outer')
 
     if mode == 'outer':
         return interval.Interval(lb = np.min(VP.V, axis = 0), ub = np.max(VP.V, axis = 0), validate = False)
@@ -216,16 +220,16 @@ def _convert_vpolytope_zonotope(VP, mode) -> zonotope.Zonotope:
         return _convert_vpolytope_zonotope(VP, mode = 'outer')
         
     if mode == 'exact':
-        if not Represents(VP, 'Interval', rtol = 1e-12, atol = 1e-12)():
+        if not Represents(VP, 'Zonotope', rtol = 1e-12, atol = 1e-12)():
             raise ExactEvaluationImpossibleError
-        # don't know how to do exact conversion (method below is exact for 1D, though)
-        if VP.dimension != 1:
+        # don't know how to do exact conversion (method below is exact for 1D and intervals, though)
+        if VP.dimension != 1 and not Represents(VP, 'Interval', rtol = 1e-12, atol = 1e-12)():
             raise NotImplementedError
         return _convert_vpolytope_zonotope(VP, mode = 'outer')
 
     if mode == 'outer':
         # convert to interval, then to zonotope
-        I = _convert_hpolyhedron_interval(mode = 'outer')
+        I = _convert_vpolytope_interval(VP, mode = 'outer')
         return _convert_interval_zonotope(I, mode = 'exact')
 
 
@@ -234,7 +238,7 @@ def _convert_vpolytope_hpolyhedron(VP, mode) -> hpolyhedron.HPolyhedron:
     # ***same method for all three modes (exact)
     n = VP.dimension
     if VP.number_vertices() == 1:
-        return _convert_point_hpolyhedron(np.reshape(VP.V, (n, )))
+        return _convert_point_hpolyhedron(np.reshape(VP.V, (n, )), mode = 'exact')
     
     # shift vertices by mean
     center = np.mean(VP.V, axis = 0)
@@ -310,12 +314,12 @@ def _convert_hpolyhedron_zonotope(HP, mode) -> zonotope.Zonotope:
     if mode == 'exact':
         if not Represents(HP, 'Zonotope', rtol = 1e-12, atol = 1e-12)():
             raise ExactEvaluationImpossibleError
-        elif HP.dimension != 1:
-            # even if there were an exact method, I do not know about it (method below exact for 1D)
+        elif HP.dimension != 1 and not Represents(HP, 'Interval', rtol = 1e-12, atol = 1e-12)():
+            # even if there were an exact method, I do not know about it (method below exact for 1D and intervals)
             raise NotImplementedError
         return _convert_hpolyhedron_zonotope(HP, mode = 'outer')
 
     if mode == 'outer':
         # convert to interval, then to zonotope
-        I = _convert_hpolyhedron_interval(mode = 'outer')
+        I = _convert_hpolyhedron_interval(HP, mode = 'outer')
         return _convert_interval_zonotope(I, mode = 'exact')

@@ -4,7 +4,7 @@ import numpy as np
 import continuoussets as cs
 from continuoussets import (
     convert, represents,
-    equals
+    equals, contains
 )
 from continuoussets import (
     Interval, Zonotope, VPolytope, HPolyhedron
@@ -17,436 +17,321 @@ class TestUnaryOperations(unittest.TestCase):
 
     def test_Convert(self):
         # cases:
-        # - degenerate
-        # - non-degenerate
-        # - 1D
-        I1 = Interval(lb = np.array([-1., 0.]), ub = np.array([-1., 2.]))
-        I2 = Interval(lb = np.array([-1., 0.]), ub = np.array([3., 2.]))
-        I3 = Interval(lb = np.array([1.]), ub = np.array([4.]))
+        # - interval: single point
+        # - interval: 1D
+        # - interval: non-degenerate
+        # - interval: degenerate
+        # - zonotope: single point
+        # - zonotope: 2D box
+        # - zonotope: general case
+        # - zonotope: degenerate (1D in 2D)
+        # - zonotope: degenerate (2D in 3D)
+        # - zonotope: 1D
+        # - vpolytope: single point
+        # - vpolytope: 1D
+        # - vpolytope: interval
+        # - vpolytope: zonotope
+        # - vpolytope: general case
+        # - vpolytope: degenerate
+        # - hpolyhedron: single point
+        # - hpolyhedron: 1D
+        # - hpolyhedron: interval
+        # - hpolyhedron: zonotope
+        # - hpolyhedron: bounded
+        # - hpolyhedron: degenerate
+        # - hpolyhedron: unbounded
+        I_point = Interval(lb = np.array([1.]))
+        I_1D = Interval(lb = np.array([1.]), ub = np.array([4.]))
+        I_nondeg = Interval(lb = np.array([-1., 0.]), ub = np.array([3., 2.]))
+        I_deg = Interval(lb = np.array([-1., 0.]), ub = np.array([-1., 2.]))
 
-        HP1 = cs.convert(I1, 'HPolyhedron')
-        HP2 = cs.convert(I2, 'HPolyhedron')
-        HP3 = cs.convert(I3, 'HPolyhedron')
-
-        true_result1 = HPolyhedron(A = np.array([[1., 0.], [0., 1.], [-1., 0.], [0., -1.]]),
-                                   b = np.array([-1., 2., 1., 0.]))
-        true_result2 = HPolyhedron(A = np.array([[1., 0.], [0., 1.], [-1., 0.], [0., -1.]]),
-                                   b = np.array([3., 2., 1., 0.]))
-        true_result3 = HPolyhedron(A = np.array([[1.], [-1.]]),
-                                   b = np.array([4., -1.]))
+        Z_point = Zonotope(c = np.array([1., 0.]))
+        Z_1D = Zonotope(c = np.array([2.]),
+                        G = np.array([[1.], [-2.], [0.], [-1.]]))
+        Z_2D_box = Zonotope(c = np.array([1., 0.]),
+                            G = np.array([[1., 0.], [0., -2.]]))
+        Z_nondeg = Zonotope(c = np.array([1., -1., 2.]),
+                        G = np.array([[1., 1., 0.], [1., 2., -1.], [-2., 0., 1.], [-1., -1., 1.]]))
+        Z_2D_deg = Zonotope(c = np.array([1., 0.]),
+                            G = np.array([[0., -2.]]))
+        Z_3D_deg = Zonotope(c = np.array([2., -1., 1.]),
+                            G = np.array([[1., 2., 1.], [-1., 1., 2.], [0., 3., 3.,], [4., 2., -2.], [-1., 4., 5.]]))
         
-        assert cs.equals(HP1, true_result1)
-        assert cs.equals(HP2, true_result2)
-        assert cs.equals(HP3, true_result3)
+        VP_point = VPolytope(V = np.array([3., 2., -1.]))
+        VP_1D = VPolytope(V = np.array([[-1.], [0.], [3.], [2.]]))
+        VP_interval = VPolytope(V = np.array([[-1., 0.], [0., 0.], [0., 2.], [-1., 2.]]))
+        VP_zonotope = VPolytope(V = np.array([[1., -6.], [3., -2.], [3., 0.], [1., 2.], [-1., -2.], [-1., -4.]]))
+        VP_nondeg = VPolytope(V = np.array([[1., 0.], [0., 1.], [-2., -2.]]))
+        VP_deg = VPolytope(V = np.array([[1., 0., 1.], [0., 1., 0.], [0., 0., 1.]]))
 
-
-        # cases:
-        # - interval
-
-        # init interval
-        lower = np.array([1., 2.])
-        upper = np.array([3., 4.])
-        I = Interval(lb = lower, ub = upper)
-
-        result1 = cs.convert(I, 'Interval')
-        true_result1 = I
-
-        assert cs.equals(result1, true_result1)
-
-
-        # cases:
-        # - full-dimensional interval
-        # - degenerate interval
-        # - single point
-        # - 1D
-
-        # init intervals
-        lower = np.array([-2., -1.])
-        upper = np.array([3., 4.])
-        upper_degenerate = np.array([-2., 4.])
-        I1 = Interval(lb = lower, ub = upper)
-        I2 = Interval(lb = lower, ub = upper_degenerate)
-        I3 = Interval(lb = lower)
-        I4 = Interval(lb = np.array([1.]), ub = np.array([4.]))
-
-        # compute vertices
-        result1 = cs.convert(I1, 'VPolytope')
-        result2 = cs.convert(I2, 'VPolytope')
-        result3 = cs.convert(I3, 'VPolytope')
-        result4 = cs.convert(I4, 'VPolytope')
-
-        # manual computation
-        true_result1 = VPolytope(V = np.array([[-2., -1.], [-2., 4.], [3., -1.], [3., 4.]]))
-        true_result2 = VPolytope(V = np.array([[-2., -1.],[-2., 4.]]))
-        true_result3 = VPolytope(V = lower)
-        true_result4 = VPolytope(V = np.array([[1.], [4.]]))
-
-        # check result
-        assert cs.equals(result1, true_result1)
-        assert cs.equals(result2, true_result2)
-        assert cs.equals(result3, true_result3)
-        assert cs.equals(result4, true_result4)
-
-
-        # cases:
-        # - full-dimensional interval
-        # - degenerate interval
-        # - single point
-        # - 1D
-
-        # init intervals
-        lower = np.array([-2., -1.])
-        upper = np.array([3., 4.])
-        upper_degenerate = np.array([-2., 4.])
-        I1 = Interval(lb = lower, ub = upper)
-        I2 = Interval(lb = lower, ub = upper_degenerate)
-        I3 = Interval(lb = lower)
-        I4 = Interval(lb = np.array([1.]), ub = np.array([4.]))
-
-        # convert to zonotope (dictionary for constructor)
-        result1 = cs.convert(I1, 'Zonotope')
-        result2 = cs.convert(I2, 'Zonotope')
-        result3 = cs.convert(I3, 'Zonotope')
-        result4 = cs.convert(I4, 'Zonotope')
-
-        # manual computation
-        true_result1 = Zonotope(c = np.array([0.5, 1.5]), G = np.array([[2.5, 0.],[0., 2.5]]))
-        true_result2 = Zonotope(c = np.array([-2., 1.5]), G = np.array([0., 2.5]))
-        true_result3 = Zonotope(c = lower)
-        true_result4 = Zonotope(c = np.array([2.5]), G = np.array([[1.5]]))
-
-        # check results
-        assert cs.equals(result1, true_result1)
-        assert cs.equals(result2, true_result2)
-        assert cs.equals(result3, true_result3)
-        assert cs.equals(result4, true_result4)
-
-
-        # cases:
-        # - only center
-        # - center and generators (2D)
-        # - center and generators (3D)
-        # - degenerate (1D in 2D)
-        # - degenerate (2D in 3D)
-        # - 1D
-        Z1 = Zonotope(c = np.array([1., 0.]))
-        Z2 = Zonotope(c = np.array([1., 0.]), G = np.array([[1., 0.], [-1., 1.], [2., 1.]]))
-        Z3 = Zonotope(c = np.array([1., -1., 2.]),
-                      G = np.array([[1., 1., 0.], [1., 2., -1.], [-2., 0., 1.], [-1., -1., 1.]]))
-        Z4 = Zonotope(c = np.array([1., 0.]), G = np.array([[1., -2.]]))
-        Z5 = Zonotope(c = np.array([2., -1., 1.]),
-                      G = np.array([[1., 2., 1.], [-1., 1., 2.], [0., 3., 3.,], [4., 2., -2.], [-1., 4., 5.]]))
-        Z6 = Zonotope(c = np.array([2.]), G = np.array([[1.], [-2.], [0.], [-1.]]))
-
-        HP1 = cs.convert(Z1, 'HPolyhedron')
-        HP2 = cs.convert(Z2, 'HPolyhedron')
-        HP3 = cs.convert(Z3, 'HPolyhedron')
-        HP4 = cs.convert(Z4, 'HPolyhedron')
-        HP5 = cs.convert(Z5, 'HPolyhedron')
-        HP6 = cs.convert(Z6, 'HPolyhedron')
-
-        true_result1 = HPolyhedron(A = np.array([[1., 0.], [0., 1.], [-1., -1.]]),
-                                   b = np.array([1., 0., -1.]))
-        true_result2 = HPolyhedron(A = np.array([[0., -0.5], [0.2, 0.2], [0.2, -0.4], [0., 0.5], [-1./3., -1./3.], [-1./3., 2./3.]]),
-                                   b = np.array([1., 1., 1., 1., 1., 1.]))
-        true_result3 = HPolyhedron(A = np.array([[-1., 0., -1.], [-1., 1., 0.], [-0.25, 0.25, 0.25], [-0.4, -0.2, -0.8],
-                                                 [-1., -1., -2.], [-1., 1., -2.], [1./11., -1./11., 2./11.], [1./7., 1./7., 2./7.],
-                                                 [2./13., 1./13., 4./13.], [0.25, -0.25, -0.25], [0.2, -0.2, 0.], [0.2, 0., 0.2]]),
-                                   b = np.array([-1., 1., 1., -1., -1., -1., 1., 1., 1., 1., 1., 1.]))
-        true_result4 = HPolyhedron(A = np.array([[1./np.sqrt(5.), -2./np.sqrt(5.)],
-                                                 [-1./np.sqrt(5.), 2./np.sqrt(5.)],
-                                                 [2./np.sqrt(5.), 1./np.sqrt(5.)],
-                                                 [-2./np.sqrt(5.), -1./np.sqrt(5.)]]),
-                                   b = np.array([6./np.sqrt(5.), 4./np.sqrt(5.), 2./np.sqrt(5.), -2./np.sqrt(5.)]))
-        true_result5 = HPolyhedron(A = np.array([[-1./np.sqrt(2.), 0., 1./np.sqrt(2.)],
-                                                 [-1./np.sqrt(2.), -1./np.sqrt(2.), 0.],
-                                                 [-0.81650, -0.40825, 0.40825],
-                                                 [0, 1./np.sqrt(2.), 1./np.sqrt(2.)],
-                                                 [-0.80178, -0.53452, 0.26726],
-                                                 [1./np.sqrt(2.), 0., -1./np.sqrt(2.)],
-                                                 [1./np.sqrt(2.), 1./np.sqrt(2.), 0.],
-                                                 [0.81650, 0.40825, -0.40825],
-                                                 [0, -1./np.sqrt(2.), -1./np.sqrt(2.)],
-                                                 [0.80178, 0.53452, -0.26726],
-                                                 [-0.57735, 0.57735, -0.57735],
-                                                 [0.57735, -0.57735, 0.57735]]),
-                                   b = np.array([12.02082, 9.89949, 7.75672, 14.84924, 7.21605, 13.43503,
-                                                 11.31371, 9.38971, 14.84924, 8.81962, -2.30940, 2.30940]))
-        true_result6 = HPolyhedron(A = np.array([[1.], [-1.]]), b = np.array([6., 2.]))
-
-        assert cs.equals(HP1, true_result1)
-        assert cs.equals(HP2, true_result2)
-        assert cs.equals(HP3, true_result3)
-        assert cs.equals(HP4, true_result4)
-        assert cs.equals(HP5, true_result5, rtol = 1e-5)
-        assert cs.equals(HP6, true_result6)
-
-
-        # cases:
-        # - only center
-        # - center and generators (box)
-        # - center and generators (not a box)
-        # - 1D
-
-        # init zonotopes
-        c = np.array([1., 0.])
-        G_axisaligned = np.array([[1., 0.], [0., -1.], [2., 0.], [0., 0.]])
-        G_notaxisaligned = np.array([[1., -1.], [0., 1.]])
-        Z1 = Zonotope(c = c)
-        Z2 = Zonotope(c = c, G = G_axisaligned)
-        Z3 = Zonotope(c = c, G = G_notaxisaligned)
-        Z4 = Zonotope(c = np.array([2.]), G = np.array([[1.], [-2.], [0.], [1.]]))
-
-        # convert to intervals (dictionary for constructor)
-        result1 = cs.convert(Z1, 'Interval')
-        result2 = cs.convert(Z1, 'Interval', mode = 'inner')
-        result3 = cs.convert(Z1, 'Interval')
-        result4 = cs.convert(Z2, 'Interval')
-        result5 = cs.convert(Z3, 'Interval', mode = 'outer')
-        result6 = cs.convert(Z4, 'Interval')
-
-        # manual computation
-        true_result1 = Interval(lb = c, ub = c)
-        true_result2 = true_result1
-        true_result3 = true_result1
-        true_result4 = Interval(lb = np.array([-2., -1.]), ub = np.array([4., 1.]))
-        true_result5 = Interval(lb = np.array([0., -2.]), ub = np.array([2., 2.]))
-        true_result6 = Interval(lb = np.array([-2.]), ub = np.array([6.]))
-
-        # check results
-        assert cs.equals(result1, true_result1)
-        assert cs.equals(result2, true_result2)
-        assert cs.equals(result3, true_result3)
-        assert cs.equals(result4, true_result4)
-        assert cs.equals(result5, true_result5)
-        assert cs.equals(result6, true_result6)
-
-        with self.assertRaises(ExactEvaluationImpossibleError):
-            cs.convert(Z3, 'Interval')
-
-        # check exceptions
-        with self.assertRaises(NotImplementedError):
-            # inner approximation not supported in general case
-            cs.convert(Z3, 'Interval', mode = 'inner')
-        with self.assertRaises(ExactEvaluationImpossibleError):
-            # exact conversion not supported in general case
-            cs.convert(Z3, 'Interval', mode = 'exact')
-
-
-        # cases:
-        # - only center
-        # - center and generators
-        # - 1D
-
-        # init zonotope
-        center = np.array([1., 0.])
-        generators = np.array([[1., -1.], [2., 1.], [-1., 3.]])
-        Z1 = Zonotope(c = center)
-        Z2 = Zonotope(c = center, G = generators)
-        Z3 = Zonotope(c = np.array([2.]), G = np.array([[1.], [-2.], [0.], [-1.]]))
-
-        # convert to vpolytope
-        result1 = cs.convert(Z1, 'VPolytope')
-        result2 = cs.convert(Z2, 'VPolytope')
-        result3 = cs.convert(Z3, 'VPolytope')
-
-        # true results 
-        true_result1 = VPolytope(V = center)
-        true_result2 = VPolytope(V = np.array([[1., -5.], [5., -3.], [3., 3.], [1., 5.], [-3., 3.], [-1., -3.]]))
-        true_result3 = VPolytope(V = np.array([[-2.], [6.]]))
-
-        # check result
-        assert cs.equals(result1, true_result1)
-        assert cs.equals(result2, true_result2)
-        assert cs.equals(result3, true_result3)
-
-
-        # cases:
-        # - center and generators
-
-        # init zonotope
-        center = np.array([1., 2.])
-        generators = np.array([[0., -1.], [3., 4.]])
-        Z = Zonotope(c = center, G = generators)
-
-        # convert to zonotope
-        result1 = cs.convert(Z, 'Zonotope')
-
-        # manual computation
-        true_result1 = Z
-
-        # check result
-        assert cs.equals(result1, true_result1)
-
-
-        # cases:
-        # - hpolyhedron
-        A = np.array([[1., 0.], [-1., 1.], [-1., -1.]])
-        b = np.array([1., 2., 1.])
-        HP = HPolyhedron(A = A, b = b)
-
-        result1 = cs.convert(HP, 'HPolyhedron')
-        assert cs.equals(HP, result1)
-
-
-        # cases:
-        # - bounded
-        # - 1D
-        # - degenerate  # todo
-        # - unbounded
-        HP1 = HPolyhedron(A = np.array([[1., 0.], [-1., 1.], [-1., -1.]]),
-                          b = np.array([1., 1., 1.]))
-        HP2 = HPolyhedron(A = np.array([[1.], [-1.], [1.]]),
-                          b = np.array([4., -2., 7.]))
-        HP3 = HPolyhedron(A = np.array([[1., 0.], [0., 1.], [1., 1.], [-1., -1.]]),
-                          b = np.array([1., 1., 1., -1.]))
-        HP4 = HPolyhedron(A = np.array([[1., 0., 0.]]),
-                          b = np.array([1.]))
+        HP_point = HPolyhedron(A = np.array([[1., 0.], [0., 1.], [-1., -1.]]), b = np.zeros(3))
+        HP_1D = HPolyhedron(A = np.array([[1.], [-1.], [1.]]),
+                            b = np.array([4., -2., 7.]))
+        HP_interval = HPolyhedron(A = np.vstack((np.eye(3), -np.eye(3))), b = np.ones(6))
+        HP_zonotope = HPolyhedron(A = np.array([[0., -1.], [-1., -1.], [0.25, -0.5], [0., 1./3.], [1./7., 1./7.], [-0.25, 0.5]]),
+                                  b = np.ones(6))
+        HP_bounded = HPolyhedron(A = np.array([[1., 0.], [-1., 1.], [-1., -1.]]),
+                                 b = np.array([1., 1., 1.]))
+        HP_deg = HPolyhedron(A = np.array([[-1., 0., 0.], [0., -1., 0.], [1., 1., 0.], [1., 1., 1.], [-1., -1., -1.]]),
+                             b = np.array([0., 0., 1., 1., -1.]))
+        HP_unb = HPolyhedron(A = np.array([[1., 0., 0.]]),
+                             b = np.array([1.]))
         
-        VP1 = cs.convert(HP1, 'VPolytope')
-        VP2 = cs.convert(HP2, 'VPolytope')
-        VP3 = cs.convert(HP3, 'VPolytope')
 
-        true_result1 = VPolytope(V = np.array([[-1., 0.], [1., -2.], [1., 2.]]))
-        true_result2 = VPolytope(V = np.array([[2.], [4.]]))
-        true_result3 = VPolytope(V = np.array([[1., 0.], [0., 1.]]))
+        # conversion from interval
+        I_point_interval = cs.convert(I_point, 'Interval')
+        I_1D_interval = cs.convert(I_1D, 'Interval')
+        I_nondeg_interval = cs.convert(I_nondeg, 'Interval')
+        I_deg_interval = cs.convert(I_deg, 'Interval')
 
-        assert cs.equals(VP1, true_result1)
-        assert cs.equals(VP2, true_result2)
-        assert cs.equals(VP3, true_result3)
+        I_point_zonotope = cs.convert(I_point, 'Zonotope')
+        I_1D_zonotope = cs.convert(I_1D, 'Zonotope')
+        I_nondeg_zonotope = cs.convert(I_nondeg, 'Zonotope')
+        I_deg_zonotope = cs.convert(I_deg, 'Zonotope')
 
-        with self.assertRaises(UnboundedSetError):
-            cs.convert(HP4, 'VPolytope')
+        I_point_vpolytope = cs.convert(I_point, 'VPolytope')
+        I_1D_vpolytope = cs.convert(I_1D, 'VPolytope')
+        I_nondeg_vpolytope = cs.convert(I_nondeg, 'VPolytope')
+        I_deg_vpolytope = cs.convert(I_deg, 'VPolytope')
 
+        I_point_hpolyhedron = cs.convert(I_point, 'HPolyhedron')
+        I_1D_hpolyhedron = cs.convert(I_1D, 'HPolyhedron')
+        I_nondeg_hpolyhedron = cs.convert(I_nondeg, 'HPolyhedron')
+        I_deg_hpolyhedron = cs.convert(I_deg, 'HPolyhedron')
 
-        # cases:
-        # - bounded
-        # - 1D
-        # - zonotope-like
-        HP1 = HPolyhedron(A = np.array([[1., 0.], [-1., 1.], [-1., -1.]]),
-                          b = np.array([1., 1., 1.]))
-        HP2 = HPolyhedron(A = np.array([[1.], [-1.], [1.]]), b = np.array([4., -2., 7.]))
-        HP3 = HPolyhedron(A = np.array([[0., -1.], [-1., -1.], [0.25, -0.5], [0., 1./3.], [1./7., 1./7.], [-0.25, 0.5]]),
-                          b = np.ones(6))
+        # conversions from zonotope
+        Z_point_interval = cs.convert(Z_point, 'Interval')
+        Z_1D_interval = cs.convert(Z_1D, 'Interval')
+        Z_2D_box_interval = cs.convert(Z_2D_box, 'Interval')
+        with self.assertRaises(ExactEvaluationImpossibleError):
+            cs.convert(Z_nondeg, 'Interval')
+        with self.assertRaises(NotImplementedError):
+            cs.convert(Z_nondeg, 'Interval', mode = 'inner')
+        Z_nondeg_interval = cs.convert(Z_nondeg, 'Interval', mode = 'outer')
+        Z_2D_deg_interval = cs.convert(Z_2D_deg, 'Interval')
+        with self.assertRaises(ExactEvaluationImpossibleError):
+            cs.convert(Z_3D_deg, 'Interval')
+        Z_3D_deg_interval = cs.convert(Z_3D_deg, 'Interval', mode = 'outer')
+
+        Z_point_zonotope = cs.convert(Z_point, 'Zonotope')
+        Z_1D_zonotope = cs.convert(Z_1D, 'Zonotope')
+        Z_2D_box_zonotope = cs.convert(Z_2D_box, 'Zonotope')
+        Z_nondeg_zonotope = cs.convert(Z_nondeg, 'Zonotope')
+        Z_2D_deg_zonotope = cs.convert(Z_2D_deg, 'Zonotope')
+        Z_3D_deg_zonotope = cs.convert(Z_3D_deg, 'Zonotope')
+
+        Z_point_vpolytope = cs.convert(Z_point, 'VPolytope')
+        Z_1D_vpolytope = cs.convert(Z_1D, 'VPolytope')
+        Z_2D_box_vpolytope = cs.convert(Z_2D_box, 'VPolytope')
+        Z_nondeg_vpolytope = cs.convert(Z_nondeg, 'VPolytope')
+        Z_2D_deg_vpolytope = cs.convert(Z_2D_deg, 'VPolytope')
+        Z_3D_deg_vpolytope = cs.convert(Z_3D_deg, 'VPolytope')
+
+        Z_point_hpolyhedron = cs.convert(Z_point, 'HPolyhedron')
+        Z_1D_hpolyhedron = cs.convert(Z_1D, 'HPolyhedron')
+        Z_2D_box_hpolyhedron = cs.convert(Z_2D_box, 'HPolyhedron')
+        Z_nondeg_hpolyhedron = cs.convert(Z_nondeg, 'HPolyhedron')
+        Z_2D_deg_hpolyhedron = cs.convert(Z_2D_deg, 'HPolyhedron')
+        Z_3D_deg_hpolyhedron = cs.convert(Z_3D_deg, 'HPolyhedron')
+
+        # conversions from vpolytope
+        VP_point_interval = cs.convert(VP_point, 'Interval')
+        VP_1D_interval = cs.convert(VP_1D, 'Interval')
+        VP_interval_interval = cs.convert(VP_interval, 'Interval')
+        with self.assertRaises(ExactEvaluationImpossibleError):
+            cs.convert(VP_zonotope, 'Interval')
+        VP_zonotope_interval = cs.convert(VP_zonotope, 'Interval', mode = 'outer')
+        with self.assertRaises(ExactEvaluationImpossibleError):
+            cs.convert(VP_nondeg, 'Interval')
+        VP_nondeg_interval = cs.convert(VP_nondeg, 'Interval', mode = 'outer')
+        with self.assertRaises(ExactEvaluationImpossibleError):
+            cs.convert(VP_deg, 'Interval')
+        VP_deg_interval = cs.convert(VP_deg, 'Interval', mode = 'outer')
+
+        VP_point_zonotope = cs.convert(VP_point, 'Zonotope')
+        VP_1D_zonotope = cs.convert(VP_1D, 'Zonotope')
+        VP_interval_zonotope = cs.convert(VP_interval, 'Zonotope')
+        with self.assertRaises(NotImplementedError):
+            cs.convert(VP_zonotope, 'Zonotope')
+        VP_zonotope_zonotope = cs.convert(VP_zonotope, 'Zonotope', mode = 'outer')
+        with self.assertRaises(ExactEvaluationImpossibleError):
+            cs.convert(VP_nondeg, 'Zonotope')
+        VP_nondeg_zonotope = cs.convert(VP_nondeg, 'Zonotope', mode = 'outer')
+        with self.assertRaises(ExactEvaluationImpossibleError):
+            cs.convert(VP_deg, 'Zonotope')
+        VP_deg_zonotope = cs.convert(VP_deg, 'Zonotope', mode = 'outer')
+
+        VP_point_vpolytope = cs.convert(VP_point, 'VPolytope')
+        VP_1D_vpolytope = cs.convert(VP_1D, 'VPolytope')
+        VP_interval_vpolytope = cs.convert(VP_interval, 'VPolytope')
+        VP_zonotope_vpolytope = cs.convert(VP_zonotope, 'VPolytope')
+        VP_nondeg_vpolytope = cs.convert(VP_nondeg, 'VPolytope')
+        VP_deg_vpolytope = cs.convert(VP_deg, 'VPolytope')
+
+        VP_point_hpolyhedron = cs.convert(VP_point, 'HPolyhedron')
+        VP_1D_hpolyhedron = cs.convert(VP_1D, 'HPolyhedron')
+        VP_interval_hpolyhedron = cs.convert(VP_interval, 'HPolyhedron')
+        VP_zonotope_hpolyhedron = cs.convert(VP_zonotope, 'HPolyhedron')
+        VP_nondeg_hpolyhedron = cs.convert(VP_nondeg, 'HPolyhedron')
+        VP_deg_hpolyhedron = cs.convert(VP_deg, 'HPolyhedron')
+
+        # conversions from hpolyhedron
+        HP_point_interval = cs.convert(HP_point, 'Interval')
+        HP_1D_interval = cs.convert(HP_1D, 'Interval')
+        HP_interval_interval = cs.convert(HP_interval, 'Interval')
+        with self.assertRaises(ExactEvaluationImpossibleError):
+            cs.convert(HP_zonotope, 'Interval')
+        HP_zonotope_interval = cs.convert(HP_zonotope, 'Interval', mode = 'outer')
+        with self.assertRaises(ExactEvaluationImpossibleError):
+            cs.convert(HP_bounded, 'Interval')
+        HP_bounded_interval = cs.convert(HP_bounded, 'Interval', mode = 'outer')
+        with self.assertRaises(ExactEvaluationImpossibleError):
+            cs.convert(HP_deg, 'Interval')
+        HP_deg_interval = cs.convert(HP_deg, 'Interval', mode = 'outer')
+        with self.assertRaises(ExactEvaluationImpossibleError):
+            cs.convert(HP_unb, 'Interval')
+
+        HP_point_zonotope = cs.convert(HP_point, 'Zonotope')
+        HP_1D_zonotope = cs.convert(HP_1D, 'Zonotope')
+        HP_interval_zonotope = cs.convert(HP_interval, 'Zonotope')
+        with self.assertRaises(NotImplementedError):
+            cs.convert(HP_zonotope, 'Zonotope')
+        HP_zonotope_zonotope = cs.convert(HP_zonotope, 'Zonotope', mode = 'outer')
+        with self.assertRaises(ExactEvaluationImpossibleError):
+            HP_bounded_zonotope = cs.convert(HP_bounded, 'Zonotope')
+        HP_bounded_zonotope = cs.convert(HP_bounded, 'Zonotope', mode = 'outer')
+        with self.assertRaises(ExactEvaluationImpossibleError):
+            cs.convert(HP_deg, 'Zonotope')
+        HP_deg_zonotope = cs.convert(HP_deg, 'Zonotope', mode = 'outer')
+        with self.assertRaises(ExactEvaluationImpossibleError):
+            cs.convert(HP_unb, 'Zonotope')
+
+        # todo: fix
+        # HP_point_vpolytope = cs.convert(HP_point, 'VPolytope')
+        HP_1D_vpolytope = cs.convert(HP_1D, 'VPolytope')
+        HP_interval_vpolytope = cs.convert(HP_interval, 'VPolytope')
+        HP_zonotope_vpolytope = cs.convert(HP_zonotope, 'VPolytope')
+        HP_bounded_vpolytope = cs.convert(HP_bounded, 'VPolytope')
+        HP_deg_vpolytope = cs.convert(HP_deg, 'VPolytope')
+        with self.assertRaises(ExactEvaluationImpossibleError):
+            HP_unb_vpolytope = cs.convert(HP_unb, 'VPolytope')
+
+        HP_point_hpolyhedron = cs.convert(HP_point, 'HPolyhedron')
+        HP_1D_hpolyhedron = cs.convert(HP_1D, 'HPolyhedron')
+        HP_interval_hpolyhedron = cs.convert(HP_interval, 'HPolyhedron')
+        HP_zonotope_hpolyhedron = cs.convert(HP_zonotope, 'HPolyhedron')
+        HP_bounded_hpolyhedron = cs.convert(HP_bounded, 'HPolyhedron')
+        HP_deg_hpolyhedron = cs.convert(HP_deg, 'HPolyhedron')
+        HP_unb_hpolyhedron = cs.convert(HP_unb, 'HPolyhedron')
         
-        result1 = cs.convert(HP1, 'Zonotope', mode = 'outer')
-        result2 = cs.convert(HP2, 'Zonotope')
+        # check conversions from interval
+        assert cs.equals(I_deg_interval, I_deg)
+        assert cs.equals(I_nondeg_interval, I_nondeg)
+        assert cs.equals(I_1D_interval, I_1D)
+        assert cs.equals(I_point_interval, I_point)
 
-        true_result2 = Zonotope(c = np.array([3.]), G = np.array([[1.]]))
+        assert cs.equals(I_deg_zonotope, I_deg)
+        assert cs.equals(I_nondeg_zonotope, I_nondeg)
+        assert cs.equals(I_1D_zonotope, I_1D)
+        assert cs.equals(I_point_zonotope, I_point)
 
-        assert cs.contais(result1, HP1)
-        assert cs.equals(result2, true_result2)
+        assert cs.equals(I_deg_vpolytope, I_deg)
+        assert cs.equals(I_nondeg_vpolytope, I_nondeg)
+        assert cs.equals(I_1D_vpolytope, I_1D)
+        assert cs.equals(I_point_vpolytope, I_point)
 
-        with self.assertRaises(ExactEvaluationImpossibleError):
-            cs.convert(HP1, 'Zonotope')
-        with self.assertRaises(NotImplementedError):
-            cs.convert(HP3, 'Zonotope')
-        with self.assertRaises(NotImplementedError):
-            cs.convert(HP1, 'Zonotope', mode = 'inner')
+        assert cs.equals(I_deg_hpolyhedron, I_deg)
+        assert cs.equals(I_nondeg_hpolyhedron, I_nondeg)
+        assert cs.equals(I_1D_hpolyhedron, I_1D)
+        assert cs.equals(I_point_hpolyhedron, I_point)
 
+        # check conversions from zonotope
+        assert cs.equals(Z_point_interval, Z_point)
+        assert cs.equals(Z_1D_interval, Z_1D)
+        assert cs.equals(Z_2D_box_interval, Z_2D_box)
+        assert cs.contains(Z_nondeg_interval, Z_nondeg)
+        assert cs.equals(Z_2D_deg_interval, Z_2D_deg)
+        assert cs.contains(Z_3D_deg_interval, Z_3D_deg)
 
-        # cases:
-        # - single vertex
-        # - degenerate
-        # - non-degenerate
-        # - 1D
-        V_singlevertex = np.array([1., 0.])
-        VP1 = VPolytope(V = V_singlevertex)
-        VP2 = VPolytope(V = np.array([[1., 0.], [0., 1.]]))
-        VP3 = VPolytope(V = np.array([[1., 0.], [0., 1.], [-2., -2.]]))
-        VP4 = VPolytope(V = np.array([[-1.], [0.], [3.], [2.]]))
+        assert cs.equals(Z_point_zonotope, Z_point)
+        assert cs.equals(Z_1D_zonotope, Z_1D)
+        assert cs.equals(Z_2D_box_zonotope, Z_2D_box)
+        assert cs.equals(Z_nondeg_zonotope, Z_nondeg)
+        assert cs.equals(Z_2D_deg_zonotope, Z_2D_deg)
+        assert cs.equals(Z_3D_deg_zonotope, Z_3D_deg)
 
-        HP1 = cs.convert(VP1, 'HPolyhedron')
-        HP2 = cs.convert(VP2, 'HPolyhedron')
-        HP3 = cs.convert(VP3, 'HPolyhedron')
-        HP4 = cs.convert(VP4, 'HPolyhedron')
+        assert cs.equals(Z_point_vpolytope, Z_point)
+        assert cs.equals(Z_1D_vpolytope, Z_1D)
+        assert cs.equals(Z_2D_box_vpolytope, Z_2D_box)
+        assert cs.equals(Z_nondeg_vpolytope, Z_nondeg)
+        assert cs.equals(Z_2D_deg_vpolytope, Z_2D_deg)
+        assert cs.equals(Z_3D_deg_vpolytope, Z_3D_deg)
 
-        true_result1 = cs.convert(V_singlevertex, 'HPolyhedron')
-        true_result2 = HPolyhedron(A = np.array([[1., 0.], [0., 1.], [1., 1.], [-1., -1.]]),
-                                   b = np.array([1., 1., 1., -1.]))
-        true_result3 = HPolyhedron(A = np.array([[1., -1.5], [1., 1.], [-1.5, 1.]]),
-                                   b = np.array([1., 1., 1.]))
-        true_result4 = HPolyhedron(A = np.array([[1.], [-1.]]), b = np.array([3., 1.]))
+        assert cs.equals(Z_point_hpolyhedron, Z_point)
+        assert cs.equals(Z_1D_hpolyhedron, Z_1D)
+        assert cs.equals(Z_2D_box_hpolyhedron, Z_2D_box)
+        assert cs.equals(Z_nondeg_hpolyhedron, Z_nondeg)
+        assert cs.equals(Z_2D_deg_hpolyhedron, Z_2D_deg)
+        assert cs.equals(Z_3D_deg_hpolyhedron, Z_3D_deg)
 
-        assert cs.equals(HP1, true_result1)
-        assert cs.equals(HP2, true_result2)
-        assert cs.equals(HP3, true_result3)
-        assert cs.equals(HP4, true_result4)
+        # check conversions from vpolytope
+        assert cs.equals(VP_point_interval, VP_point)
+        assert cs.equals(VP_1D_interval, VP_1D)
+        assert cs.equals(VP_interval_interval, VP_interval)
+        assert cs.contains(VP_zonotope_interval, VP_zonotope)
+        assert cs.contains(VP_nondeg_interval, VP_nondeg)
+        assert cs.contains(VP_deg_interval, VP_deg)
 
+        assert cs.equals(VP_point_zonotope, VP_point)
+        assert cs.equals(VP_1D_zonotope, VP_1D)
+        assert cs.equals(VP_interval_zonotope, VP_interval)
+        assert cs.contains(VP_zonotope_zonotope, VP_zonotope)
+        assert cs.contains(VP_nondeg_zonotope, VP_nondeg)
+        assert cs.contains(VP_deg_zonotope, VP_deg)
 
-        # cases:
-        # - single vertex
-        # - vpolytope that is an interval
-        # - vpolytope that is not an interval
-        # - 1D
-        VP1 = VPolytope(V = np.array([1., 1.]))
-        VP2 = VPolytope(V = np.array([[-1., 0.], [0., 0.], [0., 2.], [-1., 2.]]))
-        VP3 = VPolytope(V = np.array([[-1., 0.], [0., -1.], [2., 1.]]))
-        VP4 = VPolytope(V = np.array([[-1.], [0.], [3.], [2.]]))
+        assert cs.equals(VP_point_vpolytope, VP_point)
+        assert cs.equals(VP_1D_vpolytope, VP_1D)
+        assert cs.equals(VP_interval_vpolytope, VP_interval)
+        assert cs.equals(VP_zonotope_vpolytope, VP_zonotope)
+        assert cs.equals(VP_nondeg_vpolytope, VP_nondeg)
+        assert cs.equals(VP_deg_vpolytope, VP_deg)
 
-        result1 = cs.convert(VP1, 'Interval')
-        result2 = cs.convert(VP2, 'Interval')
-        result3 = cs.convert(VP3, 'Interval', mode = 'outer')
-        result4 = cs.convert(VP4, 'Interval')
+        assert cs.equals(VP_point_hpolyhedron, VP_point)
+        assert cs.equals(VP_1D_hpolyhedron, VP_1D)
+        assert cs.equals(VP_interval_hpolyhedron, VP_interval)
+        assert cs.equals(VP_zonotope_hpolyhedron, VP_zonotope)
+        assert cs.equals(VP_nondeg_hpolyhedron, VP_nondeg)
+        assert cs.equals(VP_deg_hpolyhedron, VP_deg)
 
-        I1 = Interval(lb = [1., 1.], ub = [1., 1.])
-        I2 = Interval(lb = [-1., 0.], ub = [0., 2.])
-        I3 = Interval(lb = [-1., -1.], ub = [2., 1.])
-        I4 = Interval(lb = np.array([-1.]), ub = np.array([3.]))
+        # check conversion from hpolyhedron
+        assert cs.equals(HP_point_interval, HP_point)
+        assert cs.equals(HP_1D_interval, HP_1D)
+        assert cs.equals(HP_interval_interval, HP_interval)
+        assert cs.contains(HP_zonotope_interval, HP_zonotope)
+        assert cs.contains(HP_bounded_interval, HP_bounded)
+        assert cs.contains(HP_deg_interval, HP_deg)
 
-        assert cs.equals(result1, I1)
-        assert cs.equals(result2, I2)
-        assert cs.equals(result3, I3)
-        assert cs.equals(result4, I4)
+        assert cs.equals(HP_point_zonotope, HP_point)
+        assert cs.equals(HP_1D_zonotope, HP_1D)
+        assert cs.equals(HP_interval_zonotope, HP_interval)
+        assert cs.contains(HP_zonotope_zonotope, HP_zonotope)
+        assert cs.contains(HP_bounded_zonotope, HP_bounded)
+        assert cs.contains(HP_deg_zonotope, HP_deg)
 
-        # unsupported conversions
-        with self.assertRaises(NotImplementedError):
-            cs.convert(VP3, 'Interval', mode = 'inner')
-        with self.assertRaises(ExactEvaluationImpossibleError):
-            cs.convert(VP3, 'Interval', mode = 'exact')
-                          
-                          
-        # cases:
-        # - single vertex
-        # - non-degenerate set
-        V1 = np.array([[2., 3., -1.]])
-        VP1 = VPolytope(V = V1)
-        V2 = np.array([[2., 1.], [-1., 2.], [0., -4.]])
-        VP2 = VPolytope(V = V2)
+        # assert cs.equals(HP_point_vpolytope, HP_point)
+        assert cs.equals(HP_1D_vpolytope, HP_1D)
+        assert cs.equals(HP_interval_vpolytope, HP_interval)
+        assert cs.equals(HP_zonotope_vpolytope, HP_zonotope)
+        assert cs.equals(HP_bounded_vpolytope, HP_bounded)
+        assert cs.equals(HP_deg_vpolytope, HP_deg)
 
-        result1 = VP1, 'VPolytope'
-        result2 = VP2, 'VPolytope'
-
-        assert compare_matrices(result1['V'], V1)
-        assert compare_matrices(result2['V'], V2)
-
-
-        # cases:
-        # - single vertex
-        # - multiple vertices (not a zonotope)
-        # - multiple vertices (is a zonotope)
-        # - 1D
-        V1 = np.array([[2., 3., -1.]])
-        VP1 = VPolytope(V = V1)
-        VP2 = VPolytope(V = np.array([[2., 1.], [-1., 2.], [0., -4.]]))
-        VP3 = VPolytope(V = np.array([[1., -6.], [3., -2.], [3., 0.], [1., 2.], [-1., -2.], [-1., -4.]]))
-        VP4 = VPolytope(V = np.array([[-1.], [0.], [3.], [2.]]))
-
-        result_1 = cs.convert(VP1, 'Zonotope')
-        result_2 = cs.convert(VP2, 'Zonotope', mode = 'outer')
-        result_4 = cs.convert(VP4, 'Zonotope')
-
-        assert cs.equals(result1, VP1)
-        assert cs.contains(result2, VP2)
-        assert cs.equals(result1, VP4)
-
-        # unsupported conversions
-        with self.assertRaises(ExactEvaluationImpossibleError):
-            cs.convert(VP2, 'Zonotope', mode = 'exact')
-        with self.assertRaises(NotImplementedError):
-            cs.convert(VP2, 'Zonotope', mode = 'inner')
-        with self.assertRaises(NotImplementedError):
-            cs.convert(VP3, 'Zonotope')
+        assert cs.equals(HP_point_hpolyhedron, HP_point)
+        assert cs.equals(HP_1D_hpolyhedron, HP_1D)
+        assert cs.equals(HP_interval_hpolyhedron, HP_interval)
+        assert cs.equals(HP_zonotope_hpolyhedron, HP_zonotope)
+        assert cs.equals(HP_bounded_hpolyhedron, HP_bounded)
+        assert cs.equals(HP_deg_hpolyhedron, HP_deg)
+        assert cs.equals(HP_unb_hpolyhedron, HP_unb)
 
 
     def test_Represents(self):
@@ -470,18 +355,18 @@ class TestUnaryOperations(unittest.TestCase):
         # - hpolyhedron: zonotope-like, but unbounded
 
         # init intervals
-        I_singlepoint = Interval(lb = np.array([-2., -1.]))
+        I_point = Interval(lb = np.array([-2., -1.]))
         I_deg = Interval(lb = np.array([-2., -1.]), ub = np.array([-2., 4.]))
         I_nondeg = Interval(lb = np.array([-2., -1.]), ub = np.array([3., 4.]))
         
         # init zonotopes
-        Z_singlepoint = Zonotope(c = np.array([1., 0.]))
+        Z_point = Zonotope(c = np.array([1., 0.]))
         Z_1D = Zonotope(c = np.array([1.]), G = np.array([[2.], [-1.]]))
         Z_interval = Zonotope(c = np.array([1., 0.]), G = np.array([[1., 0.], [0., -1.], [2., 0.], [0., 0.]]))
         Z_nondeg = Zonotope(c = np.array([1., 0.]), G = np.array([[1., 0.], [-1., 1.]]))
 
         # init vpolytopes
-        VP_singlepoint = VPolytope(V = np.array([2., 1.]))
+        VP_point = VPolytope(V = np.array([2., 1.]))
         VP_interval = VPolytope(V = np.array([[-1., 0.], [2., 0.], [2., 1.], [-1., 1.]]))
         VP_zonotope = VPolytope(V = np.array([[4., -1., 1.], [2., -3., 1.], [6., 3., -1.], [4., 1., -1.],
                                        [-2., -3., 3.], [2., 3., 1.], [0., 1., 1.], [2., -3., 3.],
@@ -490,7 +375,7 @@ class TestUnaryOperations(unittest.TestCase):
         VP_nondeg = VPolytope(V = np.array([[2., 1.], [0., 2.], [-1., -2.]]))
 
         # init hpolyhedra
-        HP_singlepoint = cs.convert(np.array([2., 1.]), 'HPolyhedron')
+        HP_point = cs.convert(np.array([2., 1.]), 'HPolyhedron')
         HP_1D = HPolyhedron(A = np.array([[1.], [-1.]]), b = np.array([4., -3.]))
         HP_interval = HPolyhedron(A = np.array([[1., 0.], [0., 2.], [-1., 0.], [0., -4], [1., 1.]]),
                                   b = np.array([3., 2., 5., 1., 30.]))
@@ -503,11 +388,11 @@ class TestUnaryOperations(unittest.TestCase):
         HP_zonotope_unb = HPolyhedron(A = np.array([[1., 0.], [-1., 0.]]), b = np.ones(2))
 
         # check intervals
-        assert cs.represents(I_singlepoint, 'ndarray')
-        assert cs.represents(I_singlepoint, 'Interval')
-        assert cs.represents(I_singlepoint, 'Zonotope')
-        assert cs.represents(I_singlepoint, 'VPolytope')
-        assert cs.represents(I_singlepoint, 'HPolyhedron')
+        assert cs.represents(I_point, 'ndarray')
+        assert cs.represents(I_point, 'Interval')
+        assert cs.represents(I_point, 'Zonotope')
+        assert cs.represents(I_point, 'VPolytope')
+        assert cs.represents(I_point, 'HPolyhedron')
 
         assert not cs.represents(I_deg, 'ndarray')
         assert cs.represents(I_deg, 'Interval')
@@ -522,11 +407,11 @@ class TestUnaryOperations(unittest.TestCase):
         assert cs.represents(I_nondeg, 'HPolyhedron')
 
         # check zonotopes
-        assert cs.represents(Z_singlepoint, 'ndarray')
-        assert cs.represents(Z_singlepoint, 'Interval')
-        assert cs.represents(Z_singlepoint, 'Zonotope')
-        assert cs.represents(Z_singlepoint, 'VPolytope')
-        assert cs.represents(Z_singlepoint, 'HPolyhedron')
+        assert cs.represents(Z_point, 'ndarray')
+        assert cs.represents(Z_point, 'Interval')
+        assert cs.represents(Z_point, 'Zonotope')
+        assert cs.represents(Z_point, 'VPolytope')
+        assert cs.represents(Z_point, 'HPolyhedron')
 
         assert not cs.represents(Z_1D, 'ndarray')
         assert cs.represents(Z_1D, 'Interval')
@@ -547,11 +432,11 @@ class TestUnaryOperations(unittest.TestCase):
         assert cs.represents(Z_nondeg, 'HPolyhedron')
 
         # check vpolytopes
-        assert cs.represents(VP_singlepoint, 'ndarray')
-        assert cs.represents(VP_singlepoint, 'Interval')
-        assert cs.represents(VP_singlepoint, 'Zonotope')
-        assert cs.represents(VP_singlepoint, 'VPolytope')
-        assert cs.represents(VP_singlepoint, 'HPolyhedron')
+        assert cs.represents(VP_point, 'ndarray')
+        assert cs.represents(VP_point, 'Interval')
+        assert cs.represents(VP_point, 'Zonotope')
+        assert cs.represents(VP_point, 'VPolytope')
+        assert cs.represents(VP_point, 'HPolyhedron')
 
         assert not cs.represents(VP_interval, 'ndarray')
         assert cs.represents(VP_interval, 'Interval')
@@ -572,11 +457,11 @@ class TestUnaryOperations(unittest.TestCase):
         assert cs.represents(VP_nondeg, 'HPolyhedron')
         
         # check hpolyhedra
-        assert cs.represents(HP_singlepoint, 'ndarray')
-        assert cs.represents(HP_singlepoint, 'Interval')
-        assert cs.represents(HP_singlepoint, 'Zonotope')
-        assert cs.represents(HP_singlepoint, 'VPolytope')
-        assert cs.represents(HP_singlepoint, 'HPolyhedron')
+        assert cs.represents(HP_point, 'ndarray')
+        assert cs.represents(HP_point, 'Interval')
+        assert cs.represents(HP_point, 'Zonotope')
+        assert cs.represents(HP_point, 'VPolytope')
+        assert cs.represents(HP_point, 'HPolyhedron')
 
         assert not cs.represents(HP_1D, 'ndarray')
         assert cs.represents(HP_1D, 'Interval')
