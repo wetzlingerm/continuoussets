@@ -88,38 +88,38 @@ class IConvexSet(ABC):
             plt.plot(V[:, 0], V[:, 1], **kwargs)
         plt.show()
 
-    # check functions
-    def _checkMode(self, mode: str):
-        """Check function for the mode.
+    # # check functions
+    # def _checkMode(self, mode: str):
+    #     """Check function for the mode.
 
-        Args:
-            mode (str): Mode for a given set operation.
+    #     Args:
+    #         mode (str): Mode for a given set operation.
 
-        Raises:
-            ValueError: Chosen mode not in ['inner', 'exact', 'outer'].
-        """
-        if self.validate:
-            admissible_modes = ['inner', 'exact', 'outer']
-            if mode not in admissible_modes:
-                raise ValueError(f'{self.__class__.__name__}.{inspect.stack()[1].function}: ',
-                                 f'mode must be in {str(admissible_modes)}')
+    #     Raises:
+    #         ValueError: Chosen mode not in ['inner', 'exact', 'outer'].
+    #     """
+    #     if self.validate:
+    #         admissible_modes = ['inner', 'exact', 'outer']
+    #         if mode not in admissible_modes:
+    #             raise ValueError(f'{self.__class__.__name__}.{inspect.stack()[1].function}: ',
+    #                              f'mode must be in {str(admissible_modes)}')
 
-    def _checkSetClass(self, set_class: str):
-        """Check function for choosing another subclass in IConvexSet.
+    # def _checkSetClass(self, set_class: str):
+    #     """Check function for choosing another subclass in IConvexSet.
 
-        Args:
-            set_class (str): Name of a subclass in IConvexSet or 'Point'.
+    #     Args:
+    #         set_class (str): Name of a subclass in IConvexSet or 'Point'.
 
-        Raises:
-            ValueError: Chosen class not a subclass of IConvexSet.
-        """
-        # ensure that 'set_class' argument is the class name of a subclass of IConvexSet
-        if self.validate:
-            admissible_classes = [cls.__name__ for cls in IConvexSet.__subclasses__()]
-            admissible_classes.append('Point')
-            if set_class not in admissible_classes:
-                raise ValueError(f'{self.__class__.__name__}.{inspect.stack()[1].function}: ',
-                                 f'Keyword argument set_class must be in {str(admissible_classes)}')
+    #     Raises:
+    #         ValueError: Chosen class not a subclass of IConvexSet.
+    #     """
+    #     # ensure that 'set_class' argument is the class name of a subclass of IConvexSet
+    #     if self.validate:
+    #         admissible_classes = [cls.__name__ for cls in IConvexSet.__subclasses__()]
+    #         admissible_classes.append('Point')
+    #         if set_class not in admissible_classes:
+    #             raise ValueError(f'{self.__class__.__name__}.{inspect.stack()[1].function}: ',
+    #                              f'Keyword argument set_class must be in {str(admissible_classes)}')
 
     def _checkOtherOperand(self, other: Union[IConvexSet, np.ndarray], *, check_dimension: bool = True):
         """Check function for binary set operations.

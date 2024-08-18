@@ -1,13 +1,13 @@
 from __future__ import annotations
 
-from typing import Union, Dict, Tuple, Callable, TYPE_CHECKING
+from typing import Union, TYPE_CHECKING
 import numpy as np
 
 from continuoussets.binary_operations.interface_binary_operation import IBinaryOperation
 if TYPE_CHECKING:
     from continuoussets.convexsets.interface_convexset import IConvexSet
 
-from continuoussets.utils.auxiliary import SetPair
+from continuoussets.utils.auxiliary import SetPair, StrategyRegistry
 from continuoussets.utils.comparison import compare_matrices
 
 from continuoussets.unary_operations.convert import Convert
@@ -17,32 +17,22 @@ if __name__ == '__main__':
     print('This is the Equals class.')
 
 
+@StrategyRegistry
 class Equals(IBinaryOperation):
 
-    strategies: Dict[Tuple[str, str], Callable] = dict()
-    # ordering is not relevant
-    ordered_operation = False
+    # does the order of operands matter?
+    ordered = False
     
-    # main task is to set the variables and decide which function to call for the evaluation
     def __init__(self, S1: Union['IConvexSet', np.ndarray], S2: Union['IConvexSet', np.ndarray], *,
                  rtol: float, atol: float):
-
-        # call superclass constructor
         super().__init__(S1, S2, rtol = rtol, atol = atol)
 
-        # get concrete implementation function
-        strategy_key: SetPair = self.get_strategy_key()
-        # read out function
-        self.func: Callable = Equals.strategies.get(strategy_key)
+        # read out concrete implementation
+        self = self.select_binary_strategy()
 
-        # check if given combination is implemented
-        if self.func is None:
-            raise NotImplementedError
-
-    # evaluate the set equality
     def __call__(self) -> bool:
         # in all cases: dimensions need to match
-        # todo: write this smarter...
+        # todo: write this smarter... maybe re-use dimension check...
         if isinstance(self.first_operand, np.ndarray):
             n1 = self.first_operand.shape[0]
         else:
@@ -112,7 +102,7 @@ def _equals_vpolytope_vpolytope(VP1, VP2, rtol, atol) -> bool:
 def _equals_hpolyhedron_point(HP1, s2, rtol, atol) -> bool:
     if not Contains(HP1, s2, rtol = rtol, atol = atol)():
         return False
-    HP2 = Convert(s2, 'HPolyhedron', mode = 'exact')
+    HP2 = Convert(s2, 'HPolyhedron', mode = 'exact')()
     return Contains(HP2, HP1, rtol = rtol, atol = atol)()
 
 
@@ -121,10 +111,7 @@ def _equals_hpolyhedron_point(HP1, s2, rtol, atol) -> bool:
                            SetPair('HPolyhedron', 'VPolytope')))
 def _equals_hpolyhedron_other(HP1, S2, rtol, atol) -> bool:
     HP2 = Convert(S2, 'HPolyhedron', mode = 'exact')()
-
-    # slow containment method
-    return (Contains(HP1, HP2, rtol = rtol, atol = atol)()
-            and Contains(HP2, HP1, rtol = rtol, atol = atol)())
+    return _equals_hpolyhedron_hpolyhedron(HP1, HP2, rtol, atol)
 
 
 @Equals.register_strategy(SetPair('HPolyhedron', 'HPolyhedron'))

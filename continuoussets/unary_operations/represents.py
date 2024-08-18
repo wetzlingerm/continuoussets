@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Union, Dict, Tuple, Callable, TYPE_CHECKING
+from typing import Union, Callable, TYPE_CHECKING
 import numpy as np
 
 from continuoussets.unary_operations.interface_unary_operation import IUnaryOperation
@@ -10,35 +10,25 @@ if TYPE_CHECKING:
 import continuoussets.convexsets.vpolytope as vpolytope
 import continuoussets.convexsets.hpolyhedron as hpolyhedron
 
-from continuoussets.utils.auxiliary import SetPair, remove_duplicate_points, sort_rows
+from continuoussets.utils.auxiliary import SetPair, StrategyRegistry, remove_duplicate_points, sort_rows
 from continuoussets.utils.exceptions import EmptySetError, UnboundedSetError
 
 if __name__ == '__main__':
     print('This is the Represents class.')
 
 
+@StrategyRegistry
 class Represents(IUnaryOperation):
-
-    strategies: Dict[Tuple[str, str], Callable] = dict()
-    # ordering is not relevant
-    ordered_operation = False
     
-    # main task is to set the variables and decide which function to call for the evaluation
     def __init__(self, S: Union['IConvexSet', np.ndarray], set_class: str, *, rtol: float, atol: float):
-
-        # call superclass constructor
         super().__init__(S, set_class, rtol = rtol, atol = atol)
 
-        # get concrete implementation function
-        strategy_key: SetPair = self.get_strategy_key()
-        # read out function
-        self.func: Callable = Represents.strategies.get(strategy_key)
+        # read out concrete implementation
+        self.func: Callable = Represents.select_strategy(self.strategy_key)
 
-        # check if given combination is implemented
         if self.func is None:
             raise NotImplementedError
 
-    # evaluate the representation check
     def __call__(self) -> bool:
         return self.func(self.first_operand, **self.kwargs)
 

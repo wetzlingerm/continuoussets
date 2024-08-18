@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Union, Dict, Tuple, Callable, TYPE_CHECKING
+from typing import Union, Callable, TYPE_CHECKING
 from itertools import combinations
 import numpy as np
 from math import comb
@@ -19,7 +19,7 @@ import continuoussets.convexsets.hpolyhedron as hpolyhedron
 
 from continuoussets.unary_operations.represents import Represents
 
-from continuoussets.utils.auxiliary import SetPair, n_dim_cross_product
+from continuoussets.utils.auxiliary import SetPair, StrategyRegistry, n_dim_cross_product
 from continuoussets.utils.exceptions import ExactEvaluationImpossibleError, \
                                             UnboundedSetError, \
                                             EmptySetError
@@ -28,28 +28,18 @@ if __name__ == '__main__':
     print('This is the Convert class.')
 
 
+@StrategyRegistry
 class Convert(IUnaryOperation):
-
-    strategies: Dict[Tuple[str, str], Callable] = dict()
-    # ordering is not relevant
-    ordered_operation = False
     
-    # main task is to set the variables and decide which function to call for the evaluation
     def __init__(self, S: Union['IConvexSet', np.ndarray], set_class: str, *, mode: str):
-
-        # call superclass constructor
         super().__init__(S, set_class, mode = mode)
+        
+        # read out concrete implementation
+        self.func: Callable = Convert.select_strategy(self.strategy_key)
 
-        # get concrete implementation function
-        strategy_key: SetPair = self.get_strategy_key()
-        # read out function
-        self.func: Callable = Convert.strategies.get(strategy_key)
-
-        # check if given combination is implemented
         if self.func is None:
             raise NotImplementedError
 
-    # evaluate the conversion
     def __call__(self) -> 'IConvexSet':
         return self.func(self.first_operand, **self.kwargs)
 

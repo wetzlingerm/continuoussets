@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Union, Dict, Tuple, Callable, TYPE_CHECKING
+from typing import Union, TYPE_CHECKING
 import numpy as np
 from scipy.optimize import linprog
 
@@ -8,38 +8,31 @@ from continuoussets.binary_operations.interface_binary_operation import IBinaryO
 if TYPE_CHECKING:
     from continuoussets.convexsets.interface_convexset import IConvexSet
 
-from continuoussets.utils.auxiliary import SetPair
+from continuoussets.utils.auxiliary import SetPair, StrategyRegistry
 
 from continuoussets.unary_operations.convert import Convert
+
 from continuoussets.binary_operations.contains import Contains
+from continuoussets.binary_operations.minkowski_sum import MinkowskiSum
+from continuoussets.binary_operations.intersection import Intersection
 
 if __name__ == '__main__':
     print('This is the Intersects class.')
 
 
+@StrategyRegistry
 class Intersects(IBinaryOperation):
 
-    strategies: Dict[Tuple[str, str], Callable] = dict()
-    # ordering is not relevant
-    ordered_operation = False
+    # does the order of operands matter?
+    ordered = False
     
-    # main task is to set the variables and decide which function to call for the evaluation
     def __init__(self, S1: Union['IConvexSet', np.ndarray], S2: Union['IConvexSet', np.ndarray], *,
                  rtol: float, atol: float):
-
-        # call superclass constructor
         super().__init__(S1, S2, rtol = rtol, atol = atol)
 
-        # get concrete implementation function
-        strategy_key: SetPair = self.get_strategy_key()
-        # read out function
-        self.func: Callable = Intersects.strategies.get(strategy_key)
+        # read out concrete implementation
+        self = self.select_binary_strategy()
 
-        # check if given combination is implemented
-        if self.func is None:
-            raise NotImplementedError
-
-    # evaluate the intersection check
     def __call__(self) -> bool:
         return self.func(self.first_operand, self.second_operand, **self.kwargs)
 
@@ -66,7 +59,7 @@ def _intersects_zonotope_interval(Z1, I2, rtol, atol) -> bool:
 @Intersects.register_strategy(SetPair('Zonotope', 'Zonotope'))
 def _intersects_zonotope_zonotope(Z1, Z2, rtol, atol) -> bool:
     # use identity: Z1 intersects Z2 iff 0 in Z1 + (-Z2)
-    return Contains((Z1.minkowski_sum(-Z2)), np.zeros(Z1.dimension), rtol = rtol, atol = atol)()
+    return Contains(MinkowskiSum(Z1, -Z2, mode = 'exact')(), np.zeros(Z1.dimension), rtol = rtol, atol = atol)()
 
 
 @Intersects.register_strategy(SetPair('VPolytope', 'Interval'))
@@ -176,4 +169,4 @@ def _intersects_hpolyhedron_vpolytope(HP1, VP2, rtol, atol) -> bool:
 
 @Intersects.register_strategy(SetPair('HPolyhedron', 'HPolyhedron'))
 def _intersects_hpolyhedron_hpolyhedron(HP1, HP2, rtol, atol) -> bool:
-    return not HP1.intersection(HP2).empty()
+    return not Intersection(HP1, HP2, mode = 'exact')().empty()

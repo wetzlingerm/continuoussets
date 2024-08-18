@@ -455,7 +455,7 @@ class Zonotope(IConvexSet):
             return np.vstack((Z.c + Z.G[0], Z.c - Z.G[0]))
 
         # init vertices by center, loop over remaining generators
-        V = np.reshape(Z.c, (1, n))        
+        V = np.reshape(Z.c, (1, n))
         for row in range(Z.number_generators()):
             V = np.vstack((V + Z.G[row, :], V - Z.G[row, :]))
             # compute convex hull and extract vertices

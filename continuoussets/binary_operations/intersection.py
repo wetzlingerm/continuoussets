@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Union, Dict, Tuple, Callable
+from typing import TYPE_CHECKING, Union
 import numpy as np
 
 from continuoussets.binary_operations.interface_binary_operation import IBinaryOperation
@@ -15,33 +15,25 @@ import continuoussets.convexsets.hpolyhedron as hpolyhedron
 from continuoussets.binary_operations.contains import Contains
 from continuoussets.unary_operations.convert import Convert
 
-from continuoussets.utils.auxiliary import SetPair
+from continuoussets.utils.auxiliary import SetPair, StrategyRegistry
 from continuoussets.utils.exceptions import EmptySetError
 
 if __name__ == '__main__':
     print('This is the Intersection class.')
 
 
+@StrategyRegistry
 class Intersection(IBinaryOperation):
 
-    strategies: Dict[Tuple[str, str], Callable] = dict()
-    # ordering is not relevant
-    ordered_operation = False
+    # does the order of operands matter?
+    ordered = False
     
-    # main task is to set the variables and decide which function to call for the evaluation
     def __init__(self, S1: Union['IConvexSet', np.ndarray], S2: Union['IConvexSet', np.ndarray], *,
                  mode: str):
-
-        # call superclass constructor
         super().__init__(S1, S2, mode = mode)
 
-        # get concrete implementation function
-        strategy_key = self.get_strategy_key()
-        self.func = Intersection.strategies.get(strategy_key, None)
-
-        # check if given combination is implemented
-        if self.func is None:
-            raise NotImplementedError
+        # read out concrete implementation
+        self = self.select_binary_strategy()
         
     def __call__(self) -> 'IConvexSet':
         return self.func(self.first_operand, self.second_operand, **self.kwargs)
@@ -83,7 +75,7 @@ def _intersection_other_other(S1, S2, mode) -> 'IConvexSet':
         return S2.copy()
     if Contains(S2, S1, rtol = 1e-12, atol = 1e-12)():
         return S1.copy()
-    HP1 = Convert(S1, 'HPolyhedron', mode = mode)
+    HP1 = Convert(S1, 'HPolyhedron', mode = mode)()
     return _intersection_hpolyhedron_other(HP1, S2, mode = mode)
 
 

@@ -3,6 +3,8 @@ import numpy as np
 from continuoussets.utils import auxiliary
 from continuoussets.utils import comparison
 
+from continuoussets import Interval
+
 
 class TestAuxiliary(unittest.TestCase):
 
@@ -123,23 +125,37 @@ class TestAuxiliary(unittest.TestCase):
         # - degenerate
         V_point = np.array([[1., 0., -1.]])
         V_1D = np.array([[-2.], [0.], [-1.], [4.], [6.]])
+        V_1D_single = np.array([[-2.], [-2.]])
         V_nondeg = np.array([[1., 0.], [0., 1.], [-1., -1.]])
         V_deg = np.array([[1., 0., 1.], [0., 1., 1.], [-1., -1., -2.], [0., 0., 0.]])
 
-        result1 = auxiliary.convex_hull(V_point)
-        result2 = auxiliary.convex_hull(V_1D)
-        result3 = auxiliary.convex_hull(V_nondeg)
-        result4 = auxiliary.convex_hull(V_deg)
+        result_point = auxiliary.convex_hull(V_point)
+        result_1D = auxiliary.convex_hull(V_1D)
+        result_1D_single = auxiliary.convex_hull(V_1D_single)
+        result_nondeg = auxiliary.convex_hull(V_nondeg)
+        result_deg = auxiliary.convex_hull(V_deg)
 
-        true_result1 = V_point
-        true_result2 = np.array([[-2.], [6.]])
-        true_result3 = V_nondeg
-        true_result4 = np.array([[1., 0., 1.], [0., 1., 1.], [-1., -1., -2.]])
+        true_result_point = V_point
+        true_result_1D = np.array([[-2.], [6.]])
+        true_result_1D_single = np.array([[-2.]])
+        true_result_nondeg = V_nondeg
+        true_result_deg = np.array([[1., 0., 1.], [0., 1., 1.], [-1., -1., -2.]])
 
-        assert comparison.compare_matrices(result1, true_result1)
-        assert comparison.compare_matrices(result2, true_result2)
-        assert comparison.compare_matrices(result3, true_result3)
-        assert comparison.compare_matrices(result4, true_result4)
+        assert comparison.compare_matrices(result_point, true_result_point)
+        assert comparison.compare_matrices(result_1D, true_result_1D)
+        assert comparison.compare_matrices(result_1D_single, true_result_1D_single)
+        assert comparison.compare_matrices(result_nondeg, true_result_nondeg)
+        assert comparison.compare_matrices(result_deg, true_result_deg)
+
+    def test_SetPair(self):
+        ''' Test for SetPair class '''
+        # __init__
+        I1 = Interval(lb = np.array([-1.]), ub = np.array([4.]))
+        s = auxiliary.SetPair(I1, 'Vector')
+        # __repr__
+        print(s)
+        # __eq__
+        assert not s == 5
         
 
 if __name__ == '__main__':

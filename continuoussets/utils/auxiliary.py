@@ -1,4 +1,7 @@
 from __future__ import annotations
+from inspect import isclass
+
+from typing import Union, Tuple, Type, Callable, Any
 
 import numpy as np
 from itertools import product
@@ -12,30 +15,66 @@ if __name__ == '__main__':
 # pair of sets
 class SetPair:
 
-    def __init__(self, first_operand: str, second_operand: str, *, ordered = True) -> SetPair:
-        # save operands and ordering
-        self.sets = (first_operand, second_operand)
-        self.ordered = ordered
+    def __init__(self, first_operand: str, second_operand: str) -> SetPair:
+        def read_name(operand: Union[Type, str]) -> str:
+            if isinstance(operand, str):
+                name = operand
+            elif isclass(type(operand)):
+                name = operand.__class__.__name__
+            else:
+                raise TypeError
+            
+            # unify names for points
+            if name in ['ndarray', 'Point', 'Vector']:
+                name = 'Point'
+            return name
+        
+        self.sets = (read_name(first_operand), read_name(second_operand))
 
     def __repr__(self) -> str:
-        newline = '\n'
-        return f"first operand: {self.sets[0]}{newline}" \
-               f"second operand: {self.sets[1]}{newline}" \
-               f"ordering: {self.ordered}"
+        return f"({self.sets[0]}, {self.sets[1]})"
         
     def __eq__(self, other: SetPair) -> bool:
-        # check for equality, may depend on order
         if not isinstance(other, SetPair):
             return False
-        elif self.ordered:
-            return self.sets[0] == other.sets[0] and self.sets[1] == other.sets[1]
-        else:
-            return (self.sets[0] == other.sets[0] and self.sets[1] == other.sets[1]) \
-                    or (self.sets[0] == other.sets[1] and self.sets[1] == other.sets[0])
+        return self.sets == other.sets
 
     def __hash__(self) -> int:
-        return hash(self.sets[0]) + hash(self.sets[1])
+        return hash(self.sets)
 
+
+# decorator adding a map from input types to functions
+def StrategyRegistry(cls):
+
+    # add class variables
+    setattr(cls, 'strategies', dict())
+
+    # add functions operating on these class variables depending on member variables of class
+    def register_strategy(pair: Union[Any, Tuple[Any]]) -> Callable:
+        def decorator(func: Callable):
+            # throw error if strategy has already been registered
+            def update_strategies(new_key):
+                if cls.strategies.get(new_key) is not None:
+                    raise KeyError
+                cls.strategies.update({new_key: func})
+
+            if isinstance(pair, Tuple):
+                [update_strategies(i_pair) for i_pair in pair]
+            else:
+                update_strategies(pair)
+            return func
+        return decorator
+    
+    @classmethod
+    def select_strategy(cls, key: Any) -> Callable:
+        return cls.strategies.get(key)
+
+    # add functions to classs
+    setattr(cls, 'register_strategy', register_strategy)
+    setattr(cls, 'select_strategy', select_strategy)
+
+    return cls
+    
 
 # n-dimensional cross product
 def n_dim_cross_product(M: np.ndarray) -> np.ndarray:

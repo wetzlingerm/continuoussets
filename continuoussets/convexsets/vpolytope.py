@@ -243,7 +243,7 @@ class VPolytope(IConvexSet):
             VPolytope: VPolytope in minimal representation.
         """
         V_minimal = convex_hull(self.V)
-        return VPolytope(V = V_minimal, validate = False)        
+        return VPolytope(V = V_minimal, validate = False)
     
     # degeneracy
     def degenerate(self, *, tol: float = 1e-12) -> bool:

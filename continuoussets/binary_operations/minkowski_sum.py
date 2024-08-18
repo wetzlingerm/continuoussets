@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Union, Dict, Tuple, Callable
+from typing import TYPE_CHECKING, Union
 import numpy as np
 
 from continuoussets.binary_operations.interface_binary_operation import IBinaryOperation
@@ -14,32 +14,24 @@ import continuoussets.convexsets.hpolyhedron as hpolyhedron
 
 from continuoussets.unary_operations.convert import Convert
 
-from continuoussets.utils.auxiliary import SetPair
+from continuoussets.utils.auxiliary import SetPair, StrategyRegistry
 
 if __name__ == '__main__':
     print('This is the MinkowskiSum class.')
 
 
+@StrategyRegistry
 class MinkowskiSum(IBinaryOperation):
 
-    strategies: Dict[Tuple[str, str], Callable] = dict()
-    # ordering is relevant
-    ordered_operation = False
+    # does the order of operands matter?
+    ordered = False
     
-    # main task is to set the variables and decide which function to call for the evaluation
     def __init__(self, S1: Union['IConvexSet', np.ndarray], S2: Union['IConvexSet', np.ndarray], *,
                  mode: str):
-
-        # call superclass constructor
         super().__init__(S1, S2, mode = mode)
 
-        # get concrete implementation function
-        strategy_key = self.get_strategy_key()
-        self.func = MinkowskiSum.strategies.get(strategy_key, None)
-
-        # check if given combination is implemented
-        if self.func is None:
-            raise NotImplementedError
+        # read out concrete implementation
+        self = self.select_binary_strategy()
         
     def __call__(self) -> Union[np.ndarray, 'IConvexSet']:
         return self.func(self.first_operand, self.second_operand, **self.kwargs)
@@ -63,7 +55,7 @@ def _minkowski_sum_interval_interval(I1, I2, mode) -> interval.Interval:
 
 @MinkowskiSum.register_strategy(SetPair('Zonotope', 'Interval'))
 def _minkowski_sum_zonotope_interval(Z1, I2, mode) -> zonotope.Zonotope:
-    Z2 = Convert(I2, 'Zonotope', mode = 'exact')
+    Z2 = Convert(I2, 'Zonotope', mode = 'exact')()
     return _minkowski_sum_zonotope_zonotope(Z1, Z2, mode = mode)
 
 
@@ -77,7 +69,7 @@ def _minkowski_sum_zonotope_zonotope(Z1, Z2, mode) -> zonotope.Zonotope:
 @MinkowskiSum.register_strategy((SetPair('VPolytope', 'Interval'),
                                  SetPair('VPolytope', 'Zonotope')))
 def _minkowski_sum_vpolytope_other(VP1, S2, mode) -> vpolytope.VPolytope:
-    VP2 = Convert(S2, 'VPolytope', mode = mode)
+    VP2 = Convert(S2, 'VPolytope', mode = mode)()
     return _minkowski_sum_vpolytope_vpolytope(VP1, VP2, mode = mode)
 
 
@@ -97,7 +89,7 @@ def _minkowski_sum_vpolytope_vpolytope(VP1, VP2, mode) -> vpolytope.VPolytope:
                                  SetPair('HPolyhedron', 'Zonotope'),
                                  SetPair('HPolyhedron', 'VPolytope')))
 def _minkowski_sum_hpolyhedron_other(HP1, I2, mode) -> hpolyhedron.HPolyhedron:
-    HP2 = Convert(I2, 'HPolyhedron', mode = mode)
+    HP2 = Convert(I2, 'HPolyhedron', mode = mode)()
     return _minkowski_sum_hpolyhedron_hpolyhedron(HP1, HP2, mode = mode)
 
 
@@ -107,14 +99,14 @@ def _minkowski_sum_hpolyhedron_hpolyhedron(HP1, HP2, mode) -> hpolyhedron.HPolyh
         return _minkowski_sum_hpolyhedron_hpolyhedron(HP1, HP2, mode = 'exact')
     
     if mode == 'exact':
-        n1, h1 = HP1.dimension, HP1.number_constraints()
-        n2, h2 = HP2.dimension, HP2.number_constraints()
+        n = HP1.dimension
+        h1, h2 = HP1.number_constraints(), HP2.number_constraints()
 
         # lift and project onto first n dimensions (rewriting of Cartesian product...)
-        HP_lifted = hpolyhedron.HPolyhedron(A = np.block([[HP1.A, np.zeros((n2, h1))], [np.zeros((n1, h2)), HP2.A]]),
-                                            b = np.hstack(HP1.b, HP2.b),
+        HP_lifted = hpolyhedron.HPolyhedron(A = np.block([[HP1.A, np.zeros((h1, n))], [np.zeros((h2, n)), HP2.A]]),
+                                            b = np.hstack((HP1.b, HP2.b)),
                                             validate = False)
-        M = np.hstack((np.eye(HP1.dimension), np.eye(HP1.dimension)))
+        M = np.hstack((np.eye(n), np.eye(n)))
         return HP_lifted.matmul(M)
     
     if mode == 'outer':

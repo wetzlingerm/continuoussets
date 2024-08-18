@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Union, Dict, Tuple, Callable
+from typing import TYPE_CHECKING, Union
 import numpy as np
 
 from continuoussets.binary_operations.interface_binary_operation import IBinaryOperation
@@ -15,33 +15,25 @@ import continuoussets.convexsets.hpolyhedron as hpolyhedron
 from continuoussets.unary_operations.convert import Convert
 from continuoussets.unary_operations.represents import Represents
 
-from continuoussets.utils.auxiliary import SetPair
+from continuoussets.utils.auxiliary import SetPair, StrategyRegistry
 from continuoussets.utils.exceptions import UnboundedSetError, EmptySetError
 
 if __name__ == '__main__':
     print('This is the MinkowskiDifference class.')
 
 
+@StrategyRegistry
 class MinkowskiDifference(IBinaryOperation):
 
-    strategies: Dict[Tuple[str, str], Callable] = dict()
-    # ordering is relevant
-    ordered_operation = True
-    
-    # main task is to set the variables and decide which function to call for the evaluation
+    # does the order of operands matter?
+    ordered = True
+
     def __init__(self, S1: Union['IConvexSet', np.ndarray], S2: Union['IConvexSet', np.ndarray], *,
                  mode: str):
-
-        # call superclass constructor
         super().__init__(S1, S2, mode = mode)
 
-        # get concrete implementation function
-        strategy_key = self.get_strategy_key()
-        self.func = MinkowskiDifference.strategies.get(strategy_key, None)
-
-        # check if given combination is implemented
-        if self.func is None:
-            raise NotImplementedError
+        # read out concrete implementation
+        self = self.select_binary_strategy()
         
     def __call__(self) -> Union[np.ndarray, 'IConvexSet']:
         return self.func(self.first_operand, self.second_operand, **self.kwargs)

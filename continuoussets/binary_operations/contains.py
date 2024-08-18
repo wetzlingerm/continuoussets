@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Union, Dict, Tuple, Callable
+from typing import TYPE_CHECKING, Union
 import numpy as np
 
 from scipy.optimize import linprog
@@ -9,7 +9,7 @@ from continuoussets.binary_operations.interface_binary_operation import IBinaryO
 if TYPE_CHECKING:
     from continuoussets.convexsets.interface_convexset import IConvexSet
 
-from continuoussets.utils.auxiliary import SetPair
+from continuoussets.utils.auxiliary import SetPair, StrategyRegistry
 from continuoussets.utils.exceptions import UnboundedSetError
 
 from continuoussets.unary_operations.convert import Convert
@@ -19,26 +19,18 @@ if __name__ == '__main__':
     print('This is the Contains class.')
 
 
+@StrategyRegistry
 class Contains(IBinaryOperation):
 
-    strategies: Dict[Tuple[str, str], Callable] = dict()
-    # ordering is relevant
-    ordered_operation = True
-    
-    # main task is to set the variables and decide which function to call for the evaluation
+    # does the order of operands matter?
+    ordered = True
+
     def __init__(self, S1: Union['IConvexSet', np.ndarray], S2: Union['IConvexSet', np.ndarray], *,
                  rtol: float, atol: float):
-
-        # call superclass constructor
         super().__init__(S1, S2, rtol = rtol, atol = atol)
 
-        # get concrete implementation function
-        strategy_key = self.get_strategy_key()
-        self.func = Contains.strategies.get(strategy_key, None)
-
-        # check if given combination is implemented
-        if self.func is None:
-            raise NotImplementedError
+        # read out concrete implementation
+        self.func = Contains.select_strategy(self.strategy_key)
         
     def __call__(self) -> bool:
         return self.func(self.first_operand, self.second_operand, **self.kwargs)

@@ -31,6 +31,7 @@ show_missing = true
 exclude_also = [
     "if __name__",
     "@abstractmethod",
+    "if TYPE_CHECKING:",
     ]
 
 [build-system]

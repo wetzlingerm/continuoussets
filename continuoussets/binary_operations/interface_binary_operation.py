@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Union, Dict, Tuple, Callable, TYPE_CHECKING
+from typing import Union, Callable, TYPE_CHECKING
 
 import numpy as np
 from continuoussets.utils.auxiliary import SetPair
@@ -17,10 +17,8 @@ if __name__ == '__main__':
 # interface for binary operations
 class IBinaryOperation(ABC):
 
-    # class variable for selection of strategies
-    strategies: Dict[Tuple[str, str], Callable] = dict()
-    # is ordering relevant?
-    ordered_operation = True
+    # does the order of operands matter?
+    ordered = True
 
     def __init__(self,
                  first_operand: Union['IConvexSet', np.ndarray],
@@ -36,26 +34,30 @@ class IBinaryOperation(ABC):
         self.kwargs = kwargs
 
         # variable for function pointer to specific implementation
-        self.func = None
-
-    @classmethod
-    def register_strategy(cls: IBinaryOperation, pair: Union[SetPair, Tuple[SetPair]]) -> Callable:
-        def decorator(func: Callable):
-            if isinstance(pair, Tuple):
-                [cls.strategies.update({i_pair: func}) for i_pair in pair]
-            else:
-                cls.strategies.update({pair: func})
-            return func
-        return decorator
+        # read out class names as strings (required since we would get full file structure otherwise)
+        self.strategy_key = SetPair(self.first_operand, self.second_operand)
+        self.func: Callable = None
 
     # evaluate the operation (due to type checking in subclasses)
     @abstractmethod
     def __call__(self):
-        raise NotImplementedError
+        pass
+    
+    def select_binary_strategy(self: IBinaryOperation) -> IBinaryOperation:
+        # read out strategy for given ordering
+        self.func = self.select_strategy(self.strategy_key)
+        if self.func is None:
+            if self.ordered:
+                raise NotImplementedError
+            
+            self.strategy_key = SetPair(self.second_operand, self.first_operand)
+            self.func = self.select_strategy(self.strategy_key)
+            if self.func is None:
+                raise NotImplementedError
+            
+            # re-order operands for call of concrete implementation in subclass
+            helper = self.first_operand
+            self.first_operand = self.second_operand
+            self.second_operand = helper
 
-    # read out class names as strings (required since we would get full file structure otherwise)
-    # additionally, let the pair know whether the ordering is important
-    def get_strategy_key(self: IBinaryOperation) -> SetPair:
-        return SetPair(self.first_operand.__class__.__name__,
-                       self.second_operand.__class__.__name__,
-                       ordered = self.ordered_operation)
+        return self

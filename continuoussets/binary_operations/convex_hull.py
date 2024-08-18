@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Union, Dict, Tuple, Callable
+from typing import TYPE_CHECKING, Union
 import numpy as np
 
 from continuoussets.binary_operations.interface_binary_operation import IBinaryOperation
@@ -16,34 +16,26 @@ from continuoussets.binary_operations.contains import Contains
 from continuoussets.unary_operations.represents import Represents
 from continuoussets.unary_operations.convert import Convert
 
-from continuoussets.utils.auxiliary import SetPair
+from continuoussets.utils.auxiliary import SetPair, StrategyRegistry
 from continuoussets.utils.exceptions import UnboundedSetError
 
 if __name__ == '__main__':
     print('This is the ConvexHull class.')
 
 
+@StrategyRegistry
 class ConvexHull(IBinaryOperation):
 
-    strategies: Dict[Tuple[str, str], Callable] = dict()
-    # ordering is not relevant
-    ordered_operation = False
-    
-    # main task is to set the variables and decide which function to call for the evaluation
+    # does the order of operands matter?
+    ordered = False
+
     def __init__(self, S1: Union['IConvexSet', np.ndarray], S2: Union['IConvexSet', np.ndarray], *,
                  mode: str):
-
-        # call superclass constructor
         super().__init__(S1, S2, mode = mode)
 
-        # get concrete implementation function
-        strategy_key = self.get_strategy_key()
-        self.func = ConvexHull.strategies.get(strategy_key, None)
+        # read out concrete implementation
+        self = self.select_binary_strategy()
 
-        # check if given combination is implemented
-        if self.func is None:
-            raise NotImplementedError
-        
     def __call__(self) -> 'IConvexSet':
         return self.func(self.first_operand, self.second_operand, **self.kwargs)
 
@@ -66,7 +58,7 @@ def _convex_hull_interval_point(I1, s2, mode) -> interval.Interval:
     if mode == 'exact':
         if Contains(I1, s2, rtol = 1e-12, atol = 1e-12)():
             return I1.copy()
-        VP1 = Convert(I1, 'VPolytope', mode = 'exact')
+        VP1 = Convert(I1, 'VPolytope', mode = 'exact')()
         return _convex_hull_vpolytope_other(VP1, s2, mode = 'exact')
     
     if mode == 'outer':
@@ -76,8 +68,24 @@ def _convex_hull_interval_point(I1, s2, mode) -> interval.Interval:
 
 @ConvexHull.register_strategy(SetPair('Interval', 'Interval'))
 def _convex_hull_interval_interval(I1, I2, mode) -> interval.Interval:
-    return interval.Interval(lb = np.minimum(I1.lb, I2.lb),
-                             ub = np.maximum(I1.ub, I2.ub), validate=False)
+    if mode == 'inner':
+        if Contains(I1, I2, rtol = 1e-12, atol = 1e-12)():
+            return I1.copy()
+        elif Contains(I2, I1, rtol = 1e-12, atol = 1e-12)():
+            return I2.copy()
+        raise NotImplementedError
+    
+    if mode == 'exact':
+        if Contains(I1, I2, rtol = 1e-12, atol = 1e-12)():
+            return I1.copy()
+        elif Contains(I2, I1, rtol = 1e-12, atol = 1e-12)():
+            return I2.copy()
+        VP1 = Convert(I1, 'VPolytope', mode = 'exact')()
+        return _convex_hull_vpolytope_other(VP1, I2, mode = 'exact')
+
+    if mode == 'outer':
+        return interval.Interval(lb = np.minimum(I1.lb, I2.lb),
+                                 ub = np.maximum(I1.ub, I2.ub), validate=False)
 
 
 @ConvexHull.register_strategy((SetPair('Zonotope', 'ndarray'),
@@ -102,7 +110,7 @@ def _convex_hull_zonotope_zonotope(Z1, Z2, mode) -> zonotope.Zonotope:
             return Z1.copy()
         if Contains(Z2, Z1, rtol = 1e-12, atol = 1e-12)():
             return Z2.copy()
-        VP1 = Convert(Z1, 'VPolytope', mode = 'exact')
+        VP1 = Convert(Z1, 'VPolytope', mode = 'exact')()
         return _convex_hull_vpolytope_other(VP1, Z2, mode = 'exact')
 
     if mode == 'outer':
@@ -154,12 +162,17 @@ def _convex_hull_hpolyhedron_other(HP1, S2, mode) -> hpolyhedron.HPolyhedron:
         if Contains(S2, HP1, rtol = 1e-12, atol = 1e-12)():
             return S2.copy()
         try:
-            VP1 = Convert(HP1, 'VPolytope', mode = 'exact')
+            VP1 = Convert(HP1, 'VPolytope', mode = 'exact')()
         except (UnboundedSetError):
             raise NotImplementedError
         return _convex_hull_vpolytope_other(VP1, S2, mode = mode)
     
     if mode == 'outer':
+        def _support_value(S, direction):
+            if isinstance(S, np.ndarray):
+                return np.dot(S, direction)
+            return S.support_function(direction)[0]
+        
         h = HP1.number_constraints()
         
         # 'outer': compute support function of HP1+S2, take larger value, additional constraints from box
@@ -169,13 +182,13 @@ def _convex_hull_hpolyhedron_other(HP1, S2, mode) -> hpolyhedron.HPolyhedron:
         # for the first constraints, we already have the value computed for the HPolyhedron
         for i in range(h):
             # compute support function value of S2 set
-            value = S2.support_function(HP1.A[i])[0]
+            value = _support_value(S2, HP1.A[i])
             b_new[i] = HP1.b[i] if HP1.b[i] > value else value
 
         # for the remaining constraints, we also have to evaluate the support function for the HPolyhedron
         for i in range(2*HP1.dimension):
             value_polyhedron = HP1.support_function(A_new[h+i])[0]
-            value = S2.support_function(A_new[h+i])[0]
+            value = _support_value(S2, A_new[h+i])
             b_new[h+i] = value_polyhedron if value_polyhedron > value else value
 
         return hpolyhedron.HPolyhedron(A = A_new, b = b_new, validate = False)
