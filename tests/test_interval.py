@@ -925,19 +925,26 @@ class TestInterval(unittest.TestCase):
         assert np.array_equal(result2, true_result2)
         assert np.array_equal(result3, true_result3)
 
+    def test_dimension(self):
+        ''' Test for dimension '''
+        # cases:
+        # - 1D
+        # - 3D
+        I1 = Interval(lb = np.array([2.]), ub = np.array([4.]))
+        I2 = Interval(lb = np.array([-3., 2., 0.]), ub = np.array([2., 2., 1.]))
+
+        assert I1.dimension() == 1
+        assert I2.dimension() == 3
+
     def test_dot(self):
         ''' Test for dot product '''
         # cases:
         # - interval x vector
         # - interval x interval
 
-        # init intervals
-        lower1 = np.array([-2., -1., 1.])
-        upper1 = np.array([1., -1., 2.])
-        lower2 = np.array([2., -1., -4.])
-        upper2 = np.array([3., 1., -3.])
-        I1 = Interval(lb = lower1, ub = upper1)
-        I2 = Interval(lb = lower2, ub = upper2)
+        # init intervals        
+        I1 = Interval(lb = np.array([-2., -1., 1.]), ub = np.array([1., -1., 2.]))
+        I2 = Interval(lb = np.array([2., -1., -4.]), ub = np.array([3., 1., -3.]))
         v = np.array([3., -1., 0.])
 
         # compute dot product
@@ -1040,7 +1047,7 @@ class TestInterval(unittest.TestCase):
 
         # init matrices
         M0 = np.zeros((3,5))
-        M1 = np.eye(I.dimension)
+        M1 = np.eye(I.dimension())
         M2 = np.array([[-2., 0., 0., 1., 2.],[1., -1., 2., 0., 1.],[-3., 2., 8., 0., -2.],[1., 1., -1., 0., 0.]])
 
         # compute linear map
@@ -1128,7 +1135,7 @@ class TestInterval(unittest.TestCase):
         true_result2 = Interval(lb = np.array([-2., 1.]), ub = np.array([1., 4.]))
 
         assert cs.equals(result1, I1)
-        assert np.array_equal(c1, np.zeros(I1.dimension))
+        assert np.array_equal(c1, np.zeros(I1.dimension()))
         assert cs.equals(result2, true_result2)
         assert np.array_equal(c2, np.array([0., 0., 0., 2.]))
 

@@ -36,11 +36,11 @@ class Equals(IBinaryOperation):
         if isinstance(self.first_operand, np.ndarray):
             n1 = self.first_operand.shape[0]
         else:
-            n1 = self.first_operand.dimension
+            n1 = self.first_operand.dimension()
         if isinstance(self.second_operand, np.ndarray):
             n2 = self.second_operand.shape[0]
         else:
-            n2 = self.second_operand.dimension
+            n2 = self.second_operand.dimension()
         if n1 != n2:
             return False
         

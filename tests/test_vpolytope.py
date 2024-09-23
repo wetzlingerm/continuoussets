@@ -26,15 +26,10 @@ class TestVPolytope(unittest.TestCase):
 
         # check results
         assert np.array_equal(VP_int.V, np.array([[1.0]]))
-        assert VP_int.dimension == 1
         assert np.array_equal(VP_float.V, np.array([[-1.5]]))
-        assert VP_float.dimension == 1
         assert np.array_equal(VP_list_int.V, np.array( [[0., 1.]] ))
-        assert VP_list_int.dimension == 2
         assert np.array_equal(VP_list_float.V, np.array( [[0.5, 1.5]] ))
-        assert VP_list_float.dimension == 2
         assert np.array_equal(VP_np.V, np.array( [[0., 1.], [0.5, -1.0]] ))
-        assert VP_np.dimension == 2
 
         # check exceptions
         with self.assertRaises(ValueError):
@@ -258,6 +253,20 @@ class TestVPolytope(unittest.TestCase):
         assert VP_1.degenerate()
         assert VP_2.degenerate()
         assert not VP_3.degenerate()
+
+    def test_dimension(self):
+        ''' Test for dimension '''
+        # cases:
+        # - 1D
+        # - 3D
+
+        # init VPolytopes
+        VP_1D = VPolytope(V = np.array([[1.], [2.], [-1.]]))
+        VP_3D = VPolytope(V = np.array([[1., 3., -2.], [3., 2., 1.], [1., 0., 1.]]))
+
+        # check results
+        assert VP_1D.dimension() == 1
+        assert VP_3D.dimension() == 3
 
     def test_empty(self):
         ''' Test for emptiness '''

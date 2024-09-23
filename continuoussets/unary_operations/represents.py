@@ -107,7 +107,7 @@ def _represents_vpolytope_interval(VP, rtol, atol) -> bool:
     # 1: [lb, ..., lb, ub, ..., ub, lb, ..., lb, ub, ..., ub]
     # 2: [lb, ..., lb, ub, ..., ub, lb, ..., lb, ub, ..., ub, ...(repeat)]
     counter = 1
-    for i in range(VP.dimension):
+    for i in range(VP.dimension()):
         # check if dimension is degenerate
         if np.allclose(V[:, i], V[0, i], rtol = rtol, atol = atol):
             # dimension is degenerate, do not increment counter
@@ -170,7 +170,7 @@ def _represents_hpolyhedron_point(HP, rtol, atol) -> bool:
 def _represents_hpolyhedron_interval(HP, rtol, atol) -> bool:
     # todo: empty is False (cannot be represented by our Interval class)
     HP = HP.compact(rtol = rtol)
-    n, h = HP.dimension, HP.number_constraints()
+    n, h = HP.dimension(), HP.number_constraints()
     if h < 2*n:
         return _represents_hpolyhedron_point(HP, rtol = rtol, atol = atol)
     
@@ -213,7 +213,7 @@ def _represents_hpolyhedron_zonotope(HP, rtol, atol) -> bool:
     # - for each constraint, there must be another with factor -1
 
     HP = HP.compact(rtol = rtol)
-    n, h = HP.dimension, HP.number_constraints()
+    n, h = HP.dimension(), HP.number_constraints()
     if h < 2*n or h % 2 != 0 or not HP.bounded():
         return _represents_hpolyhedron_point(HP, rtol = rtol, atol = atol)
 

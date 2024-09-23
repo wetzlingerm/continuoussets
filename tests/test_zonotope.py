@@ -330,6 +330,17 @@ class TestZonotope(unittest.TestCase):
         assert Z2.degenerate()
         assert not Z3.degenerate()
 
+    def test_dimension(self):
+        ''' Test for dimension '''
+        # cases:
+        # - only center
+        # - center and generator matrix
+        Z1 = Zonotope(c = np.array([1., 0., 1.]))
+        Z2 = Zonotope(c = np.array([1., 0.]), G = np.array([[1., -1.], [0., 2.]]))
+
+        assert Z1.dimension() == 3
+        assert Z2.dimension() == 2
+
     def test_empty(self):
         ''' Test for emptiness '''
         # cases:

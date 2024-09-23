@@ -906,7 +906,7 @@ class TestBinaryOperations(unittest.TestCase):
 
         # subtrahend too large -> empty set
         with self.assertRaises(EmptySetError):
-            I2 = I1.matmul(2*np.eye(I1.dimension))
+            I2 = I1.matmul(2*np.eye(I1.dimension()))
             cs.minkowski_difference(I1, I2)
         with self.assertRaises(EmptySetError):
             cs.minkowski_difference(I1, VP2)

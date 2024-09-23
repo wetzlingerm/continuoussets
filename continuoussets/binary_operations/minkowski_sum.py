@@ -76,7 +76,7 @@ def _minkowski_sum_vpolytope_other(VP1, S2, mode) -> vpolytope.VPolytope:
 @MinkowskiSum.register_strategy(SetPair('VPolytope', 'VPolytope'))
 def _minkowski_sum_vpolytope_vpolytope(VP1, VP2, mode) -> vpolytope.VPolytope:
     # add each combination
-    V_sum = np.zeros((VP1.number_vertices()*VP2.number_vertices(), VP1.dimension))
+    V_sum = np.zeros((VP1.number_vertices()*VP2.number_vertices(), VP1.dimension()))
     # todo: replace this by a faster method
     for i in range(VP1.number_vertices()):
         for j in range(VP2.number_vertices()):
@@ -99,7 +99,7 @@ def _minkowski_sum_hpolyhedron_hpolyhedron(HP1, HP2, mode) -> hpolyhedron.HPolyh
         return _minkowski_sum_hpolyhedron_hpolyhedron(HP1, HP2, mode = 'exact')
     
     if mode == 'exact':
-        n = HP1.dimension
+        n = HP1.dimension()
         h1, h2 = HP1.number_constraints(), HP2.number_constraints()
 
         # lift and project onto first n dimensions (rewriting of Cartesian product...)
@@ -110,7 +110,7 @@ def _minkowski_sum_hpolyhedron_hpolyhedron(HP1, HP2, mode) -> hpolyhedron.HPolyh
         return HP_lifted.matmul(M)
     
     if mode == 'outer':
-        n, h = HP1.dimension, HP1.number_constraints()
+        n, h = HP1.dimension(), HP1.number_constraints()
 
         # addition of support function evaluation
         A_new = np.vstack((HP1.A, np.eye(n), -np.eye(n)))

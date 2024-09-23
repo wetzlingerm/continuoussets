@@ -84,7 +84,6 @@ class Interval(IConvexSet):
                 raise ValueError('Interval:__init__',
                                  'Lower bound needs to be elementwise smaller or equal to upper bound.')
 
-        self.dimension = lb.size
         self.lb = lb.copy()
         self.ub = ub.copy()
 
@@ -96,6 +95,15 @@ class Interval(IConvexSet):
             Interval: Copied Interval.
         """
         return Interval(lb = self.lb.copy(), ub = self.ub.copy(), validate = False)
+    
+    # dimension
+    def dimension(self) -> int:
+        """Returns the dimension of an Interval.
+        
+        Returns:
+            int: Dimension.
+        """
+        return self.lb.size
 
     # indexing
     def __getitem__(self, key: Union[int, slice]):
@@ -139,7 +147,7 @@ class Interval(IConvexSet):
             str: Description of the Interval object.
         """
         newline = '\n'
-        return f'dimension: {self.dimension}{newline}lower bound: {self.lb}{newline}upper bound: {self.ub}'
+        return f'dimension: {self.dimension()}{newline}lower bound: {self.lb}{newline}upper bound: {self.ub}'
 
     # ----------
     # (DUNDER) METHODS FOR INTERVAL ARITHMETIC
@@ -278,22 +286,23 @@ class Interval(IConvexSet):
         Returns:
             Interval: Result of the exponentiation.
         """
+        n = self.dimension()
         if isinstance(power, int) or isinstance(power, float):
-            power = np.repeat(np.array(power), self.dimension)
+            power = np.repeat(np.array(power), n)
         elif isinstance(power, list):
             power = np.array(power)
 
         if np.all(power == 0):
-            return Interval(lb = np.ones(self.dimension), ub = np.ones(self.dimension), validate = False)
+            return Interval(lb = np.ones(n), ub = np.ones(n), validate = False)
         elif np.all(power == 1):
             return Interval(lb = self.lb, ub = self.ub, validate = False)
 
         # init bounds
-        lower = np.zeros(self.dimension)
-        upper = np.zeros(self.dimension)
+        lower = np.zeros(n)
+        upper = np.zeros(n)
 
         # base contains zero and exponent is negative -> Inf
-        if np.any(np.all(np.vstack((self.lb <= np.zeros(self.dimension), self.ub >= np.zeros(self.dimension), power < 0)),
+        if np.any(np.all(np.vstack((self.lb <= np.zeros(n), self.ub >= np.zeros(n), power < 0)),
                          axis = 0)):
             raise ValueError('Interval:__pow__',
                              'Exponentiation of 0 with a negative exponent.')
@@ -362,7 +371,7 @@ class Interval(IConvexSet):
             Interval: Result of the Minkowski sum.
         """
         if isinstance(other, int) or isinstance(other, float):
-            other = np.repeat(other, self.dimension)
+            other = np.repeat(other, self.dimension())
         elif isinstance(other, list):
             other = np.array(other)
         minuend = Interval(lb = other, ub = other, validate = False)
@@ -425,7 +434,7 @@ class Interval(IConvexSet):
         self._checkIntervalArithmetic(other)
 
         if isinstance(other, int) or isinstance(other, float):
-            other = np.repeat(other, self.dimension)
+            other = np.repeat(other, self.dimension())
         elif isinstance(other, list):
             other = np.array(other)
         dividend = Interval(lb = other, ub = other, validate = False)
@@ -651,7 +660,7 @@ class Interval(IConvexSet):
         """
         # use diameter to find out which dimensions are flat
         flat_dimensions = np.isclose(self.diameter(), 0., atol = 1e-12)
-        n = self.dimension
+        n = self.dimension()
         r = n - np.count_nonzero(flat_dimensions)
         basis = np.vstack((np.eye(n)[np.invert(flat_dimensions), :], np.eye(n)[flat_dimensions, :]))
         return (basis, r)
@@ -813,7 +822,7 @@ class Interval(IConvexSet):
             tuple: Projected interval, projection matrix, center of the new coordinate system in the old coordinate system.
         """
         M_proj, r = self.basis_affine_hull()
-        n = self.dimension
+        n = self.dimension()
         if r == n:
             I_proj = self
             c = np.zeros(n)
@@ -873,7 +882,7 @@ class Interval(IConvexSet):
             np.ndarray: 2D array containing vertices as rows.
         """
         # reformat so that each dimension is a single np.ndarray (required for combinations below)
-        bounds_per_dimension = np.vsplit(np.vstack((self.lb, self.ub)).transpose(), self.dimension)
+        bounds_per_dimension = np.vsplit(np.vstack((self.lb, self.ub)).transpose(), self.dimension())
 
         # remove second dimension for individual dimensions
         var = [x.flatten() for x in bounds_per_dimension]

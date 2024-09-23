@@ -28,14 +28,18 @@ class TestHPolyhedron(unittest.TestCase):
         HP_numpy_float = HPolyhedron(A = np.array([[1., 0., 0.], [-1., 0., 0.]]), b = np.array([2., -1.]))
 
         # check results
-        assert HP_int.dimension == 1
-        assert HP_float.dimension == 1
-        assert HP_list_int.dimension == 3
-        assert HP_list_float.dimension == 3
-        assert HP_list2D_float.dimension == 3
-        assert HP_list2D_float.number_constraints() == 2
-        assert HP_numpy_float.dimension == 3
-        assert HP_numpy_float.number_constraints() == 2
+        assert np.array_equal(HP_int.A, np.array([[1.]]))
+        assert np.array_equal(HP_int.b, np.array([1.]))
+        assert np.array_equal(HP_float.A, np.array([[1.]]))
+        assert np.array_equal(HP_float.b, np.array([1.]))
+        assert np.array_equal(HP_list_int.A, np.array([[1., 0., 0.]]))
+        assert np.array_equal(HP_list_int.b, np.array([1.]))
+        assert np.array_equal(HP_list_float.A, np.array([[1., 0., 0.]]))
+        assert np.array_equal(HP_list_float.b, np.array([1.]))
+        assert np.array_equal(HP_list2D_float.A, np.array([[1., 0., 0.], [-1., 0., 0.]]))
+        assert np.array_equal(HP_list2D_float.b, np.array([2., -1.]))
+        assert np.array_equal(HP_numpy_float.A, np.array([[1., 0., 0.], [-1., 0., 0.]]))
+        assert np.array_equal(HP_numpy_float.b, np.array([2., -1.]))
 
         # check exceptions
         with self.assertRaises(ValueError):
@@ -269,6 +273,17 @@ class TestHPolyhedron(unittest.TestCase):
         assert HP3.degenerate()
         assert not HP4.degenerate()
         assert HP5.degenerate()
+
+    def test_dimension(self):
+        ''' Test for dimension '''
+        # cases:
+        # - 1D
+        # - 3D
+        HP_1D = HPolyhedron(A = np.array([[1.], [-1.]]), b = np.array([1., 3.]))
+        HP_3D = HPolyhedron(A = np.array([[1., 0., 1.]]), b = np.array([1.]))
+
+        assert HP_1D.dimension() == 1
+        assert HP_3D.dimension() == 3
 
     def test_empty(self):
         ''' Test for emptiness check '''

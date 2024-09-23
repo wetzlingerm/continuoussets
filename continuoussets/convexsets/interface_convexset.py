@@ -44,16 +44,127 @@ class IConvexSet(ABC):
 
         cls.validate = new_status
 
-    # copy set
     @abstractmethod
     def copy(self) -> IConvexSet:
-        """Returns a deep copy of a IConvexSet object.
+        """Returns a deep copy of an IConvexSet object.
+        """
+        raise NotImplementedError
+    
+    @abstractmethod
+    def __add__(self) -> IConvexSet:
+        """Translation of an IConvexSet by a vector.
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def __sub__(self) -> IConvexSet:
+        """Translation of an IConvexSet by a vector.
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def __neg__(self, other) -> IConvexSet:
+        """Unary minus operator.
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def __pos__(self, other) -> IConvexSet:
+        """Unary plus operator.
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def basis_affine_hull(self) -> tuple:
+        """Computes a basis of the affine hull of an IConvexSet.
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def boundary_point(self, direction: np.ndarray, start_point: np.ndarray = None) -> np.ndarray:
+        """Computation of the point on the boundary of an IConvexSet in a given direction starting from a given start point.
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def bounded(self) -> bool:
+        """Checks if an IConvexSet is bounded.
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def center(self) -> np.ndarray:
+        """Center of an IConvexSet.
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def compact(self, *, rtol: float = 1e-12) -> IConvexSet:
+        """Minimal representation of an IConvexSet.
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def degenerate(self, *, tol: float = 1e-12) -> bool:
+        """Determines if an IConvexSet is degenerate.
+        """
+        raise NotImplementedError
+    
+    @abstractmethod
+    def dimension(self) -> int:
+        """Returns the dimension of an IConvexSet object.
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def empty(self) -> bool:
+        """Checks if an IConvexSet is empty.
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def matmul(self, matrix: np.ndarray) -> IConvexSet:
+        """Linear map of an IConvexSet S by a matrix M.
+        Defined as {M s | s in S}.
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def project(self, *, axis: tuple) -> IConvexSet:
+        """Projection of an IConvexSet onto a subspace.
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def project_affine_hull(self) -> tuple:
+        """Projects an IConvexSet onto its own affine hull.
+        For degenerate sets, the resulting set is of lower dimension, but non-degenerate.
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def support_function(self, direction: np.ndarray) -> tuple[float, np.ndarray]:
+        """Support function evaluation of an IConvexSet S in a direction d.
+        Value defined as max_{s in S} d^T * s.
+        Vector defined as arg max_{s in S} d^T * s.
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def vertices(self) -> np.ndarray:
+        """Enumeration of all vertices of an IConvexSet.
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def volume(self) -> float:
+        """Volume computation of an IConvexSet.
         """
         raise NotImplementedError
 
     # plot
     def plot(self, *, axis: tuple, **kwargs):
-        """Plots a 2D projection of a IConvexSet object.
+        """Plots a 2D projection of an IConvexSet object.
 
         Args:
             axis (tuple): Subspace on which to project the set for plotting.
@@ -144,11 +255,11 @@ class IConvexSet(ABC):
                     # assert vector
                     raise AttributeError(f'{self.__class__.__name__}.{inspect.stack()[1].function}: ',
                                          'If the other operand is an np.ndarray, it must be a 1D np.ndarray')
-                elif check_dimension and other.size != self.dimension:
+                elif check_dimension and other.size != self.dimension():
                     # check dimension
                     raise AttributeError(f'{self.__class__.__name__}.{inspect.stack()[1].function}: ',
                                          f'Dimension of other operand must match dimension of {self.__class__.__name__} object')
-            if isinstance(other, IConvexSet) and (check_dimension and self.dimension != other.dimension):
+            if isinstance(other, IConvexSet) and (check_dimension and self.dimension() != other.dimension()):
                 # check dimension
                 raise AttributeError(f'{self.__class__.__name__}.{inspect.stack()[1].function}: ',
                                      f'Dimension of other operand must match dimension of {self.__class__.__name__} object')
@@ -170,7 +281,7 @@ class IConvexSet(ABC):
             if not isinstance(subspace, tuple) and not isinstance(subspace, list):
                 raise TypeError(f'{self.__class__.__name__}.{inspect.stack()[1].function}: '
                                 'Keyword argument subspace must be of type tuple or list')
-            elif max(subspace) >= self.dimension:
+            elif max(subspace) >= self.dimension():
                 raise ValueError(f'{self.__class__.__name__}.{inspect.stack()[1].function}: '
                                  'Keyword argument subspace exceeds dimension of IConvexSet object')
             elif min(subspace) < 0:
@@ -198,6 +309,6 @@ class IConvexSet(ABC):
                 raise TypeError(f'{self.__class__.__name__}.{inspect.stack()[1].function}: '
                                 'Matrix must be of type np.ndarray')
             elif isinstance(matrix, np.ndarray):
-                if matrix.shape[1] != self.dimension:
+                if matrix.shape[1] != self.dimension():
                     raise AttributeError(f'{self.__class__.__name__}.{inspect.stack()[1].function}: '
                                          'Dimension of matrix does not fit dimension of Interval')

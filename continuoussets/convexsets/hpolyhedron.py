@@ -64,7 +64,10 @@ class HPolyhedron(IConvexSet):
             elif isinstance(A, list):
                 A = np.array(A, dtype = float)
         if not isinstance(b, np.ndarray):
-            b = np.array(b)
+            if isinstance(b, int) or isinstance(b, float):
+                b = np.reshape(np.array([float(b)]), (1, ))
+            elif isinstance(b, list):
+                b = np.array(b, dtype = float)
 
         # expand to 2D array
         if A.ndim == 1:
@@ -79,7 +82,6 @@ class HPolyhedron(IConvexSet):
                 raise ValueError('HPolyhedron:__init__',
                                  'Number of constraints differs between constraint matrix and constraint offset.')
 
-        self.dimension = A.shape[1]
         self.A = A.copy()
         self.b = b.copy()
 
@@ -100,7 +102,7 @@ class HPolyhedron(IConvexSet):
             str: Description of the HPolyhedron object.
         """
         newline = '\n'
-        return f'{newline}dimension: {self.dimension}{newline}A: {self.A}{newline}b: {self.b}{newline}'
+        return f'{newline}dimension: {self.dimension()}{newline}A: {self.A}{newline}b: {self.b}{newline}'
 
     # translation by vector
     def __add__(self, other: np.ndarray) -> HPolyhedron:
@@ -174,7 +176,7 @@ class HPolyhedron(IConvexSet):
         # check if degenerate at all via Chebyshev center
         c = self.center()
         if not active_inequality(self.A, self.b, c):
-            return (np.eye(self.dimension), self.dimension)
+            return (np.eye(self.dimension()), self.dimension())
 
         # ensure polytope contains the origin
         HP_shift = self
@@ -183,18 +185,18 @@ class HPolyhedron(IConvexSet):
 
         # threshold for norm of next basis vector
         epsilon = 1e-5
-        basis = np.zeros((self.dimension, 0))
+        basis = np.zeros((self.dimension(), 0))
 
         # loop over all dimensions
-        for r in range(self.dimension):
+        for r in range(self.dimension()):
             # compute next basis vector
             x_iter = HP_shift._basis_affine_hull_helper(basis)
             if x_iter is None or np.linalg.norm(x_iter) < epsilon:
                 break
-            basis = np.hstack((basis, np.reshape(x_iter / np.linalg.norm(x_iter, ord=2), (self.dimension, 1))))
+            basis = np.hstack((basis, np.reshape(x_iter / np.linalg.norm(x_iter, ord=2), (self.dimension(), 1))))
 
         # fill in remaining dimensions via QR decomposition
-        Q, _ = np.linalg.qr(np.hstack((basis, np.eye(self.dimension)[:, :r])))
+        Q, _ = np.linalg.qr(np.hstack((basis, np.eye(self.dimension())[:, :r])))
         return (Q, r)
 
     # helper linear program for basis of affine hull
@@ -215,8 +217,8 @@ class HPolyhedron(IConvexSet):
         max_vector = None
 
         # loop over all n dimensions
-        direction = np.zeros(self.dimension)
-        for i in range(self.dimension):
+        direction = np.zeros(self.dimension())
+        for i in range(self.dimension()):
             # loop over plus and minus
             for s in [1., -1.]:
                 direction[i] = s
@@ -259,7 +261,7 @@ class HPolyhedron(IConvexSet):
         # solve linear program
         res = linprog(c, A_ub, b_ub, A_eq, b_eq, bounds = (None, None))
 
-        return (res.fun, res.x[:self.dimension])
+        return (res.fun, res.x[:self.dimension()])
 
     # point on boundary along a given direction
     def boundary_point(self, direction: np.ndarray) -> np.ndarray:
@@ -289,7 +291,7 @@ class HPolyhedron(IConvexSet):
         #           - x + l*dir = 0
 
         # read out dimension
-        n, h = self.dimension, self.number_constraints()
+        n, h = self.dimension(), self.number_constraints()
 
         # objective function
         c = np.hstack((np.zeros(n), -1.))
@@ -316,14 +318,14 @@ class HPolyhedron(IConvexSet):
             bool: Boundedness.
         """
         # check if the support function value is finite in all directions of the nD simplex (eye(n), -1)
-        value = self.support_function(-np.ones(self.dimension))[0]
+        value = self.support_function(-np.ones(self.dimension()))[0]
         if value == np.inf:  # unbounded
             return False
         elif value == -np.inf:  # empty -> bounded
             return True
 
-        for i in range(self.dimension):
-            basis_vector = np.zeros(self.dimension)
+        for i in range(self.dimension()):
+            basis_vector = np.zeros(self.dimension())
             basis_vector[i] = 1
             value = self.support_function(basis_vector)[0]
             if value == np.inf:  # unbounded
@@ -344,10 +346,10 @@ class HPolyhedron(IConvexSet):
             np.ndarray: Chebyshev center.
         """
         # objective function
-        c = np.hstack((-1, np.zeros(self.dimension)))
+        c = np.hstack((-1, np.zeros(self.dimension())))
 
         # inequality constraints
-        A_ub = np.vstack((np.hstack((-1, np.zeros(self.dimension))),
+        A_ub = np.vstack((np.hstack((-1, np.zeros(self.dimension()))),
                           np.hstack((np.reshape(np.linalg.norm(self.A, axis=1, ord=2), (self.number_constraints(), 1)), self.A))))
         b_ub = np.hstack((0, self.b))
 
@@ -434,6 +436,15 @@ class HPolyhedron(IConvexSet):
 
         return active_inequality(self.A, self.b, c, rtol = rtol, atol = atol)
     
+    # dimension
+    def dimension(self) -> int:
+        """Returns the dimension of an HPolyhedron.
+
+        Returns:
+            int: Dimension.
+        """
+        return self.A.shape[1]
+
     # emptiness
     def empty(self) -> bool:
         """Checks if an HPolyhedron HP is empty.
@@ -446,7 +457,7 @@ class HPolyhedron(IConvexSet):
 
         # constraints
         A_eq = self.A.T
-        b_eq = np.zeros(self.dimension)
+        b_eq = np.zeros(self.dimension())
 
         # solve linear program (bounds default (0, Inf) which is required here)
         res = linprog(c, A_eq = A_eq, b_eq = b_eq)
@@ -530,7 +541,7 @@ class HPolyhedron(IConvexSet):
 
         A_new, b_new = self.A.copy(), self.b.copy()
         count = 0
-        for i in range(self.dimension):
+        for i in range(self.dimension()):
             if i not in axis:
                 A_new, b_new = fourier_motzkin_elimination(A_new, b_new, i-count)
                 count += 1
@@ -546,7 +557,7 @@ class HPolyhedron(IConvexSet):
             tuple: Projected HPolyhedron, projection matrix, center of new coordinate system in old coordinate system.
         """
         # compute basis of affine hull
-        n, c = self.dimension, self.center()
+        n, c = self.dimension(), self.center()
         HP_shifted = self - c
         M_proj, r = HP_shifted.basis_affine_hull()
         # early exit if basis of affine hull is n-dimensional identity
@@ -620,13 +631,13 @@ class HPolyhedron(IConvexSet):
         if self.empty():
             raise EmptySetError
         
-        n_orig = self.dimension
+        n_orig = self.dimension()
         if HP.degenerate():
             # map set into the basis of its affine hull where it is full-dimensional
             (HP, M_proj, c) = HP.project_affine_hull()
 
         # non-degenerate case
-        n = HP.dimension
+        n = HP.dimension()
         try:
             V = compute_polytope_vertices(HP.A, HP.b)
         except (ValueError):

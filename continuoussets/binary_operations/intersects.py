@@ -59,13 +59,13 @@ def _intersects_zonotope_interval(Z1, I2, rtol, atol) -> bool:
 @Intersects.register_strategy(SetPair('Zonotope', 'Zonotope'))
 def _intersects_zonotope_zonotope(Z1, Z2, rtol, atol) -> bool:
     # use identity: Z1 intersects Z2 iff 0 in Z1 + (-Z2)
-    return Contains(MinkowskiSum(Z1, -Z2, mode = 'exact')(), np.zeros(Z1.dimension), rtol = rtol, atol = atol)()
+    return Contains(MinkowskiSum(Z1, -Z2, mode = 'exact')(), np.zeros(Z1.dimension()), rtol = rtol, atol = atol)()
 
 
 @Intersects.register_strategy(SetPair('VPolytope', 'Interval'))
 def _intersects_vpolytope_interval(VP1, I2, rtol, atol) -> bool:
     # read out dimension and number of vertices
-    n, m = VP1.dimension, VP1.number_vertices()
+    n, m = VP1.dimension(), VP1.number_vertices()
 
     # convert interval to halfspace representation
     HP2 = Convert(I2, 'HPolyhedron', mode = 'exact')()
@@ -116,7 +116,7 @@ def _intersects_vpolytope_vpolytope(VP1, VP2, rtol, atol) -> bool:
     A_eq = np.vstack((np.hstack((VP1.V.T, -VP2.V.T)),
                       np.hstack((np.ones(m1), np.zeros(m2))),
                       np.hstack((np.zeros(m1), np.ones(m2)))))
-    b_eq = np.hstack((np.zeros(VP1.dimension), np.array([1., 1.])))
+    b_eq = np.hstack((np.zeros(VP1.dimension()), np.array([1., 1.])))
     A_ub = -np.eye(m1 + m2)
     b_ub = np.zeros(m1 + m2)
     res = linprog(c, A_ub, b_ub, A_eq, b_eq, bounds = (None, None))
@@ -127,8 +127,8 @@ def _intersects_vpolytope_vpolytope(VP1, VP2, rtol, atol) -> bool:
 @Intersects.register_strategy(SetPair('HPolyhedron', 'Interval'))
 def _intersects_hpolyhedron_interval(HP1, I2, rtol, atol) -> bool:
     # linear program: min 0  s.t.  Ax <= b, lb <= x <= ub
-    res = linprog(np.zeros(HP1.dimension),
-                  A_ub = np.vstack((HP1.A, np.eye(HP1.dimension), -np.eye(HP1.dimension))),
+    res = linprog(np.zeros(HP1.dimension()),
+                  A_ub = np.vstack((HP1.A, np.eye(HP1.dimension()), -np.eye(HP1.dimension()))),
                   b_ub = np.hstack((HP1.b, I2.ub, -I2.lb)),
                   bounds = (None, None))
     return res.success
@@ -137,7 +137,7 @@ def _intersects_hpolyhedron_interval(HP1, I2, rtol, atol) -> bool:
 @Intersects.register_strategy(SetPair('HPolyhedron', 'Zonotope'))
 def _intersects_hpolyhedron_zonotope(HP1, Z2, rtol, atol) -> bool:
     # linear program: min 0  s.t.  Ax <= b, c + Gbeta == x, ||beta||_oo <= 1
-    n, m = HP1.dimension, Z2.number_generators()
+    n, m = HP1.dimension(), Z2.number_generators()
 
     c = np.zeros(n + m)
     A_ub = np.vstack((np.hstack((HP1.A, np.zeros((HP1.number_constraints(), m)))),
@@ -153,7 +153,7 @@ def _intersects_hpolyhedron_zonotope(HP1, Z2, rtol, atol) -> bool:
 @Intersects.register_strategy(SetPair('HPolyhedron', 'VPolytope'))
 def _intersects_hpolyhedron_vpolytope(HP1, VP2, rtol, atol) -> bool:
     # linear program: min 0  s.t.  Ax <= b, Vbeta == x, sum beta = 1, beta >= 0
-    n, h, m = HP1.dimension, HP1.number_constraints(), VP2.number_vertices()
+    n, h, m = HP1.dimension(), HP1.number_constraints(), VP2.number_vertices()
 
     c = np.zeros(n + m)
     A_ub = np.vstack((np.hstack((HP1.A, np.zeros((h, m)))),

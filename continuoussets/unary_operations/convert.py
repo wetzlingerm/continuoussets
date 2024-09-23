@@ -116,7 +116,7 @@ def _convert_other_vpolytope(S, mode) -> vpolytope.VPolytope:
 @Convert.register_strategy(SetPair('Interval', 'HPolyhedron'))
 def _convert_interval_hpolyhedron(I, mode) -> hpolyhedron.HPolyhedron:
     # ***same method for all three modes (exact)
-    return hpolyhedron.HPolyhedron(A = np.vstack((np.eye(I.dimension), -np.eye(I.dimension))),
+    return hpolyhedron.HPolyhedron(A = np.vstack((np.eye(I.dimension()), -np.eye(I.dimension()))),
                                    b = np.hstack((I.ub, -I.lb)),
                                    validate = False)
 
@@ -147,14 +147,14 @@ def _convert_zonotope_hpolyhedron(Z, mode) -> hpolyhedron.HPolyhedron:
 
     # conversion requires linearly independent generators
     Z = Z.compact()
-    n_orig = Z.dimension
+    n_orig = Z.dimension()
 
     if Z.degenerate():
         # shift by center and project onto affine hull
         (Z, M_proj, c) = Z.project_affine_hull()
     
     # pre-allocate constraint matrix and constraint offset
-    n, m = Z.dimension, Z.number_generators()
+    n, m = Z.dimension(), Z.number_generators()
     h = comb(m, n-1)
     A, b = np.zeros((2*h, n)), np.zeros(2*h)
 
@@ -213,7 +213,7 @@ def _convert_vpolytope_zonotope(VP, mode) -> zonotope.Zonotope:
         if not Represents(VP, 'Zonotope', rtol = 1e-12, atol = 1e-12)():
             raise ExactEvaluationImpossibleError
         # don't know how to do exact conversion (method below is exact for 1D and intervals, though)
-        if VP.dimension != 1 and not Represents(VP, 'Interval', rtol = 1e-12, atol = 1e-12)():
+        if VP.dimension() != 1 and not Represents(VP, 'Interval', rtol = 1e-12, atol = 1e-12)():
             raise NotImplementedError
         return _convert_vpolytope_zonotope(VP, mode = 'outer')
 
@@ -226,7 +226,7 @@ def _convert_vpolytope_zonotope(VP, mode) -> zonotope.Zonotope:
 @Convert.register_strategy(SetPair('VPolytope', 'HPolyhedron'))
 def _convert_vpolytope_hpolyhedron(VP, mode) -> hpolyhedron.HPolyhedron:
     # ***same method for all three modes (exact)
-    n = VP.dimension
+    n = VP.dimension()
     if VP.number_vertices() == 1:
         return _convert_point_hpolyhedron(np.reshape(VP.V, (n, )), mode = 'exact')
     
@@ -271,7 +271,7 @@ def _convert_hpolyhedron_interval(HP, mode) -> interval.Interval:
     
     if mode == 'outer':
         # idea: loop over all 2n -+ basis vectors and use support function value
-        n = HP.dimension
+        n = HP.dimension()
         lower_bound = np.zeros(n)
         upper_bound = np.zeros(n)
 
@@ -304,7 +304,7 @@ def _convert_hpolyhedron_zonotope(HP, mode) -> zonotope.Zonotope:
     if mode == 'exact':
         if not Represents(HP, 'Zonotope', rtol = 1e-12, atol = 1e-12)():
             raise ExactEvaluationImpossibleError
-        elif HP.dimension != 1 and not Represents(HP, 'Interval', rtol = 1e-12, atol = 1e-12)():
+        elif HP.dimension() != 1 and not Represents(HP, 'Interval', rtol = 1e-12, atol = 1e-12)():
             # even if there were an exact method, I do not know about it (method below exact for 1D and intervals)
             raise NotImplementedError
         return _convert_hpolyhedron_zonotope(HP, mode = 'outer')

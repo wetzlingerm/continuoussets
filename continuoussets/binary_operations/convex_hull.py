@@ -176,8 +176,8 @@ def _convex_hull_hpolyhedron_other(HP1, S2, mode) -> hpolyhedron.HPolyhedron:
         h = HP1.number_constraints()
         
         # 'outer': compute support function of HP1+S2, take larger value, additional constraints from box
-        A_new = np.vstack((HP1.A, np.eye(HP1.dimension), -np.eye(HP1.dimension)))
-        b_new = np.zeros(h + 2*HP1.dimension)
+        A_new = np.vstack((HP1.A, np.eye(HP1.dimension()), -np.eye(HP1.dimension())))
+        b_new = np.zeros(h + 2*HP1.dimension())
 
         # for the first constraints, we already have the value computed for the HPolyhedron
         for i in range(h):
@@ -186,7 +186,7 @@ def _convex_hull_hpolyhedron_other(HP1, S2, mode) -> hpolyhedron.HPolyhedron:
             b_new[i] = HP1.b[i] if HP1.b[i] > value else value
 
         # for the remaining constraints, we also have to evaluate the support function for the HPolyhedron
-        for i in range(2*HP1.dimension):
+        for i in range(2*HP1.dimension()):
             value_polyhedron = HP1.support_function(A_new[h+i])[0]
             value = _support_value(S2, A_new[h+i])
             b_new[h+i] = value_polyhedron if value_polyhedron > value else value

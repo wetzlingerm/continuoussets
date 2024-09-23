@@ -65,12 +65,11 @@ class VPolytope(IConvexSet):
                 raise ValueError('VPolytope:__init__',
                                  'Vertices array must be 1D or 2D.')
 
-        self.dimension = V.shape[1]
         self.V = V.copy()
 
     # deep copy
     def copy(self) -> VPolytope:
-        """Returns a deep copy of an VPolytope.
+        """Returns a deep copy of a VPolytope.
 
         Returns:
             VPolytope: Copied VPolytope.
@@ -85,7 +84,7 @@ class VPolytope(IConvexSet):
             str: Description of the VPolytope object.
         """
         newline = '\n'
-        return f'dimension: {self.dimension}{newline}V: {self.V}'
+        return f'dimension: {self.dimension()}{newline}V: {self.V}'
 
     # translation by vector
     def __add__(self, other: np.ndarray) -> VPolytope:
@@ -190,7 +189,7 @@ class VPolytope(IConvexSet):
         #                   -beta <= 0
 
         # retreive information
-        n, m = self.dimension, self.number_vertices()
+        n, m = self.dimension(), self.number_vertices()
 
         # objective function
         c = np.hstack((np.zeros(m+n), -1.))
@@ -255,7 +254,16 @@ class VPolytope(IConvexSet):
         Returns:
             bool: Degeneracy.
         """
-        return np.linalg.matrix_rank(self.V - np.mean(self.V, axis = 0), tol = tol) < self.dimension
+        return np.linalg.matrix_rank(self.V - np.mean(self.V, axis = 0), tol = tol) < self.dimension()
+    
+    # dimension
+    def dimension(self) -> int:
+        """Returns the dimension of a VPolytope.
+        
+        Returns:
+            int: Dimension.
+        """
+        return self.V.shape[1]
 
     # emptiness
     def empty(self) -> bool:
@@ -315,7 +323,7 @@ class VPolytope(IConvexSet):
             tuple: Projected VPolytope, projection matrix, center of new coordinate system in old coordinate system.
         """
         # compute basis of affine hull
-        n, c = self.dimension, self.center()
+        n, c = self.dimension(), self.center()
         VP_shifted = self - c
         M_proj, r = VP_shifted.basis_affine_hull()
         # early exit if basis of affine hull is n-dimensional identity

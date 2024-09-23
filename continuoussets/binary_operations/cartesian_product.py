@@ -115,8 +115,8 @@ def _cartesian_product_zonotope_interval(Z1, I2, mode) -> zonotope.Zonotope:
 
 @CartesianProduct.register_strategy(SetPair('Zonotope', 'Zonotope'))
 def _cartesian_product_zonotope_zonotope(Z1, Z2, mode) -> zonotope.Zonotope:
-    n1, m1 = Z1.dimension, Z1.number_generators()
-    n2, m2 = Z2.dimension, Z2.number_generators()
+    n1, m1 = Z1.dimension(), Z1.number_generators()
+    n2, m2 = Z2.dimension(), Z2.number_generators()
 
     # concatenate centers, block-concatenate generator matrices
     center = np.hstack((Z1.c, Z2.c))
@@ -128,7 +128,7 @@ def _cartesian_product_zonotope_zonotope(Z1, Z2, mode) -> zonotope.Zonotope:
 
 @CartesianProduct.register_strategy(SetPair('Zonotope', 'VPolytope'))
 def _cartesian_product_zonotope_vpolytope(Z1, VP2, mode) -> zonotope.Zonotope:
-    if VP2.dimension == 1:
+    if VP2.dimension() == 1:
         Z2 = Convert(VP2, 'Zonotope', mode = mode)()
         return _cartesian_product_zonotope_zonotope(Z1, Z2, mode = mode)
     elif Represents(VP2, 'ndarray', rtol = 1e-12, atol = 1e-12)():
@@ -140,7 +140,7 @@ def _cartesian_product_zonotope_vpolytope(Z1, VP2, mode) -> zonotope.Zonotope:
 
 @CartesianProduct.register_strategy(SetPair('Zonotope', 'HPolyhedron'))
 def _cartesian_product_zonotope_hpolyhedron(Z1, HP2, mode) -> zonotope.Zonotope:
-    if HP2.dimension == 1 and not HP2.empty() and HP2.bounded():
+    if HP2.dimension() == 1 and not HP2.empty() and HP2.bounded():
         Z2 = Convert(HP2, 'Zonotope', mode = mode)()
         return _cartesian_product_zonotope_zonotope(Z1, Z2, mode = mode)
     elif Represents(HP2, 'ndarray', rtol = 1e-12, atol = 1e-12)():
@@ -189,8 +189,8 @@ def _cartesian_product_hpolyhedron_other(HP1, S2, mode) -> hpolyhedron.HPolyhedr
 @CartesianProduct.register_strategy(SetPair('HPolyhedron', 'HPolyhedron'))
 def _cartesian_product_hpolyhedron_hpolyhedron(HP1, HP2, mode) -> hpolyhedron.HPolyhedron:
     # block-concatenation of constraint matrices, stack constraint offsets
-    n1 = HP1.dimension
-    n2 = HP2.dimension
+    n1 = HP1.dimension()
+    n2 = HP2.dimension()
     h1 = HP1.number_constraints()
     h2 = HP2.number_constraints()
     A_new = np.vstack((np.hstack((HP1.A, np.zeros((h1, n2)))),

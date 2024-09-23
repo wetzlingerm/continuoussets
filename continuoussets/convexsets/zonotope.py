@@ -84,7 +84,6 @@ class Zonotope(IConvexSet):
                 raise ValueError('Zonotope:__init__',
                                  'Center and generator matrix need to have the same dimension.')
 
-        self.dimension = c.size
         self.c = c.copy()
         self.G = G.copy()
 
@@ -105,7 +104,7 @@ class Zonotope(IConvexSet):
             str: Description of the Zonotope object.
         """
         newline = '\n'
-        return f'dimension: {self.dimension}{newline}center:{newline} {self.c}{newline}generator matrix:{newline} {self.G}'
+        return f'dimension: {self.dimension()}{newline}center:{newline} {self.c}{newline}generator matrix:{newline} {self.G}'
 
     # enable correct handling of right-operations with numpy on left side
     def __array_ufunc__(self, ufunc, method: str, *args, **kwargs) -> Zonotope:
@@ -261,13 +260,13 @@ class Zonotope(IConvexSet):
         index_aligned = comparison.find_aligned_generators(generators, rtol = rtol)
         if index_aligned:
             # init array for new generators
-            new_generators = np.zeros((len(index_aligned), self.dimension))
+            new_generators = np.zeros((len(index_aligned), self.dimension()))
             for row, aligned_tuples in enumerate(index_aligned):
                 # mask with factors 1 and -1 (invert direction if generators are anti-parallel)
                 mask = np.logical_not(np.sign(generators[aligned_tuples, :])
-                                      == np.reshape(np.sign(generators[aligned_tuples[0], :]), (1, self.dimension))) * -2. + 1.
+                                      == np.reshape(np.sign(generators[aligned_tuples[0], :]), (1, self.dimension()))) * -2. + 1.
                 # add generators
-                new_generators[row, :] = np.reshape(np.sum(generators[aligned_tuples, :] * mask, axis = 0), (1, self.dimension))
+                new_generators[row, :] = np.reshape(np.sum(generators[aligned_tuples, :] * mask, axis = 0), (1, self.dimension()))
             # replace aligned generators by new ones
             generators = np.vstack((np.delete(generators, index_aligned, axis = 0), new_generators))
 
@@ -281,8 +280,17 @@ class Zonotope(IConvexSet):
             bool: Degeneracy of the zonotope.
             rtol (float, optional): Tolerance. Defaults to 1e-12.
         """
-        return self.number_generators() == 0 or np.linalg.matrix_rank(self.G, tol = tol) < self.dimension
-    
+        return self.number_generators() == 0 or np.linalg.matrix_rank(self.G, tol = tol) < self.dimension()
+
+    # dimension
+    def dimension(self) -> int:
+        """Returns the dimension of a Zonotope.
+
+        Returns:
+            int: Dimension.
+        """
+        return self.c.size
+
     # emptiness
     def empty(self) -> bool:
         """Checks if a Zonotope Z is empty.
@@ -345,7 +353,7 @@ class Zonotope(IConvexSet):
             tuple: Projected zonotope, projection matrix, center of the new coordinate system in the old coordinate system.
         """
         if not self.degenerate():
-            return (self, np.eye(self.dimension), np.zeros(self.dimension))
+            return (self, np.eye(self.dimension()), np.zeros(self.dimension()))
 
         # compute basis of the affine hull and project zonotope onto it
         c = self.c
@@ -383,16 +391,16 @@ class Zonotope(IConvexSet):
             # no generators -> no reduction
             return Zonotope(c = self.c, G = self.G, validate = False)
         elif order == 1:
-            # corresponds to conversion to interval (unless fewer generators than self.dimension)
-            if self_generators <= self.dimension:
+            # corresponds to conversion to interval (unless fewer generators than dimension)
+            if self_generators <= self.dimension():
                 return Zonotope(c = self.c, G = self.G, validate = False)
             return Zonotope(c = self.c, G = np.diag(np.sum(np.abs(self.G), axis = 0)), validate = False)
-        elif order * self.dimension >= self_generators:
+        elif order * self.dimension() >= self_generators:
             # order is too large to cause any reduction
             return Zonotope(c = self.c, G = self.G)
 
         # compute number of remaining generators
-        number_remaining_generators = int(np.floor(self.dimension * (order - 1)))
+        number_remaining_generators = int(np.floor(self.dimension() * (order - 1)))
         number_reduced_generators = int(self_generators - number_remaining_generators)
 
         # compute Girard's metric for all generators
@@ -448,7 +456,7 @@ class Zonotope(IConvexSet):
         """
         # ensure linearly independent generators
         Z = self.compact()
-        n = Z.dimension
+        n = Z.dimension()
 
         # todo: check if necessary... ConvexHull cannot deal with 1D
         if n == 1:
@@ -477,13 +485,13 @@ class Zonotope(IConvexSet):
             return 0.
 
         # lazy enumeration of all combinations of nxn submatrices
-        all_combinations = combinations(range(self.number_generators()), r = self.dimension)
+        all_combinations = combinations(range(self.number_generators()), r = self.dimension())
 
         vol = 0.
         for combination in all_combinations:
             vol = vol + np.abs(np.linalg.det(self.G[combination, :]))
 
-        return 2**self.dimension * vol
+        return 2**self.dimension() * vol
 
     # zonotope norm
     def zonotope_norm(self, other: np.ndarray) -> float:
@@ -500,7 +508,7 @@ class Zonotope(IConvexSet):
         """
         self._checkOtherOperand(other)
 
-        n, m = self.dimension, self.number_generators()
+        n, m = self.dimension(), self.number_generators()
         # special case: no generators
         if m == 0:
             if np.allclose(other, 0):
